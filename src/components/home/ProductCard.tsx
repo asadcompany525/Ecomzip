@@ -114,7 +114,9 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-sm md:text-base font-bold text-primary">Rs. {product.price.toLocaleString()}</span>
-          {product.originalPrice && <span className="text-[10px] md:text-xs text-muted-foreground line-through">Rs. {product.originalPrice.toLocaleString()}</span>}
+          {product.originalPrice && product.discount && product.discount > 0 && (
+            <span className="text-[10px] md:text-xs text-muted-foreground line-through">Rs. {product.originalPrice.toLocaleString()}</span>
+          )}
         </div>
       </Link>
     </motion.div>

@@ -18,9 +18,24 @@ const mapDbProduct = (p: any): Product => ({
   gender: p.gender as any, description: p.description, type: '',
 });
 
+const getTimeUntilMidnightPKT = () => {
+  // Pakistan Standard Time is UTC+5
+  const nowUtc = Date.now();
+  const nowPkt = new Date(nowUtc + 5 * 60 * 60 * 1000);
+  const midnightPkt = new Date(nowPkt);
+  midnightPkt.setUTCHours(24, 0, 0, 0);
+  const diffMs = midnightPkt.getTime() - nowPkt.getTime();
+  const totalSec = Math.floor(diffMs / 1000);
+  return {
+    hours: Math.floor(totalSec / 3600),
+    minutes: Math.floor((totalSec % 3600) / 60),
+    seconds: totalSec % 60,
+  };
+};
+
 const FlashSale = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [timeLeft, setTimeLeft] = useState({ hours: 5, minutes: 30, seconds: 0 });
+  const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnightPKT);
 
   useEffect(() => {
     supabase.from('products').select('*').eq('is_active', true).eq('is_flash_sale', true).limit(5)
@@ -29,14 +44,7 @@ const FlashSale = () => {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        let { hours, minutes, seconds } = prev;
-        seconds--;
-        if (seconds < 0) { seconds = 59; minutes--; }
-        if (minutes < 0) { minutes = 59; hours--; }
-        if (hours < 0) return { hours: 23, minutes: 59, seconds: 59 };
-        return { hours, minutes, seconds };
-      });
+      setTimeLeft(getTimeUntilMidnightPKT());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -61,6 +69,7 @@ const FlashSale = () => {
               </span>
             ))}
           </div>
+          <span className="text-[10px] text-muted-foreground hidden sm:inline">PKT (UTC+5)</span>
         </div>
         <Link to="/flash-sale" className="text-sm text-primary font-medium hover:underline">View All →</Link>
       </div>

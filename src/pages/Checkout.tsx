@@ -203,6 +203,8 @@ const PROVINCES: Record<string, Record<string, string[]>> = {
 
 const DELIVERY_FEE = 200;
 
+type LocationData = Record<string, Record<string, string[]>>;
+
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, cartTotal, clearCart } = useCart();
@@ -213,6 +215,7 @@ const Checkout = () => {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [saveAddress, setSaveAddress] = useState(true);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [locationData, setLocationData] = useState<LocationData>(PROVINCES);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -234,6 +237,13 @@ const Checkout = () => {
   const total = cartTotal - promoDiscount + DELIVERY_FEE;
 
   useEffect(() => {
+    // Load city data from CityManager (site_settings), fall back to hardcoded PROVINCES
+    supabase.from('site_settings').select('value').eq('key', 'city_areas').maybeSingle().then(({ data }) => {
+      if (data?.value && typeof data.value === 'object') {
+        setLocationData(data.value as LocationData);
+      }
+    });
+
     // Load payment methods
     supabase.from('payment_methods').select('*').eq('is_active', true).order('sort_order').then(({ data }) => {
       setPaymentMethods(data || []);
@@ -396,21 +406,21 @@ const Checkout = () => {
                     <Label>Province *</Label>
                     <Select value={province} onValueChange={v => { setProvince(v); setCity(''); setArea(''); }}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{Object.keys(PROVINCES).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                      <SelectContent>{Object.keys(locationData).sort().map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label>City/District *</Label>
                     <Select value={city} onValueChange={v => { setCity(v); setArea(''); }} disabled={!province}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{province && Object.keys(PROVINCES[province] || {}).sort().map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                      <SelectContent>{province && Object.keys(locationData[province] || {}).sort().map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label>Area/Tehsil *</Label>
                     <Select value={area} onValueChange={setArea} disabled={!city}>
                       <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{city && province && (PROVINCES[province]?.[city] || []).map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                      <SelectContent>{city && province && (locationData[province]?.[city] || []).map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>

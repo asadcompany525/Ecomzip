@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, Image, Tag, Settings, LogOut, Menu, X,
-  BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard, TrendingUp, Truck, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe, ImagePlus
+  BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard, TrendingUp, Truck, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe, ImagePlus, Wand2, Shield, Ruler, Mic
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,11 @@ const sidebarItems = [
   { icon: Bot, label: 'AI Helper', path: '/admin/ai-helper' },
   { icon: Globe, label: 'AI Site Manager', path: '/admin/ai-site-manager' },
   { icon: ImagePlus, label: 'AI Banner Creator', path: '/admin/ai-banner-creator' },
+  { icon: Sparkles, label: 'AI Bulk Creator', path: '/admin/ai-bulk-creator' },
+  { icon: Shield, label: 'AI Claim Validator', path: '/admin/ai-claim-validator' },
+  { icon: Ruler, label: 'AI Size Advisor', path: '/admin/ai-size-advisor' },
+  { icon: Wand2, label: 'AI Bg Enhancer', path: '/admin/ai-bg-enhancer' },
+  { icon: Mic, label: 'AI Voice Dashboard', path: '/admin/ai-voice' },
   { icon: PackageSearch, label: 'Inventory Insights', path: '/admin/inventory' },
   { icon: FileText, label: 'Activity Log', path: '/admin/activity' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Upload } from 'lucide-react';
+import { Plus, Trash2, Upload, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import React from 'react';
 
@@ -22,14 +22,41 @@ interface Props {
   gender: string;
 }
 
-const ProductVariantTable = ({ variants, setVariants, sizes, productType, gender }: Props) => {
+const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, productType, gender }: Props) => {
   const [uploading, setUploading] = useState<number | null>(null);
+  const [newSize, setNewSize] = useState('');
+  const [customSizes, setCustomSizes] = useState<string[]>([]);
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Merged sizes = default + custom (no duplicates)
+  const allSizes = [...defaultSizes, ...customSizes.filter(s => !defaultSizes.includes(s))];
+
+  const addCustomSize = () => {
+    const s = newSize.trim();
+    if (!s) return;
+    if (allSizes.includes(s)) { setNewSize(''); return; }
+    setCustomSizes(prev => [...prev, s]);
+    // Add the new size to all existing variants with 0 stock
+    setVariants(prev => prev.map(v => ({
+      ...v,
+      sizes: { ...v.sizes, [s]: 0 },
+    })));
+    setNewSize('');
+  };
+
+  const removeCustomSize = (size: string) => {
+    setCustomSizes(prev => prev.filter(s => s !== size));
+    setVariants(prev => prev.map(v => {
+      const newSizes = { ...v.sizes };
+      delete newSizes[size];
+      return { ...v, sizes: newSizes };
+    }));
+  };
 
   const addVariant = () => {
     setVariants(prev => [...prev, {
       color: '', color_hex: '#000000',
-      sizes: Object.fromEntries(sizes.map(s => [s, 0])),
+      sizes: Object.fromEntries(allSizes.map(s => [s, 0])),
       images: [],
     }]);
   };
@@ -52,14 +79,13 @@ const ProductVariantTable = ({ variants, setVariants, sizes, productType, gender
   const handleKeyDown = (e: React.KeyboardEvent, variantIndex: number, sizeIndex: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Move to next size in same variant, or first size of next variant
       const nextSizeIndex = sizeIndex + 1;
-      if (nextSizeIndex < sizes.length) {
-        const key = `${variantIndex}-${sizes[nextSizeIndex]}`;
+      if (nextSizeIndex < allSizes.length) {
+        const key = `${variantIndex}-${allSizes[nextSizeIndex]}`;
         inputRefs.current[key]?.focus();
         inputRefs.current[key]?.select();
       } else if (variantIndex + 1 < variants.length) {
-        const key = `${variantIndex + 1}-${sizes[0]}`;
+        const key = `${variantIndex + 1}-${allSizes[0]}`;
         inputRefs.current[key]?.focus();
         inputRefs.current[key]?.select();
       }
@@ -96,11 +122,41 @@ const ProductVariantTable = ({ variants, setVariants, sizes, productType, gender
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{getSizeLabel()} — Enter qty per size per color (Enter = next)</p>
-        <Button variant="outline" size="sm" onClick={addVariant} className="gap-1">
-          <Plus className="h-3 w-3" /> Add Color
-        </Button>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-sm text-muted-foreground">{getSizeLabel()} — Enter qty per size per color</p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={addVariant} className="gap-1">
+            <Plus className="h-3 w-3" /> Add Color
+          </Button>
+        </div>
+      </div>
+
+      {/* Add Size Row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-medium text-muted-foreground">Sizes:</span>
+        {defaultSizes.map(s => (
+          <span key={s} className="bg-muted text-xs px-2 py-0.5 rounded-md">{s}</span>
+        ))}
+        {customSizes.map(s => (
+          <span key={s} className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-md flex items-center gap-1">
+            {s}
+            <button onClick={() => removeCustomSize(s)} className="hover:text-destructive ml-0.5">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        ))}
+        <div className="flex items-center gap-1">
+          <Input
+            value={newSize}
+            onChange={e => setNewSize(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomSize())}
+            placeholder="Add size..."
+            className="h-7 w-24 text-xs"
+          />
+          <Button size="sm" variant="outline" onClick={addCustomSize} className="h-7 px-2 gap-1">
+            <Plus className="h-3 w-3" /> Add Size
+          </Button>
+        </div>
       </div>
 
       {variants.length === 0 ? (
@@ -114,7 +170,7 @@ const ProductVariantTable = ({ variants, setVariants, sizes, productType, gender
               <tr className="bg-muted/50 border-b">
                 <th className="p-2 text-left min-w-[120px]">Color</th>
                 <th className="p-2 text-left min-w-[60px]">Hex</th>
-                {sizes.map(s => (
+                {allSizes.map(s => (
                   <th key={s} className="p-2 text-center min-w-[60px]">{s}</th>
                 ))}
                 <th className="p-2 text-center min-w-[60px]">Total</th>
@@ -141,14 +197,14 @@ const ProductVariantTable = ({ variants, setVariants, sizes, productType, gender
                       className="w-8 h-8 rounded cursor-pointer border-0"
                     />
                   </td>
-                  {sizes.map((size, si) => (
+                  {allSizes.map((size, si) => (
                     <td key={size} className="p-1">
                       <input
                         ref={el => { inputRefs.current[`${vi}-${size}`] = el; }}
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={variant.sizes[size] || ''}
+                        value={variant.sizes[size] ?? ''}
                         onChange={e => {
                           const val = e.target.value.replace(/[^0-9]/g, '');
                           updateQty(vi, size, parseInt(val) || 0);
@@ -182,9 +238,9 @@ const ProductVariantTable = ({ variants, setVariants, sizes, productType, gender
                 </tr>
               ))}
               <tr className="bg-muted/30 font-bold">
-                <td colSpan={2} className="p-2 text-right">Total Stock:</td>
-                {sizes.map(size => (
-                  <td key={size} className="p-2 text-center">
+                <td colSpan={2} className="p-2 text-right text-xs">Total Stock:</td>
+                {allSizes.map(size => (
+                  <td key={size} className="p-2 text-center text-xs">
                     {variants.reduce((sum, v) => sum + (v.sizes[size] || 0), 0)}
                   </td>
                 ))}

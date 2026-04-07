@@ -1,0 +1,47 @@
+You are the Lead AI & Full-Stack Developer for "Stopy Shoes". I have uploaded the project files. Your goal is to stabilize the environment and implement the following features exactly as described. Prioritize UI/UX and data integrity.
+
+1. Mobile UI & Header Overhaul:
+
+Single Row Header: Force the mobile header into one row. Layout: [Hamburger Menu (Left) | Logo (Center) | Search & Cart Icons (Right)].
+
+Search Logic: Hide the search bar by default; reveal only when the search icon is clicked.
+
+Header Conflict: Remove the redundant header/search bar that appears after applying filters. Keep only the filter-specific search bar visible in that view.
+
+2. Media & Data Synchronization:
+
+Video Support: In product galleries, check for .mp4 or .mov. If found, render using <video autoplay muted loop>; otherwise, show the image.
+
+Exact Stock Sync: Display the actual stock count from the database instead of "3-4 qty". If 0, show "Out of Stock".
+
+Admin Control: Sync the CityManager table with the Checkout page (Province > City > Area). Add an "Add Size" option in the Admin panel, identical to the "Add Color" functionality.
+
+3. Logic & Visual Polish:
+
+Pricing: If "No Discount" is selected, hide the Original Price and Strikethrough entirely.
+
+Star Rating: Fill/Color stars based on actual rating numbers.
+
+Timer & Loader: Set the discount timer to UTC+5 (Pakistan Time). Use my specific Stopy Favicon as the global site loader.
+
+4. The 5 Revolutionary AI Features:
+
+Feature 1 (AI Bulk Creator): Admin provides an image/link; AI generates Name, Description, Category, and Tags. Suggest sizes: Kids (16-25), Men (39-45), Women (36-41).
+
+Feature 2 (AI Visual Claim Validator): AI reviews customer return photos against 'Admin Claim Instructions' to decide claim validity.
+
+Feature 3 (AI Virtual Size Advisor): AI suggests the correct shoe size based on an uploaded photo of the customer's foot.
+
+Feature 4 (AI Background Enhancer): One-click tool to remove raw backgrounds and replace them with professional white.
+
+Feature 5 (AI Voice-Command Dashboard): Add a microphone in the Admin panel for Urdu/English commands (e.g., "Size 41 ki sales report dikhao").
+
+5. Database & Security:
+
+Persistence: Save all AI chat and generator history in the chat_history table to persist after page refresh.
+
+Product Code Integrity: Ensure product codes never repeat, even if a product is deleted. Keep a record of deleted product codes.
+
+Authentication: Mandatory Email/Phone Verification via a 4-digit code during signup.
+
+Analyze the unzipped files now. Start with the UI fixes, then proceed to the AI features. Maintain strict context throughout the session.

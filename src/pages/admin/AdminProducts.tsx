@@ -322,6 +322,14 @@ const AdminProducts = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this product?')) return;
+    // Save product code to deleted_product_codes to prevent future reuse
+    const product = products.find(p => p.id === id);
+    if (product) {
+      const code = (product.tags as string[])?.[0];
+      if (code) {
+        await supabase.from('deleted_product_codes').upsert({ code, product_title: product.title }, { onConflict: 'code' });
+      }
+    }
     await supabase.from('product_variants').delete().eq('product_id', id);
     await supabase.from('products').delete().eq('id', id);
     toast({ title: 'Product deleted' });
@@ -515,13 +523,21 @@ const AdminProducts = () => {
                     <Label className="text-xs">Product Code (auto-generated, editable)</Label>
                     <div className="flex gap-2">
                       <Input value={form.tags?.[0] || ''} onChange={e => setForm(p => ({ ...p, tags: [e.target.value, ...p.tags.slice(1)] }))} placeholder="Auto: PMP001" />
-                      <Button variant="outline" size="sm" type="button" onClick={() => {
+                      <Button variant="outline" size="sm" type="button" onClick={async () => {
                         // Auto-generate unique code from sub-category or category
                         const subCat = categories.find(c => c.id === form.sub_category_id);
                         const cat = categories.find(c => c.id === form.category_id);
                         const src = subCat || cat;
                         const prefix = src ? src.name.substring(0, 3).toUpperCase() : 'PRD';
-                        // Find max existing number for this prefix
+
+                        // Fetch deleted codes for this prefix to avoid reuse
+                        const { data: deletedData } = await supabase
+                          .from('deleted_product_codes')
+                          .select('code')
+                          .like('code', `${prefix}%`);
+                        const deletedCodes = new Set((deletedData || []).map((d: any) => d.code));
+
+                        // Find max existing number for this prefix (from active products + deleted)
                         let maxNum = 0;
                         products.forEach(p => {
                           const code = (p.tags as string[])?.[0] || '';
@@ -530,8 +546,18 @@ const AdminProducts = () => {
                             if (!isNaN(num) && num > maxNum) maxNum = num;
                           }
                         });
-                        const nextNum = String(maxNum + 1).padStart(3, '0');
-                        setForm(p => ({ ...p, tags: [`${prefix}${nextNum}`, ...p.tags.slice(1)] }));
+                        deletedCodes.forEach((code: string) => {
+                          const num = parseInt(code.replace(prefix, ''), 10);
+                          if (!isNaN(num) && num > maxNum) maxNum = num;
+                        });
+
+                        // Find next available code that hasn't been used or deleted
+                        let candidate = maxNum + 1;
+                        while (deletedCodes.has(`${prefix}${String(candidate).padStart(3, '0')}`)) {
+                          candidate++;
+                        }
+                        const nextCode = `${prefix}${String(candidate).padStart(3, '0')}`;
+                        setForm(p => ({ ...p, tags: [nextCode, ...p.tags.slice(1)] }));
                       }}>Auto</Button>
                     </div>
                   </div>

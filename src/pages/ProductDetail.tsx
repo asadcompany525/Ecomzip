@@ -205,6 +205,8 @@ const ProductDetail = () => {
   const uniqueColors = [...new Set(variants.map(v => v.color).filter(Boolean))];
   const uniqueSizes = product.sizes?.length ? product.sizes : [...new Set(variants.map(v => v.size).filter(Boolean))];
 
+  const isVideo = (url: string) => /\.(mp4|mov|webm)(\?|$)/i.test(url);
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
@@ -224,14 +226,27 @@ const ProductDetail = () => {
         <div className="grid md:grid-cols-2 gap-6 md:gap-8">
           <div>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="aspect-square bg-muted rounded-xl overflow-hidden mb-3">
-              <img src={allImages[selectedImage] || '/placeholder.svg'} alt={product.name} className="w-full h-full object-cover" />
+              {isVideo(allImages[selectedImage] || '') ? (
+                <video
+                  key={allImages[selectedImage]}
+                  src={allImages[selectedImage]}
+                  className="w-full h-full object-cover"
+                  autoPlay muted loop playsInline
+                />
+              ) : (
+                <img src={allImages[selectedImage] || '/placeholder.svg'} alt={product.name} className="w-full h-full object-cover" />
+              )}
             </motion.div>
             {allImages.length > 1 && (
               <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
                 {allImages.map((img, i) => (
                   <button key={i} onClick={() => setSelectedImage(i)}
                     className={`shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === i ? 'border-primary' : 'border-transparent'}`}>
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    {isVideo(img) ? (
+                      <video src={img} className="w-full h-full object-cover" muted playsInline />
+                    ) : (
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                    )}
                   </button>
                 ))}
               </div>

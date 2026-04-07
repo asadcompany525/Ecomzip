@@ -14,11 +14,22 @@ interface ChatMsg {
   senderType?: string;
 }
 
+const WELCOME_MSG: ChatMsg = { role: 'assistant', content: 'Assalam o Alaikum! 👋 Stopy Shoes میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!' };
+const GUEST_HISTORY_KEY = 'stopy_guest_chat_history';
+
 const AIChatWidget = () => {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: 'assistant', content: 'Assalam o Alaikum! 👋 Stopy Shoes میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!' }
-  ]);
+  const [messages, setMessages] = useState<ChatMsg[]>(() => {
+    // Restore guest history from localStorage on load
+    try {
+      const saved = localStorage.getItem(GUEST_HISTORY_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [WELCOME_MSG];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -31,6 +42,15 @@ const AIChatWidget = () => {
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
   }, [messages]);
+
+  // Persist guest chat history to localStorage (only if not logged in)
+  useEffect(() => {
+    if (!user && messages.length > 1) {
+      // Keep last 30 messages to avoid localStorage overflow
+      const toSave = messages.slice(-30);
+      try { localStorage.setItem(GUEST_HISTORY_KEY, JSON.stringify(toSave)); } catch {}
+    }
+  }, [messages, user]);
 
   // Load existing conversation
   useEffect(() => {

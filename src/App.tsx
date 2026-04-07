@@ -59,6 +59,11 @@ import AdminAiHelper from "./pages/admin/AdminAiHelper";
 import AdminInventoryInsights from "./pages/admin/AdminInventoryInsights";
 import AdminAiSiteManager from "./pages/admin/AdminAiSiteManager";
 import AdminAiBannerCreator from "./pages/admin/AdminAiBannerCreator";
+import AdminAiBulkCreator from "./pages/admin/AdminAiBulkCreator";
+import AdminAiClaimValidator from "./pages/admin/AdminAiClaimValidator";
+import AdminAiSizeAdvisor from "./pages/admin/AdminAiSizeAdvisor";
+import AdminAiBgEnhancer from "./pages/admin/AdminAiBgEnhancer";
+import AdminAiVoice from "./pages/admin/AdminAiVoice";
 import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
@@ -130,6 +135,11 @@ const App = () => (
                 <Route path="ai-helper" element={<AdminAiHelper />} />
                 <Route path="ai-site-manager" element={<AdminAiSiteManager />} />
                 <Route path="ai-banner-creator" element={<AdminAiBannerCreator />} />
+                <Route path="ai-bulk-creator" element={<AdminAiBulkCreator />} />
+                <Route path="ai-claim-validator" element={<AdminAiClaimValidator />} />
+                <Route path="ai-size-advisor" element={<AdminAiSizeAdvisor />} />
+                <Route path="ai-bg-enhancer" element={<AdminAiBgEnhancer />} />
+                <Route path="ai-voice" element={<AdminAiVoice />} />
                 <Route path="inventory" element={<AdminInventoryInsights />} />
                 <Route path="activity" element={<AdminActivity />} />
                 <Route path="settings" element={<AdminSettings />} />
