@@ -1,0 +1,7 @@
+project_id = "lhdxqwvgrbjywjiixioc"
+
+[functions.admin-login]
+verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
