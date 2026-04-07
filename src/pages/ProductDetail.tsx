@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,6 +68,15 @@ const ProductDetail = () => {
   const [reviewImages, setReviewImages] = useState<string[]>([]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [uploadingReviewImg, setUploadingReviewImg] = useState(false);
+
+  // Size Advisor state
+  const [sizeAdvisorOpen, setSizeAdvisorOpen] = useState(false);
+  const [advisorFootLength, setAdvisorFootLength] = useState('');
+  const [advisorFootWidth, setAdvisorFootWidth] = useState('');
+  const [advisorUsualSize, setAdvisorUsualSize] = useState('');
+  const [advisorBrand, setAdvisorBrand] = useState('');
+  const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [advisorResult, setAdvisorResult] = useState<any>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -131,6 +143,61 @@ const ProductDetail = () => {
     if (product.sizes?.length && !selectedSize) { toast({ title: 'Please select a size', variant: 'destructive' }); return; }
     if (availableStock <= 0) { toast({ title: 'Out of stock', variant: 'destructive' }); return; }
     addToCart(product, selectedSize, selectedColor);
+  };
+
+  const getSizeAdvice = async () => {
+    if (!advisorFootLength && !advisorUsualSize) {
+      toast({ title: 'Enter your foot length or usual size', variant: 'destructive' });
+      return;
+    }
+    setAdvisorLoading(true);
+    setAdvisorResult(null);
+    try {
+      const gender = product?.gender || 'men';
+      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+        body: {
+          type: 'size-advisor',
+          messages: [{
+            role: 'user',
+            content: `You are a shoe size expert for Stopy Shoes Pakistan.
+
+PRODUCT: ${product?.name || 'Shoe'}
+GENDER: ${gender}
+
+CUSTOMER INPUT:
+- Foot Length: ${advisorFootLength ? advisorFootLength + ' cm' : 'Not provided'}
+- Foot Width: ${advisorFootWidth ? advisorFootWidth + ' cm' : 'Not provided'}
+- Usual size in another brand: ${advisorUsualSize ? `${advisorUsualSize} (${advisorBrand || 'unspecified brand'})` : 'Not provided'}
+
+AVAILABLE SIZES FOR THIS PRODUCT: ${product?.sizes?.join(', ') || 'Standard sizing'}
+
+Based on this info, give a short, friendly recommendation.
+Return JSON:
+{
+  "recommendedSize": "41",
+  "alternateSize": "42",
+  "confidence": 85,
+  "shortAdvice": "Based on your measurements, size 41 should fit you perfectly.",
+  "fitNote": "If between sizes, go up half size."
+}
+Return ONLY valid JSON.`
+          }]
+        }
+      });
+      if (error) throw error;
+      let parsed = data;
+      if (typeof data === 'string') {
+        const m = data.match(/\{[\s\S]*\}/);
+        if (m) parsed = JSON.parse(m[0]);
+      }
+      setAdvisorResult(parsed);
+      if (parsed?.recommendedSize) {
+        toast({ title: `Recommended size: ${parsed.recommendedSize}` });
+      }
+    } catch (e: any) {
+      toast({ title: 'Could not get recommendation', description: e.message, variant: 'destructive' });
+    }
+    setAdvisorLoading(false);
   };
 
   const handleShare = async () => {
@@ -300,7 +367,17 @@ const ProductDetail = () => {
             {/* Sizes */}
             {uniqueSizes.length > 0 && (
               <div className="mb-3">
-                <h4 className="text-sm font-semibold mb-2">Size: <span className="font-normal text-muted-foreground">{selectedSize || 'Select'}</span></h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold">Size: <span className="font-normal text-muted-foreground">{selectedSize || 'Select'}</span></h4>
+                  {product?.gender !== 'unisex' && (
+                    <button
+                      onClick={() => { setSizeAdvisorOpen(true); setAdvisorResult(null); }}
+                      className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                    >
+                      <Ruler className="h-3.5 w-3.5" /> Find My Size
+                    </button>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   {uniqueSizes.map(size => {
                     const available = isSizeAvailable(size as string);
@@ -489,6 +566,127 @@ const ProductDetail = () => {
           </section>
         )}
       </main>
+
+      {/* ── Size Advisor Sheet (customer-facing) ── */}
+      <Sheet open={sizeAdvisorOpen} onOpenChange={setSizeAdvisorOpen}>
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="flex items-center gap-2 text-lg">
+              <Ruler className="h-5 w-5 text-primary" /> Find My Size
+            </SheetTitle>
+          </SheetHeader>
+
+          <div className="space-y-4 pb-4">
+            <p className="text-sm text-muted-foreground">
+              Not sure which size to pick? Tell us your measurements or your usual size in another brand — our AI will recommend the perfect fit.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Foot Length (cm)</Label>
+                <Input
+                  value={advisorFootLength}
+                  onChange={e => setAdvisorFootLength(e.target.value)}
+                  placeholder="e.g. 25.5"
+                  type="number"
+                  step="0.5"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-sm">Foot Width (cm)</Label>
+                <Input
+                  value={advisorFootWidth}
+                  onChange={e => setAdvisorFootWidth(e.target.value)}
+                  placeholder="e.g. 9.5 (optional)"
+                  type="number"
+                  step="0.5"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 border-t" />
+              <span className="text-xs text-muted-foreground px-2">OR</span>
+              <div className="flex-1 border-t" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">My usual size</Label>
+                <Input
+                  value={advisorUsualSize}
+                  onChange={e => setAdvisorUsualSize(e.target.value)}
+                  placeholder="e.g. 42, UK 8..."
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-sm">In which brand?</Label>
+                <Input
+                  value={advisorBrand}
+                  onChange={e => setAdvisorBrand(e.target.value)}
+                  placeholder="e.g. Nike, Servis..."
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <Button onClick={getSizeAdvice} disabled={advisorLoading} className="w-full gap-2">
+              {advisorLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ruler className="h-4 w-4" />}
+              {advisorLoading ? 'AI is calculating...' : 'Get My Size Recommendation'}
+            </Button>
+
+            {advisorResult && (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-black shrink-0">
+                    {advisorResult.recommendedSize}
+                  </div>
+                  <div>
+                    <p className="font-bold text-base">Recommended Size</p>
+                    <p className="text-xs text-muted-foreground">{advisorResult.confidence}% confidence</p>
+                    {advisorResult.alternateSize && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Alternate: <span className="font-semibold text-foreground">{advisorResult.alternateSize}</span> (if between sizes)
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm">{advisorResult.shortAdvice}</p>
+                {advisorResult.fitNote && (
+                  <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <CheckCircle className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
+                    {advisorResult.fitNote}
+                  </div>
+                )}
+                {product?.sizes?.includes(advisorResult.recommendedSize) && (
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setSelectedSize(advisorResult.recommendedSize);
+                      setSizeAdvisorOpen(false);
+                      toast({ title: `Size ${advisorResult.recommendedSize} selected!` });
+                    }}
+                  >
+                    Select Size {advisorResult.recommendedSize}
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+              <p className="font-medium">💡 How to measure foot length:</p>
+              <p>1. Place your foot on a piece of paper</p>
+              <p>2. Mark the heel and longest toe</p>
+              <p>3. Measure the distance in cm</p>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <BottomNav />
     </div>
   );

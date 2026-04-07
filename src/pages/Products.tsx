@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Filter, Grid3X3, List, SlidersHorizontal, X, Search } from 'lucide-react';
+import { Filter, Grid3X3, List, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -44,6 +43,11 @@ const Products = () => {
   const [priceRange, setPriceRange] = useState([0, 50000]);
   const [sortBy, setSortBy] = useState('popular');
   const [searchQuery, setSearchQuery] = useState(initialSearch);
+
+  // Keep searchQuery in sync when URL params change (e.g. user searches from header)
+  useEffect(() => {
+    setSearchQuery(searchParams.get('search') || '');
+  }, [searchParams]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filterOpen, setFilterOpen] = useState(false);
 
@@ -224,13 +228,14 @@ const Products = () => {
           <span className="text-foreground">{selectedCategory || 'All Products'}</span>
         </div>
 
-        {/* Search Bar with Filter */}
+        {/* Filter row — search handled by the global header */}
         <div className="flex items-center gap-2 mb-4">
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0 h-10 w-10 relative">
+              <Button variant="outline" size="sm" className="shrink-0 relative gap-1.5 h-9">
                 <Filter className="h-4 w-4" />
-                {activeFilterCount > 0 && <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">{activeFilterCount}</Badge>}
+                Filters
+                {activeFilterCount > 0 && <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">{activeFilterCount}</Badge>}
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="overflow-y-auto">
@@ -238,10 +243,11 @@ const Products = () => {
               <div className="mt-4"><FilterContent /></div>
             </SheetContent>
           </Sheet>
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search products..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
-          </div>
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground gap-1 h-9">
+              <X className="h-3.5 w-3.5" /> Clear filters
+            </Button>
+          )}
         </div>
 
         <div>
