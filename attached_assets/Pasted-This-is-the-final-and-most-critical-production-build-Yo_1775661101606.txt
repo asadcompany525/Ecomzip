@@ -1,0 +1,65 @@
+This is the final and most critical production build. You must synchronize all modules with UTC+5 (Pakistan Time). REMOVE ALL VOICE COMMAND LOGIC and replace it with the new AI Global Manager.
+
+1. AI Size Advisor (CRITICAL FIX - IMAGE ANALYSIS):
+
+Current Issue: The AI size option exists, but it does not analyze the image to provide a suggestion.
+
+New Logic: In the "Find My Size" modal, implement a dynamic Foot/Body Photo Uploader.
+
+Action: Send the uploaded image via API to the AI (e.g., GPT-4 Vision or similar). The AI must analyze the object and return a precise size recommendation (e.g., 39-45 for shoes).
+
+Display: Fetch Live Stock for the recommended size and display instantly: "AI suggests Size 42 (In Stock)".
+
+2. Universal AI Commerce Engine:
+
+Logic: Transform the site from a "Shoe Store" into a category-agnostic "Universal Engine".
+
+Adaptability: All labels and AI suggestions must adapt dynamically to the product category (e.g., if Category is 'Clothing', Size Advisor asks for body measurements; if 'Electronics', it suggests specs).
+
+3. AI Global Manager (Text-to-Action) & Chat History:
+
+New Feature: A text-based command center in Admin.
+
+Action: Admin can type: "Change site title to Stopy Luxury" or "Apply 20% store-wide discount for 12 hours". The AI must update the DB and Frontend configuration instantly.
+
+Persistence: Save all AI conversations in the chat_history database table for visual reference.
+
+4. Tracking & Logistics (TCS/Leopards/BlueEx):
+
+Live Tracker: A beautiful, animated progress bar on /track-order.
+
+Courier Sync: Admin enters Tracking ID -> System auto-detects courier -> Provides a "Live Track" external link button.
+
+5. Stealth Developer Portal & Lockdown:
+
+The Trigger: Implement a hidden trigger (e.g., 5-click rapid tap on the Main Logo) to open a secret portal.
+
+Master Password: Protect this portal with a hard-coded master password: Asad_Dev_99.
+
+Hard-Coded Developer Page: Create a locked /developer page featuring the creator's profile and contact. It must be non-editable by the standard Admin.
+
+6. "Expensive Store" AI Features:
+
+AI Abandoned Cart Recovery: Auto-logs and reminders for users who leave items in the cart.
+
+AI Visual Claim Validator: Analyze defect photos for returns/claims via AI.
+
+Inventory Heatmap: Sales density visualization by city for the Admin.
+
+7. Security & Logic:
+
+Header: Main category header appears ONLY on the Home Page. Hide it elsewhere.
+
+Categories: Clean Text-Only labels (No folders/icons).
+
+Security: 4-digit Gmail OTP (using Nodemailer) for Signup and Forget Password.
+
+Reset Feature: In the Developer Portal, add a "Factory Reset" button to wipe products, orders, customers, and custom branding to default state.
+
+8. UI/UX:
+
+Logo Loader: Sophisticated Pulse Logo Loader for all operations.
+
+Videos: Seamless Lazy Loading for all 20+ HD product videos and images.
+
+Perform a final clean build and verify all modules are synchronized, focusing on the AI image size advisor fix.

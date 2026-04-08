@@ -9,7 +9,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Shield, Trash2, Upload, Save, Settings, RefreshCw, AlertTriangle, User } from 'lucide-react';
 
-const MASTER_PW_HASH = 'ASDEV@2026';
+const MASTER_PW_HASH = 'Asad_Dev_99';
 
 const DEV_INFO_KEY = '__stopy_dev_info__';
 

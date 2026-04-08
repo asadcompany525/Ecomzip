@@ -156,60 +156,101 @@ const ProductDetail = () => {
     reader.readAsDataURL(file);
   };
 
+  // Detect category type from product name/category for adaptive advisor
+  const getCategoryType = (): 'shoes' | 'bags' | 'clothing' | 'electronics' | 'generic' => {
+    const nameAndCat = `${product?.name || ''} ${dbProduct?.category_id || ''}`.toLowerCase();
+    if (/bag|purse|wallet|tote|backpack|handbag|clutch/.test(nameAndCat)) return 'bags';
+    if (/shirt|dress|pant|kurta|coat|jacket|jeans|cloth|wear|top/.test(nameAndCat)) return 'clothing';
+    if (/phone|laptop|tablet|electronic|gadget/.test(nameAndCat)) return 'electronics';
+    if (/shoe|sandal|slipper|boot|loafer|sneaker|chappal|khussa|heel/.test(nameAndCat)) return 'shoes';
+    if (product?.sizes && product.sizes.length > 0) return 'shoes';
+    return 'generic';
+  };
+
   const getSizeAdvice = async () => {
-    if (!advisorFootLength && !advisorUsualSize && !advisorFootPhoto) {
-      toast({ title: 'Upload a foot photo or enter measurements to continue', variant: 'destructive' });
+    if (!advisorFootLength && !advisorUsualSize && !advisorFootPhoto && !advisorFootWidth) {
+      toast({ title: 'Upload a photo or enter measurements to continue', variant: 'destructive' });
       return;
     }
     setAdvisorLoading(true);
     setAdvisorResult(null);
     try {
-      const gender = product?.gender || 'men';
-      const photoNote = advisorFootPhoto ? 'A foot photo has been provided — analyze it to estimate foot length/width and deduce the correct size.' : '';
+      const gender = product?.gender || 'unisex';
+      const catType = getCategoryType();
+      const photoProvided = !!advisorFootPhoto;
+
+      const categoryContext = {
+        shoes: `You are an expert shoe size advisor. ${photoProvided ? 'Carefully analyze the foot in the provided photo — estimate foot length from heel to longest toe. Use standard Pakistani/EU sizing (36-46).' : ''}`,
+        bags: `You are a bag sizing advisor. Analyze the customer's needs and suggest the best bag size (Small/Medium/Large/XL).`,
+        clothing: `You are a clothing size advisor for Pakistan. ${photoProvided ? 'Analyze body proportions from the photo.' : ''} Suggest sizes (XS/S/M/L/XL/XXL or Pakistani numbers).`,
+        electronics: `You are a tech product advisor. Based on the product specs and customer needs, suggest the right variant/configuration.`,
+        generic: `You are a universal size advisor. Based on the product and customer input, suggest the best size from the available options.`,
+      }[catType];
+
+      const measurementContext = {
+        shoes: `- Foot Photo: ${photoProvided ? 'PROVIDED — analyze heel-to-toe length and width from the image' : 'Not uploaded'}
+- Foot Length (cm): ${advisorFootLength || 'Not provided'}
+- Foot Width (cm): ${advisorFootWidth || 'Not provided'}
+- Reference size: ${advisorUsualSize ? `${advisorUsualSize} in ${advisorBrand || 'another brand'}` : 'Not provided'}`,
+        bags: `- Use case / preference: ${advisorUsualSize || advisorFootLength || 'General everyday use'}`,
+        clothing: `- Photo: ${photoProvided ? 'PROVIDED' : 'Not uploaded'}
+- Body measurements or reference: ${advisorFootLength || advisorUsualSize || 'Not provided'}`,
+        electronics: `- Preference / use case: ${advisorUsualSize || advisorFootLength || 'Not provided'}`,
+        generic: `- Reference or measurement: ${advisorFootLength || advisorUsualSize || 'Not provided'}`,
+      }[catType];
+
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
           type: 'size-advisor',
           imageUrl: advisorFootPhoto || undefined,
           messages: [{
             role: 'user',
-            content: `You are a shoe size expert for Stopy Shoes Pakistan.
+            content: `${categoryContext}
 
-PRODUCT: ${product?.name || 'Shoe'}
+PRODUCT: "${product?.name || 'Product'}"
 GENDER: ${gender}
+CATEGORY TYPE: ${catType}
 
 CUSTOMER INPUT:
-- Foot Photo: ${advisorFootPhoto ? 'Provided (analyze the image to estimate foot measurements)' : 'Not provided'}
-- Foot Length: ${advisorFootLength ? advisorFootLength + ' cm' : 'Not provided'}
-- Foot Width: ${advisorFootWidth ? advisorFootWidth + ' cm' : 'Not provided'}
-- Usual size in another brand: ${advisorUsualSize ? `${advisorUsualSize} (${advisorBrand || 'unspecified brand'})` : 'Not provided'}
+${measurementContext}
 
-AVAILABLE SIZES FOR THIS PRODUCT: ${product?.sizes?.join(', ') || 'Standard sizing'}
+AVAILABLE SIZES FOR THIS PRODUCT: ${product?.sizes?.join(', ') || 'One size / Standard'}
 
-${photoNote}
+${photoProvided ? `IMPORTANT: Analyze the uploaded ${catType === 'shoes' ? 'foot' : 'body/product'} photo carefully. Estimate measurements from the image and use them to determine the most accurate size recommendation from the available sizes list above.` : ''}
 
-Based on this info, give a short, friendly recommendation.
-Return JSON:
+Return ONLY this JSON (no extra text):
 {
-  "recommendedSize": "41",
-  "alternateSize": "42",
-  "confidence": 85,
-  "shortAdvice": "Based on your measurements, size 41 should fit you perfectly.",
-  "fitNote": "If between sizes, go up half size."
-}
-Return ONLY valid JSON.`
+  "recommendedSize": "<exact size from available sizes>",
+  "alternateSize": "<second best option or null>",
+  "confidence": <50-99>,
+  "shortAdvice": "<1-2 sentences in friendly English>",
+  "fitNote": "<tip about fit or null>",
+  "categoryType": "${catType}"
+}`
           }]
         }
       });
       if (error) throw error;
       let parsed = data;
       if (typeof data === 'string') {
-        const m = data.match(/\{[\s\S]*\}/);
-        if (m) parsed = JSON.parse(m[0]);
+        const jsonMatch = data.match(/\{[\s\S]*\}/);
+        if (jsonMatch) { try { parsed = JSON.parse(jsonMatch[0]); } catch {} }
+      }
+      if (typeof parsed === 'object' && parsed?.reply) {
+        const m = parsed.reply.match(/\{[\s\S]*\}/);
+        if (m) { try { parsed = JSON.parse(m[0]); } catch {} }
+      }
+      // Live stock check for recommended size
+      if (parsed?.recommendedSize) {
+        const recommendedSize = parsed.recommendedSize.toString().trim();
+        const inStock = isSizeAvailable(recommendedSize) || (variants.length === 0 && (product?.stock || 0) > 0);
+        const stockCount = variants.length > 0
+          ? variants.filter(v => v.size === recommendedSize && v.stock > 0).reduce((s: number, v: any) => s + v.stock, 0)
+          : (product?.stock || 0);
+        parsed = { ...parsed, inStock, stockCount, recommendedSize };
+        toast({ title: `AI suggests Size ${recommendedSize} (${inStock ? `In Stock: ${stockCount}` : 'Out of Stock'})` });
       }
       setAdvisorResult(parsed);
-      if (parsed?.recommendedSize) {
-        toast({ title: `Recommended size: ${parsed.recommendedSize}` });
-      }
     } catch (e: any) {
       toast({ title: 'Could not get recommendation', description: e.message, variant: 'destructive' });
     }
@@ -623,68 +664,68 @@ Return ONLY valid JSON.`
           </SheetHeader>
 
           <div className="space-y-4 pb-4">
-            <p className="text-sm text-muted-foreground">
-              Not sure which size to pick? Upload a photo of your foot or enter your measurements — our AI will recommend the perfect fit.
-            </p>
+            {(() => {
+              const catType = getCategoryType();
+              const photoLabel = { shoes: 'Upload Foot Photo', bags: 'Upload Reference Photo', clothing: 'Upload Body Photo', electronics: 'Upload Reference', generic: 'Upload Photo' }[catType];
+              const photoHint = { shoes: 'AI analyzes foot shape to find the perfect shoe size', bags: 'AI analyzes the reference image to suggest the right bag size', clothing: 'AI analyzes body proportions from the photo', electronics: 'AI analyzes your reference to suggest the right variant', generic: 'AI analyzes the photo to suggest the right size' }[catType];
+              const measureLabel1 = { shoes: 'Foot Length (cm)', bags: 'Preferred size / capacity', clothing: 'Chest / Height (cm)', electronics: 'Preferred specs', generic: 'Measurement / Reference' }[catType];
+              const measureLabel2 = { shoes: 'Foot Width (cm)', bags: 'Brand preference', clothing: 'Waist / Weight (kg)', electronics: 'Budget range', generic: 'Additional info' }[catType];
+              const placeholder1 = { shoes: 'e.g. 25.5', bags: 'e.g. Medium, 15L', clothing: 'e.g. 40, 170', electronics: 'e.g. 256GB', generic: 'e.g. Standard' }[catType];
+              const placeholder2 = { shoes: 'e.g. 9.5 (optional)', bags: 'e.g. Gucci, local', clothing: 'e.g. 32, 70kg', electronics: 'e.g. Rs. 50,000', generic: 'optional' }[catType];
+              return (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    {catType === 'shoes' ? 'Upload a foot photo or enter measurements — AI will recommend the perfect size.' :
+                     catType === 'bags' ? 'Tell us your preferences — AI will recommend the best bag size.' :
+                     catType === 'clothing' ? 'Upload a photo or enter body measurements — AI suggests your clothing size.' :
+                     'Describe your needs — AI will recommend the right option.'}
+                  </p>
 
-            {/* Foot Photo Upload */}
-            <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 text-center bg-primary/5">
-              <input ref={footPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFootPhotoChange} />
-              {advisorFootPhoto ? (
-                <div className="space-y-2">
-                  <img src={advisorFootPhoto} alt="Foot photo" className="h-32 mx-auto rounded-lg object-contain" />
-                  <div className="flex gap-2 justify-center">
-                    <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => footPhotoRef.current?.click()}>
-                      <Camera className="h-3.5 w-3.5" /> Retake
-                    </Button>
-                    <Button size="sm" variant="ghost" className="text-xs text-destructive" onClick={() => setAdvisorFootPhoto(null)}>
-                      Remove
-                    </Button>
+                  {/* Photo Upload */}
+                  <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 text-center bg-primary/5">
+                    <input ref={footPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFootPhotoChange} />
+                    {advisorFootPhoto ? (
+                      <div className="space-y-2">
+                        <img src={advisorFootPhoto} alt="Photo" className="h-32 mx-auto rounded-lg object-contain" />
+                        <div className="flex gap-2 justify-center">
+                          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => footPhotoRef.current?.click()}>
+                            <Camera className="h-3.5 w-3.5" /> Retake
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-xs text-destructive" onClick={() => setAdvisorFootPhoto(null)}>Remove</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => footPhotoRef.current?.click()} className="w-full space-y-1.5">
+                        <Camera className="h-8 w-8 mx-auto text-primary/50" />
+                        <p className="text-sm font-medium text-primary">{photoLabel}</p>
+                        <p className="text-xs text-muted-foreground">{photoHint}</p>
+                      </button>
+                    )}
                   </div>
-                </div>
-              ) : (
-                <button onClick={() => footPhotoRef.current?.click()} className="w-full space-y-1.5">
-                  <Camera className="h-8 w-8 mx-auto text-primary/50" />
-                  <p className="text-sm font-medium text-primary">Upload Foot Photo</p>
-                  <p className="text-xs text-muted-foreground">AI will analyze your foot shape to find the perfect size</p>
-                </button>
-              )}
-            </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 border-t" />
+                    <span className="text-xs text-muted-foreground px-2">OR enter manually</span>
+                    <div className="flex-1 border-t" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm">{measureLabel1}</Label>
+                      <Input value={advisorFootLength} onChange={e => setAdvisorFootLength(e.target.value)} placeholder={placeholder1} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">{measureLabel2}</Label>
+                      <Input value={advisorFootWidth} onChange={e => setAdvisorFootWidth(e.target.value)} placeholder={placeholder2} className="mt-1" />
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             <div className="flex items-center gap-2">
               <div className="flex-1 border-t" />
-              <span className="text-xs text-muted-foreground px-2">OR enter measurements</span>
-              <div className="flex-1 border-t" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-sm">Foot Length (cm)</Label>
-                <Input
-                  value={advisorFootLength}
-                  onChange={e => setAdvisorFootLength(e.target.value)}
-                  placeholder="e.g. 25.5"
-                  type="number"
-                  step="0.5"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-sm">Foot Width (cm)</Label>
-                <Input
-                  value={advisorFootWidth}
-                  onChange={e => setAdvisorFootWidth(e.target.value)}
-                  placeholder="e.g. 9.5 (optional)"
-                  type="number"
-                  step="0.5"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex-1 border-t" />
-              <span className="text-xs text-muted-foreground px-2">OR</span>
+              <span className="text-xs text-muted-foreground px-2">OR reference size</span>
               <div className="flex-1 border-t" />
             </div>
 
@@ -715,17 +756,24 @@ Return ONLY valid JSON.`
             </Button>
 
             {advisorResult && (
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3">
+              <div className={`border rounded-xl p-4 space-y-3 ${advisorResult.inStock !== false ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' : 'bg-primary/5 border-primary/20'}`}>
                 <div className="flex items-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-black shrink-0">
                     {advisorResult.recommendedSize}
                   </div>
-                  <div>
-                    <p className="font-bold text-base">Recommended Size</p>
-                    <p className="text-xs text-muted-foreground">{advisorResult.confidence}% confidence</p>
-                    {advisorResult.alternateSize && (
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-base">AI Recommended Size</p>
+                    <p className="text-xs text-muted-foreground">{advisorResult.confidence}% confidence {advisorFootPhoto ? '· Photo analyzed' : ''}</p>
+                    {/* Live stock badge */}
+                    <div className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${advisorResult.inStock !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${advisorResult.inStock !== false ? 'bg-green-500' : 'bg-red-500'}`} />
+                      {advisorResult.inStock !== false
+                        ? `In Stock${advisorResult.stockCount ? ` · ${advisorResult.stockCount} left` : ''}`
+                        : 'Out of Stock'}
+                    </div>
+                    {advisorResult.alternateSize && advisorResult.alternateSize !== advisorResult.recommendedSize && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Alternate: <span className="font-semibold text-foreground">{advisorResult.alternateSize}</span> (if between sizes)
+                        Alternate: <span className="font-semibold text-foreground">{advisorResult.alternateSize}</span>
                       </p>
                     )}
                   </div>
@@ -737,17 +785,19 @@ Return ONLY valid JSON.`
                     {advisorResult.fitNote}
                   </div>
                 )}
-                {product?.sizes?.includes(advisorResult.recommendedSize) && (
+                {(product?.sizes?.includes(advisorResult.recommendedSize) || advisorResult.inStock !== false) && (
                   <Button
                     size="sm"
-                    className="w-full"
+                    className="w-full gap-2"
+                    disabled={advisorResult.inStock === false}
                     onClick={() => {
                       setSelectedSize(advisorResult.recommendedSize);
                       setSizeAdvisorOpen(false);
                       toast({ title: `Size ${advisorResult.recommendedSize} selected!` });
                     }}
                   >
-                    Select Size {advisorResult.recommendedSize}
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    {advisorResult.inStock === false ? 'Out of Stock' : `Select Size ${advisorResult.recommendedSize}`}
                   </Button>
                 )}
               </div>

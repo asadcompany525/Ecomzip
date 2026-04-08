@@ -57,6 +57,17 @@ export default function AdminAiGlobalManager() {
   const [history, setHistory] = useState<CommandEntry[]>(() => {
     try { return JSON.parse(localStorage.getItem('ai_global_manager_history') || '[]'); } catch { return []; }
   });
+
+  useEffect(() => {
+    // Also sync from DB if localStorage empty
+    if (history.length === 0) {
+      supabase.from('site_settings').select('value').eq('key', 'ai_global_manager_history').maybeSingle().then(({ data }) => {
+        if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
+          setHistory(data.value as CommandEntry[]);
+        }
+      });
+    }
+  }, []);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -200,6 +211,8 @@ Return ONLY valid JSON inside <RESPONSE_JSON>...</RESPONSE_JSON> and optionally 
       const newHistory = [entry, ...history].slice(0, 30);
       setHistory(newHistory);
       localStorage.setItem('ai_global_manager_history', JSON.stringify(newHistory));
+      // Persist to DB for cross-device reference
+      supabase.from('site_settings').upsert({ key: 'ai_global_manager_history', value: newHistory }, { onConflict: 'key' }).then(() => {});
 
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
 
@@ -208,6 +221,7 @@ Return ONLY valid JSON inside <RESPONSE_JSON>...</RESPONSE_JSON> and optionally 
       const newHistory = [entry, ...history].slice(0, 30);
       setHistory(newHistory);
       localStorage.setItem('ai_global_manager_history', JSON.stringify(newHistory));
+      supabase.from('site_settings').upsert({ key: 'ai_global_manager_history', value: newHistory }, { onConflict: 'key' }).then(() => {});
       toast({ title: 'AI Error', description: e.message, variant: 'destructive' });
     }
     setProcessing(false);

@@ -136,6 +136,15 @@ Generate a detailed description of at least 30 lines covering material, comfort,
           { type: "text", text: messages?.[0]?.content || "Analyze this product image and suggest details for a Pakistani shoes/bags store." }
         ]
       });
+    } else if (imageUrl && type === "size-advisor") {
+      // Vision-based size advisor: AI analyzes the foot/body photo
+      aiMessages.push({
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: imageUrl } },
+          { type: "text", text: messages?.[0]?.content || "Analyze this foot/body photo and recommend the correct size from the available sizes." }
+        ]
+      });
     } else if (type === "chat-support") {
       // Handle both old format (message+history) and new format (messages array)
       if (history && message) {
