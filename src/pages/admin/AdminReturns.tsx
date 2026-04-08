@@ -168,6 +168,7 @@ Check if: 1) Return/claim is within policy time, 2) Reason is valid, 3) Recommen
             <th className="text-left p-3">Type</th>
             <th className="text-left p-3">Reason</th>
             <th className="text-left p-3">Status</th>
+            <th className="text-left p-3">AI Suggestion</th>
             <th className="text-left p-3">Date</th>
             <th className="text-left p-3">Images</th>
             <th className="text-left p-3">Actions</th>
@@ -176,9 +177,24 @@ Check if: 1) Return/claim is within policy time, 2) Reason is valid, 3) Recommen
             {filtered.map(r => (
               <tr key={r.id} className="border-b hover:bg-accent/50">
                 <td className="p-3"><Badge variant={isClaim(r) ? 'default' : 'outline'}>{isClaim(r) ? 'Claim' : 'Return'}</Badge></td>
-                <td className="p-3 max-w-[200px] truncate">{r.reason?.replace('CLAIM: ', '')}</td>
+                <td className="p-3 max-w-[160px] truncate">{r.reason?.replace('CLAIM: ', '')}</td>
                 <td className="p-3">
                   <Badge variant={r.status === 'pending' ? 'secondary' : r.status === 'approved' ? 'default' : 'destructive'}>{r.status}</Badge>
+                </td>
+                <td className="p-3">
+                  {r.ai_recommendation ? (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      r.ai_recommendation.toLowerCase().includes('approve') ? 'bg-green-100 text-green-700' :
+                      r.ai_recommendation.toLowerCase().includes('reject') ? 'bg-red-100 text-red-700' :
+                      'bg-orange-100 text-orange-700'
+                    }`}>
+                      {r.ai_recommendation.toLowerCase().includes('approve') ? '✓ AI Approved' :
+                       r.ai_recommendation.toLowerCase().includes('reject') ? '✗ AI Rejected' :
+                       '⚠ Review'}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </td>
                 <td className="p-3 text-xs">{new Date(r.created_at).toLocaleDateString()}</td>
                 <td className="p-3">
@@ -196,7 +212,7 @@ Check if: 1) Return/claim is within policy time, 2) Reason is valid, 3) Recommen
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={6} className="text-center p-8 text-muted-foreground">No returns/claims found</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={7} className="text-center p-8 text-muted-foreground">No returns/claims found</td></tr>}
           </tbody>
         </table>
       </div>

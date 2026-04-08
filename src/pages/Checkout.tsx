@@ -236,6 +236,23 @@ const Checkout = () => {
 
   const total = cartTotal - promoDiscount + DELIVERY_FEE;
 
+  const getDeliveryDays = () => {
+    if (!province) return { min: 3, max: 5 };
+    const fast = ['Punjab', 'Islamabad'];
+    const medium = ['KPK', 'Sindh'];
+    if (fast.includes(province)) return { min: 2, max: 4 };
+    if (medium.includes(province)) return { min: 3, max: 5 };
+    return { min: 4, max: 7 };
+  };
+
+  const getEstimatedDelivery = () => {
+    const { min, max } = getDeliveryDays();
+    const minDate = new Date(); minDate.setDate(minDate.getDate() + min);
+    const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + max);
+    const fmt = (d: Date) => d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short' });
+    return `${fmt(minDate)} – ${fmt(maxDate)}`;
+  };
+
   useEffect(() => {
     // Load city data from CityManager (site_settings), fall back to hardcoded PROVINCES
     supabase.from('site_settings').select('value').eq('key', 'city_areas').maybeSingle().then(({ data }) => {
@@ -425,6 +442,17 @@ const Checkout = () => {
                   </div>
                 </div>
                 <div><Label>Full Address *</Label><Textarea value={fullAddress} onChange={e => setFullAddress(e.target.value)} placeholder="House #, Street, Landmark..." className="mt-1" /></div>
+
+                {province && (
+                  <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2">
+                    <Truck className="h-4 w-4 text-green-600 shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium text-green-700 dark:text-green-400">Estimated Delivery: {getEstimatedDelivery()}</span>
+                      <p className="text-xs text-green-600 dark:text-green-500">{getDeliveryDays().min}–{getDeliveryDays().max} working days to {city || province}</p>
+                    </div>
+                  </div>
+                )}
+
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={saveAddress} onCheckedChange={(v) => setSaveAddress(!!v)} />
                   Save this address for future orders

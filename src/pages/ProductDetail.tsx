@@ -398,7 +398,7 @@ Return ONLY valid JSON.`
                 <div className="flex items-center border rounded-lg">
                   <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus className="h-4 w-4" /></Button>
                   <span className="w-10 text-center font-medium">{quantity}</span>
-                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9" disabled={quantity >= availableStock} onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}><Plus className="h-4 w-4" /></Button>
                 </div>
                 {selectedSize ? (
                   <span className={`text-sm ${availableStock <= 0 ? 'text-destructive font-bold' : availableStock < 5 ? 'text-orange-500 font-medium' : 'text-muted-foreground'}`}>

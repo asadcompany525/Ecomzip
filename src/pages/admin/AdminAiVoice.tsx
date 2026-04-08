@@ -1,25 +1,49 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Mic, MicOff, Loader2, Volume2, Command, History, Trash2 } from 'lucide-react';
+import { Mic, MicOff, Loader2, Volume2, Command, History, Trash2, Navigation } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const EXAMPLE_COMMANDS = [
   { urdu: 'Aaj ki orders dikhao', english: 'Show today\'s orders' },
-  { urdu: 'Size 41 ki sales report', english: 'Sales report for size 41' },
   { urdu: 'Low stock products', english: 'Show low stock products' },
   { urdu: 'Is mahine ka revenue', english: 'This month\'s revenue' },
   { urdu: 'Top selling products', english: 'Top selling products' },
-  { urdu: 'Pending orders kitni hain', english: 'How many pending orders' },
+  { urdu: 'Go to City Manager', english: 'Navigate to City Manager' },
+  { urdu: 'Go to orders', english: 'Navigate to orders page' },
 ];
 
+const NAVIGATION_MAP: Record<string, string> = {
+  'city manager': '/admin/city-manager',
+  'city-manager': '/admin/city-manager',
+  'citymanager': '/admin/city-manager',
+  'orders': '/admin/orders',
+  'products': '/admin/products',
+  'dashboard': '/admin',
+  'returns': '/admin/returns',
+  'claims': '/admin/returns',
+  'analytics': '/admin/analytics',
+  'customers': '/admin/customers',
+  'settings': '/admin/settings',
+  'promo': '/admin/promo-codes',
+  'promo codes': '/admin/promo-codes',
+  'ai voice': '/admin/ai/voice',
+  'bulk creator': '/admin/ai/bulk-creator',
+  'claim validator': '/admin/ai/claim-validator',
+  'size advisor': '/admin/ai/size-advisor',
+  'background enhancer': '/admin/ai/bg-enhancer',
+};
+
 export default function AdminAiVoice() {
+  const navigate = useNavigate();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [navAction, setNavAction] = useState<string | null>(null);
   const [commandHistory, setCommandHistory] = useState<any[]>(() => {
     try { return JSON.parse(localStorage.getItem('voice_command_history') || '[]'); } catch { return []; }
   });
@@ -89,8 +113,30 @@ export default function AdminAiVoice() {
     setIsListening(false);
   };
 
+  const tryNavigation = (command: string): boolean => {
+    const lower = command.toLowerCase();
+    const goToMatch = lower.match(/go\s+to\s+(.+)|navigate\s+to\s+(.+)|open\s+(.+)|show\s+me\s+(.+)/);
+    const target = (goToMatch?.[1] || goToMatch?.[2] || goToMatch?.[3] || goToMatch?.[4] || '').trim();
+    if (!target) return false;
+    for (const [key, path] of Object.entries(NAVIGATION_MAP)) {
+      if (target.includes(key)) {
+        setNavAction(path);
+        speakText(`Navigating to ${key}`);
+        toast({ title: `Navigating to ${key}` });
+        setTimeout(() => navigate(path), 1200);
+        return true;
+      }
+    }
+    return false;
+  };
+
   const processCommand = async (command: string) => {
     if (!command.trim()) return;
+    setNavAction(null);
+    if (tryNavigation(command)) {
+      setTranscript(command);
+      return;
+    }
     setProcessing(true);
     setResult(null);
 
@@ -256,6 +302,16 @@ Return ONLY valid JSON.`
 
         {/* Result + History */}
         <div className="lg:col-span-2 space-y-4">
+          {navAction && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 flex items-center gap-4">
+              <Navigation className="h-10 w-10 text-primary animate-pulse" />
+              <div>
+                <p className="font-bold text-base">Navigating...</p>
+                <p className="text-sm text-muted-foreground">{navAction}</p>
+              </div>
+            </div>
+          )}
+
           {result ? (
             <div className="bg-card rounded-xl border p-5 space-y-4">
               <div className="flex items-center justify-between">

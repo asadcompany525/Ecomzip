@@ -1,16 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Filter, Grid3X3, List, X } from 'lucide-react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Filter, Grid3X3, List, X, ArrowLeft, ShoppingCart, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/home/ProductCard';
-import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
+import { useCart } from '@/contexts/CartContext';
 import { Product } from '@/types/product';
 
 const mapDbProduct = (p: any): Product => ({
@@ -27,10 +28,14 @@ const mapDbProduct = (p: any): Product => ({
 });
 
 const Products = () => {
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { cartCount } = useCart();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get('category') || '';
   const initialSearch = searchParams.get('search') || '';
   const initialFilter = searchParams.get('filter') || '';
+  const [showHeaderSearch, setShowHeaderSearch] = useState(false);
+  const [headerSearchQuery, setHeaderSearchQuery] = useState('');
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
@@ -221,14 +226,45 @@ const Products = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
-      <main className="container py-5">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-          <Link to="/" className="hover:text-primary">Home</Link><span>/</span>
-          <span className="text-foreground">{selectedCategory || 'All Products'}</span>
-        </div>
+      {/* Compact Products Header — replaces main header on this page */}
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
+        <div className="container flex items-center gap-2 h-14">
+          <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
 
-        {/* Filter row — search handled by the global header */}
+          {showHeaderSearch ? (
+            <form className="flex-1 flex items-center gap-2" onSubmit={e => { e.preventDefault(); if (headerSearchQuery.trim()) { setSearchParams(p => { p.set('search', headerSearchQuery); return p; }); setShowHeaderSearch(false); } }}>
+              <Input
+                autoFocus
+                value={headerSearchQuery}
+                onChange={e => setHeaderSearchQuery(e.target.value)}
+                placeholder="Search products..."
+                className="h-8 text-sm flex-1"
+              />
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setShowHeaderSearch(false); setHeaderSearchQuery(''); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </form>
+          ) : (
+            <>
+              <span className="flex-1 font-semibold text-sm truncate">
+                {searchParams.get('search') ? `"${searchParams.get('search')}"` : selectedCategory || 'All Products'}
+              </span>
+              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setShowHeaderSearch(true)}>
+                <Search className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0" onClick={() => navigate('/cart')}>
+                <ShoppingCart className="h-5 w-5" />
+                {cartCount > 0 && <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{cartCount}</span>}
+              </Button>
+            </>
+          )}
+        </div>
+      </header>
+
+      <main className="container py-5">
+        {/* Filter row */}
         <div className="flex items-center gap-2 mb-4">
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
             <SheetTrigger asChild>

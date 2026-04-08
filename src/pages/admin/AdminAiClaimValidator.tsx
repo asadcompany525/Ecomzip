@@ -5,14 +5,12 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Shield, Loader2, CheckCircle, XCircle, AlertCircle, Upload } from 'lucide-react';
+import { Shield, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 export default function AdminAiClaimValidator() {
   const [returns, setReturns] = useState<any[]>([]);
   const [selectedReturn, setSelectedReturn] = useState<any>(null);
-  const [extraImages, setExtraImages] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
@@ -25,23 +23,6 @@ export default function AdminAiClaimValidator() {
     if (saved) setHistory(JSON.parse(saved));
   }, []);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    setUploading(true);
-    const urls: string[] = [...extraImages];
-    for (const file of Array.from(files)) {
-      const path = `claim-validator/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage.from('returns').upload(path, file);
-      if (!error) {
-        const { data } = supabase.storage.from('returns').getPublicUrl(path);
-        urls.push(data.publicUrl);
-      }
-    }
-    setExtraImages(urls);
-    setUploading(false);
-  };
-
   const validate = async () => {
     if (!selectedReturn) {
       toast({ title: 'Select a return request first', variant: 'destructive' });
@@ -50,10 +31,7 @@ export default function AdminAiClaimValidator() {
     setLoading(true);
     setResult(null);
     try {
-      const allImages = [
-        ...(selectedReturn.images || []),
-        ...extraImages,
-      ];
+      const allImages = selectedReturn.images || [];
 
       const claimPolicy = selectedReturn.products?.claim_policy ||
         'Standard: Manufacturing defects within 30 days qualify for claim. Normal wear and tear does not.';
@@ -194,21 +172,18 @@ Return ONLY valid JSON.`
               </div>
             )}
 
-            <div>
-              <Label className="text-sm">Add Additional Evidence Photos</Label>
-              <label className="mt-2 w-full border-2 border-dashed rounded-lg p-3 flex items-center justify-center gap-2 cursor-pointer hover:bg-accent text-sm text-muted-foreground">
-                <Upload className="h-4 w-4" /> Upload more photos
-                <input type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-              </label>
-              {uploading && <p className="text-xs text-muted-foreground mt-1">Uploading...</p>}
-              {extraImages.length > 0 && (
-                <div className="flex gap-2 flex-wrap mt-2">
-                  {extraImages.map((img, i) => (
-                    <img key={i} src={img} alt="" className="w-14 h-14 rounded object-cover border" />
+            {selectedReturn?.images?.length > 0 && (
+              <div className="bg-muted/20 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground font-medium mb-2">Customer's Submitted Evidence ({selectedReturn.images.length} photo{selectedReturn.images.length !== 1 ? 's' : ''}):</p>
+                <div className="flex gap-2 flex-wrap">
+                  {selectedReturn.images.map((img: string, i: number) => (
+                    <a key={i} href={img} target="_blank" rel="noopener">
+                      <img src={img} alt="" className="w-14 h-14 rounded object-cover border hover:opacity-80 transition" />
+                    </a>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <Button onClick={validate} disabled={loading || !selectedReturn} className="w-full gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}

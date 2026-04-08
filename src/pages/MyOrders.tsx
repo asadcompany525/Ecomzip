@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Truck, RotateCcw, XCircle, ShieldCheck } from 'lucide-react';
+import { Package, Truck, RotateCcw, XCircle, ShieldCheck, Camera, X as XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,6 +29,8 @@ const MyOrders = () => {
   const [cancelDialog, setCancelDialog] = useState<any>(null);
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [claimPhotos, setClaimPhotos] = useState<string[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -52,14 +54,33 @@ const MyOrders = () => {
     setReturnDialog(null); setReason(''); setSubmitting(false);
   };
 
+  const handleClaimPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    setUploadingPhoto(true);
+    const urls = [...claimPhotos];
+    for (const file of Array.from(files)) {
+      const path = `claims/${Date.now()}-${file.name}`;
+      const { error } = await supabase.storage.from('returns').upload(path, file);
+      if (!error) {
+        const { data } = supabase.storage.from('returns').getPublicUrl(path);
+        urls.push(data.publicUrl);
+      }
+    }
+    setClaimPhotos(urls);
+    setUploadingPhoto(false);
+  };
+
   const submitClaim = async () => {
     if (!reason.trim() || !claimDialog || !user) return;
     setSubmitting(true);
     await supabase.from('returns').insert({
-      order_id: claimDialog.id, user_id: user.id, reason: `CLAIM: ${reason.trim()}`,
+      order_id: claimDialog.id, user_id: user.id,
+      reason: `CLAIM: ${reason.trim()}`,
+      images: claimPhotos,
     });
-    toast({ title: 'Claim submitted!' });
-    setClaimDialog(null); setReason(''); setSubmitting(false);
+    toast({ title: 'Claim submitted!', description: claimPhotos.length > 0 ? `${claimPhotos.length} photo(s) attached` : undefined });
+    setClaimDialog(null); setReason(''); setClaimPhotos([]); setSubmitting(false);
   };
 
   const submitCancel = async () => {
@@ -163,15 +184,45 @@ const MyOrders = () => {
       </Dialog>
 
       {/* Claim Dialog */}
-      <Dialog open={!!claimDialog} onOpenChange={() => setClaimDialog(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Claim / Warranty</DialogTitle></DialogHeader>
+      <Dialog open={!!claimDialog} onOpenChange={() => { setClaimDialog(null); setReason(''); setClaimPhotos([]); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> File a Claim</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Order: {claimDialog?.order_number}</p>
-            <p className="text-xs text-muted-foreground">You can claim within 30 days of delivery.</p>
-            <div><Label>Describe the issue *</Label><Textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="What's wrong with the product?" className="mt-1" rows={3} /></div>
-            <Button onClick={submitClaim} disabled={submitting || !reason.trim()} className="w-full">
-              {submitting ? 'Submitting...' : 'Submit Claim'}
+            <div className="bg-muted/30 rounded-lg p-3 text-sm">
+              <p className="font-medium">{claimDialog?.order_number}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">You can claim within 30 days of delivery.</p>
+            </div>
+            <div>
+              <Label>Describe the issue *</Label>
+              <Textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="What's wrong? e.g. Sole came apart, wrong size delivered..." className="mt-1" rows={3} />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1.5"><Camera className="h-4 w-4" /> Attach Evidence Photos</Label>
+              <p className="text-xs text-muted-foreground mb-2">Photos of the defect help your claim get approved faster.</p>
+              <label className="flex items-center gap-2 border-2 border-dashed rounded-lg p-3 cursor-pointer hover:bg-accent text-sm text-muted-foreground transition-colors">
+                <Camera className="h-4 w-4" />
+                {uploadingPhoto ? 'Uploading...' : 'Tap to add photos'}
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handleClaimPhotoUpload} disabled={uploadingPhoto} />
+              </label>
+              {claimPhotos.length > 0 && (
+                <div className="flex gap-2 flex-wrap mt-2">
+                  {claimPhotos.map((img, i) => (
+                    <div key={i} className="relative">
+                      <img src={img} alt="" className="w-16 h-16 rounded-lg object-cover border" />
+                      <button
+                        onClick={() => setClaimPhotos(prev => prev.filter((_, j) => j !== i))}
+                        className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center"
+                      >
+                        <XIcon className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button onClick={submitClaim} disabled={submitting || !reason.trim() || uploadingPhoto} className="w-full gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              {submitting ? 'Submitting...' : `Submit Claim${claimPhotos.length > 0 ? ` (${claimPhotos.length} photo${claimPhotos.length > 1 ? 's' : ''})` : ''}`}
             </Button>
           </div>
         </DialogContent>

@@ -26,6 +26,8 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
   const [uploading, setUploading] = useState<number | null>(null);
   const [newSize, setNewSize] = useState('');
   const [customSizes, setCustomSizes] = useState<string[]>([]);
+  const [rangeStart, setRangeStart] = useState('');
+  const [rangeEnd, setRangeEnd] = useState('');
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
 
   // Merged sizes = default + custom (no duplicates)
@@ -36,12 +38,27 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
     if (!s) return;
     if (allSizes.includes(s)) { setNewSize(''); return; }
     setCustomSizes(prev => [...prev, s]);
-    // Add the new size to all existing variants with 0 stock
+    setVariants(prev => prev.map(v => ({ ...v, sizes: { ...v.sizes, [s]: 0 } })));
+    setNewSize('');
+  };
+
+  const generateSizeRange = () => {
+    const start = parseInt(rangeStart);
+    const end = parseInt(rangeEnd);
+    if (isNaN(start) || isNaN(end) || start > end || end - start > 50) return;
+    const generated: string[] = [];
+    for (let i = start; i <= end; i++) {
+      const s = String(i);
+      if (!allSizes.includes(s)) generated.push(s);
+    }
+    if (generated.length === 0) { setRangeStart(''); setRangeEnd(''); return; }
+    setCustomSizes(prev => [...prev, ...generated]);
     setVariants(prev => prev.map(v => ({
       ...v,
-      sizes: { ...v.sizes, [s]: 0 },
+      sizes: { ...v.sizes, ...Object.fromEntries(generated.map(s => [s, 0])) },
     })));
-    setNewSize('');
+    setRangeStart('');
+    setRangeEnd('');
   };
 
   const removeCustomSize = (size: string) => {
@@ -131,7 +148,32 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
         </div>
       </div>
 
-      {/* Add Size Row */}
+      {/* Size Range Input */}
+      <div className="flex items-center gap-2 flex-wrap bg-primary/5 border border-primary/20 rounded-lg p-2">
+        <span className="text-xs font-semibold text-primary">Auto Range:</span>
+        <Input
+          value={rangeStart}
+          onChange={e => setRangeStart(e.target.value)}
+          placeholder="Start (e.g. 16)"
+          className="h-7 w-24 text-xs"
+          type="number"
+        />
+        <span className="text-xs text-muted-foreground">to</span>
+        <Input
+          value={rangeEnd}
+          onChange={e => setRangeEnd(e.target.value)}
+          placeholder="End (e.g. 21)"
+          className="h-7 w-24 text-xs"
+          type="number"
+          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), generateSizeRange())}
+        />
+        <Button size="sm" onClick={generateSizeRange} className="h-7 px-3 gap-1 text-xs" disabled={!rangeStart || !rangeEnd}>
+          <Plus className="h-3 w-3" /> Generate Sizes
+        </Button>
+        <span className="text-[10px] text-muted-foreground">e.g. Kids: 16–21 · Men: 39–45</span>
+      </div>
+
+      {/* Add Single Size Row */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-medium text-muted-foreground">Sizes:</span>
         {defaultSizes.map(s => (
@@ -150,11 +192,11 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
             value={newSize}
             onChange={e => setNewSize(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomSize())}
-            placeholder="Add size..."
+            placeholder="Single size..."
             className="h-7 w-24 text-xs"
           />
           <Button size="sm" variant="outline" onClick={addCustomSize} className="h-7 px-2 gap-1">
-            <Plus className="h-3 w-3" /> Add Size
+            <Plus className="h-3 w-3" /> Add
           </Button>
         </div>
       </div>
