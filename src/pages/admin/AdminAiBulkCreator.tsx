@@ -1,11 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Upload, Loader2, Copy, Check, Link as LinkIcon } from 'lucide-react';
+import { Sparkles, Upload, Loader2, Check, X, Plus, Save, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const SIZE_PRESETS = {
@@ -15,290 +14,322 @@ const SIZE_PRESETS = {
   'Bags': ['Small','Medium','Large','XL'],
 };
 
+interface BatchItem {
+  id: string;
+  file: File;
+  preview: string;
+  uploadedUrl: string;
+  loading: boolean;
+  done: boolean;
+  error: string;
+  result: any;
+  price: number;
+  discount: number;
+  qtySizes: Record<string, number>;
+  expanded: boolean;
+}
+
 export default function AdminAiBulkCreator() {
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState('');
-  const [imagePreview, setImagePreview] = useState('');
-  const [linkUrl, setLinkUrl] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
+  const [items, setItems] = useState<BatchItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-    setImageUrl('');
+  const addFiles = (files: FileList | null) => {
+    if (!files) return;
+    const newItems: BatchItem[] = Array.from(files).slice(0, 20).map(file => ({
+      id: Math.random().toString(36).slice(2),
+      file,
+      preview: URL.createObjectURL(file),
+      uploadedUrl: '',
+      loading: false,
+      done: false,
+      error: '',
+      result: null,
+      price: 2500,
+      discount: 10,
+      qtySizes: { '39': 5, '40': 5, '41': 5, '42': 5, '43': 5, '44': 5, '45': 5 },
+      expanded: false,
+    }));
+    setItems(prev => [...prev, ...newItems].slice(0, 20));
   };
 
-  const uploadImage = async (): Promise<string | null> => {
-    if (!imageFile) return imageUrl || null;
-    const path = `ai-bulk/${Date.now()}-${imageFile.name}`;
-    const { error } = await supabase.storage.from('products').upload(path, imageFile);
-    if (error) return null;
-    const { data } = supabase.storage.from('products').getPublicUrl(path);
-    return data.publicUrl;
+  const removeItem = (id: string) => setItems(prev => prev.filter(i => i.id !== id));
+
+  const updateItem = (id: string, updates: Partial<BatchItem>) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
   };
 
-  const analyze = async () => {
-    if (!imagePreview && !imageUrl && !linkUrl) {
-      toast({ title: 'Please upload an image or paste a URL', variant: 'destructive' });
-      return;
-    }
-    setLoading(true);
-    setResult(null);
+  const updateQty = (id: string, size: string, qty: number) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, qtySizes: { ...i.qtySizes, [size]: qty } } : i));
+  };
+
+  const analyzeItem = async (item: BatchItem) => {
+    updateItem(item.id, { loading: true, error: '' });
     try {
-      let uploadedUrl = imageUrl;
-      if (imageFile) {
-        const url = await uploadImage();
-        if (url) { uploadedUrl = url; setImageUrl(url); }
+      let uploadedUrl = item.uploadedUrl;
+      if (!uploadedUrl) {
+        const path = `ai-bulk/${Date.now()}-${item.file.name}`;
+        const { error: uploadError } = await supabase.storage.from('products').upload(path, item.file);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from('products').getPublicUrl(path);
+        uploadedUrl = urlData.publicUrl;
+        updateItem(item.id, { uploadedUrl });
       }
 
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
           type: 'product-ai',
-          imageUrl: uploadedUrl || null,
+          imageUrl: uploadedUrl,
           messages: [{
             role: 'user',
-            content: `You are a Pakistani e-commerce product expert for a shoe and bag store called "Stopy Shoes".
-Analyze this product image/link and generate comprehensive product details.
-Product URL or context: ${linkUrl || 'N/A'}
-Image: ${uploadedUrl ? 'See attached image' : 'No image'}
+            content: `You are a Pakistani e-commerce product expert for "Stopy Shoes".
+Analyze this product image and generate complete product details.
+Image: ${uploadedUrl}
 
-Return a JSON object with exactly these fields:
+Return JSON only:
 {
-  "title": "Product name in English",
-  "titleUrdu": "Product name in Urdu",
-  "description": "30+ line detailed description covering material, comfort, style, use cases, care instructions, sizing guide",
-  "brand": "Brand name",
+  "title": "Product name",
+  "titleUrdu": "Urdu name",
+  "description": "30+ line description",
+  "brand": "Brand",
   "gender": "men|women|kids|unisex",
-  "category": "Category name",
-  "subCategory": "Sub-category",
-  "tags": ["tag1", "tag2", "tag3"],
+  "category": "Category",
+  "tags": ["tag1","tag2"],
   "suggestedPrice": 2500,
   "suggestedOriginalPrice": 3000,
   "suggestedDiscountPercent": 15,
   "productType": "shoes|bags",
-  "suggestedSizes": {
-    "Kids (16-25)": false,
-    "Men (39-45)": false,
-    "Women (36-41)": false,
-    "Bags": false
-  },
-  "suggestedColors": [
-    {"name": "Black", "hex": "#000000"},
-    {"name": "Brown", "hex": "#8B4513"}
-  ],
   "returnPolicy": "7 days return policy",
   "claimPolicy": "30 days warranty",
-  "highlights": ["Key feature 1", "Key feature 2", "Key feature 3"]
+  "highlights": ["Feature 1","Feature 2","Feature 3"]
 }
-
-For suggestedSizes, set the appropriate size range to true based on the product type and gender.
 Return ONLY valid JSON, no markdown.`
-          }],
-        },
+          }]
+        }
       });
-
       if (error) throw error;
-
       let parsed = data;
       if (typeof data === 'string') {
-        const jsonMatch = data.match(/\{[\s\S]*\}/);
-        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+        const m = data.match(/\{[\s\S]*\}/);
+        if (m) parsed = JSON.parse(m[0]);
       }
-      setResult(parsed);
-      toast({ title: '✨ AI analysis complete!' });
+      updateItem(item.id, { result: parsed, loading: false, done: true, price: parsed.suggestedPrice || 2500, discount: parsed.suggestedDiscountPercent || 10, expanded: true });
     } catch (e: any) {
-      toast({ title: 'AI Error', description: e.message, variant: 'destructive' });
+      updateItem(item.id, { loading: false, error: e.message || 'Failed' });
     }
-    setLoading(false);
   };
 
-  const saveToProducts = async () => {
-    if (!result) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase.from('products').insert({
-        title: result.title,
-        description: result.description,
-        brand: result.brand,
-        gender: result.gender,
-        price: result.suggestedPrice || 0,
-        original_price: result.suggestedOriginalPrice || null,
-        discount_percent: result.suggestedDiscountPercent || 0,
-        images: imageUrl ? [imageUrl] : [],
-        tags: result.tags || [],
-        return_policy: result.returnPolicy,
-        claim_policy: result.claimPolicy,
-        is_active: true,
-        sizes: result.productType === 'bags' ? SIZE_PRESETS['Bags'] :
-               result.gender === 'kids' ? SIZE_PRESETS['Kids (16-25)'] :
-               result.gender === 'women' ? SIZE_PRESETS['Women (36-41)'] :
-               SIZE_PRESETS['Men (39-45)'],
-      });
-      if (error) throw error;
-      toast({ title: '✅ Product saved to catalog!' });
-    } catch (e: any) {
-      toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
+  const analyzeAll = async () => {
+    const pending = items.filter(i => !i.done && !i.loading);
+    for (const item of pending) {
+      await analyzeItem(item);
     }
+    toast({ title: `AI Analysis complete!`, description: `${pending.length} products analyzed` });
+  };
+
+  const saveItem = async (item: BatchItem) => {
+    if (!item.result) return;
+    try {
+      const gender = item.result.gender;
+      const sizes = item.result.productType === 'bags' ? SIZE_PRESETS['Bags'] :
+        gender === 'kids' ? SIZE_PRESETS['Kids (16-25)'] :
+        gender === 'women' ? SIZE_PRESETS['Women (36-41)'] :
+        SIZE_PRESETS['Men (39-45)'];
+
+      const { data: prod, error } = await supabase.from('products').insert({
+        title: item.result.title,
+        description: item.result.description,
+        brand: item.result.brand,
+        gender: item.result.gender,
+        price: item.price,
+        original_price: item.price && item.discount ? Math.round(item.price / (1 - item.discount / 100)) : null,
+        discount_percent: item.discount,
+        images: item.uploadedUrl ? [item.uploadedUrl] : [],
+        tags: item.result.tags || [],
+        return_policy: item.result.returnPolicy,
+        claim_policy: item.result.claimPolicy,
+        is_active: true,
+        sizes,
+        stock: Object.values(item.qtySizes).reduce((a, b) => a + b, 0),
+      }).select('id').single();
+      if (error) throw error;
+
+      if (prod && Object.keys(item.qtySizes).length > 0) {
+        const variants = Object.entries(item.qtySizes).filter(([_, qty]) => qty > 0).map(([size, stock]) => ({
+          product_id: prod.id,
+          size,
+          stock,
+          price_override: null,
+        }));
+        if (variants.length > 0) await supabase.from('product_variants').insert(variants);
+      }
+      return true;
+    } catch (e: any) {
+      toast({ title: `Failed to save ${item.result?.title}`, description: e.message, variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const saveAll = async () => {
+    const ready = items.filter(i => i.done && i.result);
+    if (ready.length === 0) { toast({ title: 'No analyzed products to save', variant: 'destructive' }); return; }
+    setSaving(true);
+    setSavedCount(0);
+    let saved = 0;
+    for (const item of ready) {
+      const ok = await saveItem(item);
+      if (ok) saved++;
+      setSavedCount(saved);
+    }
+    toast({ title: `✅ ${saved} products saved to catalog!` });
     setSaving(false);
   };
 
-  const copyJson = () => {
-    navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const doneCount = items.filter(i => i.done).length;
+  const pendingCount = items.filter(i => !i.done && !i.loading).length;
+  const loadingCount = items.filter(i => i.loading).length;
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" /> AI Bulk Product Creator
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Upload a product image or paste a URL — AI generates complete product details including name, description, category, tags, and suggested sizes.
-        </p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" /> AI Bulk Product Creator
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">Upload 1–20 product images. AI generates details for each. Set price, discount & stock per size in one view.</p>
+        </div>
+        <div className="flex gap-2">
+          {items.length > 0 && (
+            <>
+              <Button variant="outline" onClick={analyzeAll} disabled={pendingCount === 0 || loadingCount > 0}>
+                {loadingCount > 0 ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzing {loadingCount}...</> : <><Sparkles className="h-4 w-4 mr-2" />Analyze All ({pendingCount})</>}
+              </Button>
+              <Button onClick={saveAll} disabled={saving || doneCount === 0}>
+                {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving {savedCount}/{doneCount}...</> : <><Save className="h-4 w-4 mr-2" />Save All ({doneCount})</>}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Input Panel */}
-        <div className="space-y-4">
-          <div className="bg-card rounded-xl border p-4 space-y-4">
-            <Label className="text-base font-semibold">📷 Product Image</Label>
-            <div className="border-2 border-dashed rounded-xl p-6 text-center">
-              {imagePreview ? (
-                <div className="relative inline-block">
-                  <img src={imagePreview} alt="Preview" className="max-h-40 rounded-lg object-cover mx-auto" />
-                  <button onClick={() => { setImageFile(null); setImagePreview(''); }}
-                    className="absolute -top-2 -right-2 bg-destructive text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">×</button>
-                </div>
-              ) : (
-                <label className="cursor-pointer">
-                  <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Click to upload product image</p>
-                  <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP</p>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-                </label>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm flex items-center gap-1"><LinkIcon className="h-3.5 w-3.5" />OR paste image/product URL</Label>
-              <Input
-                value={linkUrl}
-                onChange={e => setLinkUrl(e.target.value)}
-                placeholder="https://example.com/product or image URL..."
-              />
-            </div>
-
-            <Button onClick={analyze} disabled={loading} className="w-full gap-2">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {loading ? 'AI Analyzing...' : 'Generate Product Details with AI'}
-            </Button>
-          </div>
-
-          {/* Size Presets Info */}
-          <div className="bg-muted/30 rounded-xl p-4 space-y-2">
-            <Label className="text-sm font-semibold">📐 Size Ranges</Label>
-            <div className="space-y-1.5">
-              {Object.entries(SIZE_PRESETS).map(([label, sizes]) => (
-                <div key={label} className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-muted-foreground w-28">{label}:</span>
-                  <div className="flex gap-1 flex-wrap">
-                    {sizes.map(s => <Badge key={s} variant="outline" className="text-[10px] py-0 px-1.5">{s}</Badge>)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* Stats Bar */}
+      {items.length > 0 && (
+        <div className="flex gap-4 p-3 bg-muted/50 rounded-xl text-sm flex-wrap">
+          <span>Total: <strong>{items.length}</strong></span>
+          <span className="text-muted-foreground">|</span>
+          <span>Analyzed: <strong className="text-green-600">{doneCount}</strong></span>
+          <span className="text-muted-foreground">|</span>
+          <span>Pending: <strong className="text-orange-600">{pendingCount}</strong></span>
+          {loadingCount > 0 && <><span className="text-muted-foreground">|</span><span>Processing: <strong className="text-blue-600">{loadingCount}</strong></span></>}
         </div>
+      )}
 
-        {/* Result Panel */}
+      {/* Upload Zone */}
+      <div
+        className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:border-primary transition-colors"
+        onClick={() => fileInputRef.current?.click()}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+      >
+        <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+        <p className="font-medium">Drop images here or click to upload</p>
+        <p className="text-sm text-muted-foreground mt-1">JPG, PNG, WebP · Up to 20 images at once</p>
+        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={e => addFiles(e.target.files)} />
+        <Button variant="outline" className="mt-3" onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+          <Plus className="h-4 w-4 mr-2" />Add More Images
+        </Button>
+      </div>
+
+      {/* Batch Items Grid */}
+      {items.length > 0 && (
         <div className="space-y-4">
-          {result ? (
-            <div className="bg-card rounded-xl border p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">✨ AI Generated Details</Label>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={copyJson} className="gap-1">
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    {copied ? 'Copied!' : 'Copy JSON'}
-                  </Button>
-                  <Button size="sm" onClick={saveToProducts} disabled={saving} className="gap-1">
-                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                    {saving ? 'Saving...' : 'Save to Products'}
-                  </Button>
+          {items.map((item, idx) => (
+            <div key={item.id} className={`border rounded-xl overflow-hidden ${item.done ? 'border-green-200' : item.error ? 'border-red-200' : 'border-border'}`}>
+              <div className="flex items-center gap-3 p-3 bg-muted/30">
+                <img src={item.preview} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{item.result?.title || item.file.name}</p>
+                  <p className="text-xs text-muted-foreground">Item {idx + 1} of {items.length}</p>
+                  {item.error && <p className="text-xs text-red-600 mt-0.5">{item.error}</p>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {item.done ? (
+                    <Badge variant="default" className="bg-green-600 text-white text-xs"><Check className="h-3 w-3 mr-1" />Analyzed</Badge>
+                  ) : item.loading ? (
+                    <Badge variant="secondary" className="text-xs"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Analyzing...</Badge>
+                  ) : item.error ? (
+                    <Button size="sm" variant="outline" onClick={() => analyzeItem(item)} className="text-xs h-7">Retry</Button>
+                  ) : (
+                    <Button size="sm" onClick={() => analyzeItem(item)} className="text-xs h-7">
+                      <Sparkles className="h-3 w-3 mr-1" />Analyze
+                    </Button>
+                  )}
+                  {item.done && (
+                    <button onClick={() => updateItem(item.id, { expanded: !item.expanded })} className="text-muted-foreground hover:text-foreground p-1">
+                      {item.expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                  )}
+                  <button onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-destructive p-1"><X className="h-4 w-4" /></button>
                 </div>
               </div>
 
-              <div className="space-y-3 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">Title</p>
-                  <p className="font-semibold">{result.title}</p>
-                  {result.titleUrdu && <p className="text-muted-foreground text-xs" dir="rtl">{result.titleUrdu}</p>}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><p className="text-xs text-muted-foreground">Brand</p><p className="font-medium">{result.brand}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Gender</p><p className="font-medium capitalize">{result.gender}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Category</p><p className="font-medium">{result.category}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Product Type</p><p className="font-medium capitalize">{result.productType}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Selling Price</p><p className="font-bold text-primary">Rs. {result.suggestedPrice?.toLocaleString()}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Original Price</p><p className="font-medium line-through text-muted-foreground">Rs. {result.suggestedOriginalPrice?.toLocaleString()}</p></div>
-                </div>
-
-                {result.highlights?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Key Highlights</p>
-                    <ul className="space-y-0.5">
-                      {result.highlights.map((h: string, i: number) => (
-                        <li key={i} className="text-xs flex items-start gap-1"><span className="text-primary">•</span>{h}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {result.tags?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Tags</p>
-                    <div className="flex flex-wrap gap-1">
-                      {result.tags.map((t: string) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
+              {item.done && item.expanded && item.result && (
+                <div className="p-4 space-y-4 border-t">
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2 space-y-3">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div><p className="text-xs text-muted-foreground">Title</p><p className="font-semibold">{item.result.title}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Brand</p><p>{item.result.brand}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Gender</p><p className="capitalize">{item.result.gender}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Category</p><p>{item.result.category}</p></div>
+                      </div>
+                      {item.result.highlights?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Highlights</p>
+                          <ul className="space-y-0.5">{item.result.highlights.map((h: string, i: number) => <li key={i} className="text-xs">• {h}</li>)}</ul>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">Selling Price (Rs.)</Label>
+                        <Input type="number" value={item.price} onChange={e => updateItem(item.id, { price: Number(e.target.value) })} className="h-8 text-sm mt-0.5" />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Discount (%)</Label>
+                        <Input type="number" value={item.discount} min={0} max={90} onChange={e => updateItem(item.id, { discount: Number(e.target.value) })} className="h-8 text-sm mt-0.5" />
+                      </div>
+                      <Button size="sm" className="w-full text-xs" onClick={() => saveItem(item).then(ok => ok && toast({ title: 'Saved!' }))}>
+                        <Save className="h-3 w-3 mr-1.5" />Save This Product
+                      </Button>
                     </div>
                   </div>
-                )}
 
-                {result.suggestedColors?.length > 0 && (
+                  {/* Size Stock Grid */}
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Suggested Colors</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {result.suggestedColors.map((c: any) => (
-                        <div key={c.name} className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full border" style={{ background: c.hex }} />
-                          <span className="text-xs">{c.name}</span>
+                    <p className="text-sm font-medium mb-2">Quantity per Size</p>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(item.qtySizes).map(([size, qty]) => (
+                        <div key={size} className="flex flex-col items-center gap-0.5">
+                          <span className="text-xs font-medium text-muted-foreground">{size}</span>
+                          <Input type="number" value={qty} min={0} onChange={e => updateQty(item.id, size, Number(e.target.value))} className="w-16 h-8 text-center text-sm p-1" />
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
-
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Description Preview</p>
-                  <p className="text-xs text-muted-foreground line-clamp-4 leading-relaxed">{result.description}</p>
                 </div>
-              </div>
+              )}
             </div>
-          ) : (
-            <div className="bg-muted/20 rounded-xl border-2 border-dashed p-12 text-center text-muted-foreground">
-              <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">AI generated product details will appear here</p>
-              <p className="text-xs mt-1">Upload an image and click Generate</p>
-            </div>
-          )}
+          ))}
         </div>
-      </div>
+      )}
+
+      {items.length === 0 && (
+        <div className="text-center py-6 text-muted-foreground text-sm">
+          <p>Start by uploading product images above</p>
+        </div>
+      )}
     </div>
   );
 }

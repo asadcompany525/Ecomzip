@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 
 const AdminSettings = () => {
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
@@ -18,6 +19,8 @@ const AdminSettings = () => {
   const [returnPolicy, setReturnPolicy] = useState({ title: 'Return Policy', content: '', days: 7 });
   const [faqPage, setFaqPage] = useState({ title: 'FAQs', items: '[]' });
   const [adminCreds, setAdminCreds] = useState({ email: '', password: '' });
+  const [resetting, setResetting] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState('');
   const [receipt, setReceipt] = useState<any>({ 
     shop_name: 'STOPY SHOES', tagline: "Pakistan's #1 Shoes & Bags Store",
     contact_line: 'support@stopyshoes.pk | +92 300 1234567',
@@ -54,6 +57,29 @@ const AdminSettings = () => {
     toast({ title: `${key} settings saved!` });
   };
 
+  const productionReset = async () => {
+    if (resetConfirm !== 'RESET') {
+      toast({ title: 'Type RESET to confirm', variant: 'destructive' });
+      return;
+    }
+    setResetting(true);
+    try {
+      await supabase.from('order_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('reviews').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('returns').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('chat_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('chat_conversations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('stock_alerts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('ai_discount_suggestions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      toast({ title: '✅ Production Reset Complete', description: 'All test/dummy data has been wiped. Store is ready for launch.' });
+      setResetConfirm('');
+    } catch (e: any) {
+      toast({ title: 'Reset failed', description: e.message, variant: 'destructive' });
+    }
+    setResetting(false);
+  };
+
   const updateAdminPassword = async () => {
     if (!adminCreds.email || !adminCreds.password) {
       toast({ title: 'Email and password required', variant: 'destructive' });
@@ -78,6 +104,7 @@ const AdminSettings = () => {
           <TabsTrigger value="receipt">Receipt</TabsTrigger>
           <TabsTrigger value="pages">Pages</TabsTrigger>
           <TabsTrigger value="admin">Admin</TabsTrigger>
+          <TabsTrigger value="reset" className="text-destructive">Production Reset</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
@@ -225,6 +252,38 @@ const AdminSettings = () => {
               <div><Label>New Email</Label><Input type="email" value={adminCreds.email} onChange={e => setAdminCreds(p => ({ ...p, email: e.target.value }))} /></div>
               <div><Label>New Password</Label><Input type="password" value={adminCreds.password} onChange={e => setAdminCreds(p => ({ ...p, password: e.target.value }))} /></div>
               <Button onClick={updateAdminPassword} variant="destructive">Update Admin Credentials</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reset" className="space-y-4">
+          <Card className="border-destructive">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" /> Production Reset
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+                <p className="font-semibold text-red-800">⚠️ Warning: This is irreversible!</p>
+                <p className="text-sm text-red-700">This will permanently delete all:</p>
+                <ul className="text-sm text-red-700 space-y-0.5 ml-4 list-disc">
+                  <li>All orders & order items</li>
+                  <li>All customer reviews</li>
+                  <li>All return requests</li>
+                  <li>All chat conversations & messages</li>
+                  <li>All stock alerts</li>
+                  <li>All AI suggestions</li>
+                </ul>
+                <p className="text-sm text-red-700 mt-2"><strong>Products, categories, banners, and settings will NOT be deleted.</strong></p>
+              </div>
+              <div className="space-y-2">
+                <Label>Type <span className="font-mono font-bold">RESET</span> to confirm</Label>
+                <Input value={resetConfirm} onChange={e => setResetConfirm(e.target.value)} placeholder="Type RESET here" className="border-destructive max-w-xs" />
+              </div>
+              <Button variant="destructive" onClick={productionReset} disabled={resetting || resetConfirm !== 'RESET'} className="gap-2">
+                {resetting ? <><Loader2 className="h-4 w-4 animate-spin" />Resetting...</> : <><Trash2 className="h-4 w-4" />Wipe Test Data & Launch</>}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

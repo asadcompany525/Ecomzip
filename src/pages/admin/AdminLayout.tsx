@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, Image, Tag, Settings, LogOut, Menu, X,
-  BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard, TrendingUp, Truck, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe, ImagePlus, Wand2, Shield, Ruler, Mic
+  BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard, TrendingUp, Truck, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe, ImagePlus, Mic, Shield, DollarSign, Megaphone, ThumbsUp, UserCog
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ const sidebarItems = [
   { icon: CreditCard, label: 'Payments', path: '/admin/payments' },
   { icon: Wallet, label: 'Payment Methods', path: '/admin/payment-methods' },
   { icon: Users, label: 'Customers', path: '/admin/customers' },
+  { icon: UserCog, label: 'Staff Management', path: '/admin/staff' },
   { icon: Image, label: 'Banners', path: '/admin/banners' },
   { icon: Ticket, label: 'Promo Codes', path: '/admin/promos' },
   { icon: Star, label: 'Reviews', path: '/admin/reviews' },
@@ -34,9 +35,11 @@ const sidebarItems = [
   { icon: Globe, label: 'AI Site Manager', path: '/admin/ai-site-manager' },
   { icon: ImagePlus, label: 'AI Banner Creator', path: '/admin/ai-banner-creator' },
   { icon: Sparkles, label: 'AI Bulk Creator', path: '/admin/ai-bulk-creator' },
-  { icon: Shield, label: 'AI Claim Validator', path: '/admin/ai-claim-validator' },
-  { icon: Ruler, label: 'AI Size Advisor', path: '/admin/ai-size-advisor' },
-  { icon: Wand2, label: 'AI Bg Enhancer', path: '/admin/ai-bg-enhancer' },
+  { icon: Shield, label: 'AI Fraud Detector', path: '/admin/ai-fraud-detector' },
+  { icon: TrendingUp, label: 'AI Sales Predictor', path: '/admin/ai-sales-predictor' },
+  { icon: Megaphone, label: 'AI Marketing Hub', path: '/admin/ai-marketing-hub' },
+  { icon: ThumbsUp, label: 'AI Feedback Analyzer', path: '/admin/ai-feedback-analyzer' },
+  { icon: DollarSign, label: 'AI Price Intelligence', path: '/admin/ai-price-intelligence' },
   { icon: Mic, label: 'AI Voice Dashboard', path: '/admin/ai-voice' },
   { icon: PackageSearch, label: 'Inventory Insights', path: '/admin/inventory' },
   { icon: FileText, label: 'Activity Log', path: '/admin/activity' },

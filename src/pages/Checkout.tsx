@@ -316,6 +316,17 @@ const Checkout = () => {
     if (!fullName || !phone || !province || !city || !area || !fullAddress) { toast({ title: 'Fill all address fields', variant: 'destructive' }); return; }
     if (paymentMethod !== 'cod' && !transactionId) { toast({ title: 'Enter transaction ID', variant: 'destructive' }); return; }
 
+    // Check account verification
+    const { data: otpData } = await supabase
+      .from('otp_verifications')
+      .select('verified')
+      .eq('email', user.email?.toLowerCase() || '')
+      .maybeSingle();
+    if (otpData && !otpData.verified) {
+      toast({ title: 'Account Not Verified', description: 'Please verify your email before placing an order. Check your inbox for the OTP.', variant: 'destructive' });
+      return;
+    }
+
     setLoading(true);
     try {
       if (saveAddress) {

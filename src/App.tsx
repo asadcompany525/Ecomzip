@@ -60,10 +60,13 @@ import AdminInventoryInsights from "./pages/admin/AdminInventoryInsights";
 import AdminAiSiteManager from "./pages/admin/AdminAiSiteManager";
 import AdminAiBannerCreator from "./pages/admin/AdminAiBannerCreator";
 import AdminAiBulkCreator from "./pages/admin/AdminAiBulkCreator";
-import AdminAiClaimValidator from "./pages/admin/AdminAiClaimValidator";
-import AdminAiSizeAdvisor from "./pages/admin/AdminAiSizeAdvisor";
-import AdminAiBgEnhancer from "./pages/admin/AdminAiBgEnhancer";
 import AdminAiVoice from "./pages/admin/AdminAiVoice";
+import AdminStaff from "./pages/admin/AdminStaff";
+import AdminAiFraudDetector from "./pages/admin/AdminAiFraudDetector";
+import AdminAiSalesPredictor from "./pages/admin/AdminAiSalesPredictor";
+import AdminAiMarketingHub from "./pages/admin/AdminAiMarketingHub";
+import AdminAiFeedbackAnalyzer from "./pages/admin/AdminAiFeedbackAnalyzer";
+import AdminAiPriceIntelligence from "./pages/admin/AdminAiPriceIntelligence";
 import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
@@ -119,6 +122,7 @@ const App = () => (
                 <Route path="payment-methods" element={<AdminPaymentMethods />} />
                 <Route path="today-orders" element={<AdminTodayOrders />} />
                 <Route path="customers" element={<AdminCustomers />} />
+                <Route path="staff" element={<AdminStaff />} />
                 <Route path="banners" element={<AdminBanners />} />
                 <Route path="promos" element={<AdminPromos />} />
                 <Route path="reviews" element={<AdminReviews />} />
@@ -136,9 +140,11 @@ const App = () => (
                 <Route path="ai-site-manager" element={<AdminAiSiteManager />} />
                 <Route path="ai-banner-creator" element={<AdminAiBannerCreator />} />
                 <Route path="ai-bulk-creator" element={<AdminAiBulkCreator />} />
-                <Route path="ai-claim-validator" element={<AdminAiClaimValidator />} />
-                <Route path="ai-size-advisor" element={<AdminAiSizeAdvisor />} />
-                <Route path="ai-bg-enhancer" element={<AdminAiBgEnhancer />} />
+                <Route path="ai-fraud-detector" element={<AdminAiFraudDetector />} />
+                <Route path="ai-sales-predictor" element={<AdminAiSalesPredictor />} />
+                <Route path="ai-marketing-hub" element={<AdminAiMarketingHub />} />
+                <Route path="ai-feedback-analyzer" element={<AdminAiFeedbackAnalyzer />} />
+                <Route path="ai-price-intelligence" element={<AdminAiPriceIntelligence />} />
                 <Route path="ai-voice" element={<AdminAiVoice />} />
                 <Route path="inventory" element={<AdminInventoryInsights />} />
                 <Route path="activity" element={<AdminActivity />} />

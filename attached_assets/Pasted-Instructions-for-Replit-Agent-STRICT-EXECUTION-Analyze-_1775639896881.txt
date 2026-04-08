@@ -1,0 +1,62 @@
+Instructions for Replit Agent (STRICT EXECUTION):
+Analyze the extracted codebase and database schema. Implement the following features and fixes. Do not skip any module.
+
+1. Core DB, Inventory & Media Fixes:
+
+Force Delete: Execute a hard delete for the 3 stuck products in the DB.
+
+Stock Sync: In ProductDetail.tsx, fetch exact quantity from the ProductVariant table. Ensure UI updates dynamically.
+
+Video Support: Enable .mp4 and .mov playback in the Product Gallery using a <video> tag (autoplay, muted, loop).
+
+2. Security & User Verification (OTP):
+
+Account Verification: Implement OTP (4-digit code) via Email/SMS during signup.
+
+Strict Access: Users cannot place orders until their account is verified.
+
+3. User Experience & Size AI:
+
+Find My Size: AI Suggestion dialog (Photo upload OR Width/Height input).
+
+Order Tracking (Public): Create /track-order page with a visual progress bar.
+
+Photo Reviews: Allow customers to upload photos with their reviews.
+
+4. AI Bulk Creator (Unlimited Mode):
+
+Support 10-20+ multi-upload.
+
+Admin Grid: Admin sets Price, Discount, and Qty per Size for the entire batch in one view.
+
+5. New Admin & Staff Management:
+
+Staff Roles: Create pages for Manager, Support, and Delivery roles.
+
+Live Chat Dashboard: Staff can reply to customers in real-time. Admin can monitor all chats.
+
+Shipping Manager: Set city-wise delivery rates (e.g., Sargodha: 100, Karachi: 250).
+
+6. 5 Advanced AI Automation Pages:
+
+AI Fraud Detector: Flag fake orders using Blacklist, Invalid Phone logic, Short Address detection, IP tracking, and Large Order alerts.
+
+AI Sales Predictor: Stock suggestions based on trends.
+
+AI Marketing Hub: Auto-generate viral social media captions & SEO descriptions.
+
+AI Feedback Analyzer: Summarize reviews into Pros/Cons.
+
+AI Price Intelligence: Compare pricing with market trends.
+
+7. Voice Control & Production Reset:
+
+Admin Voice Control: Commands like "Go to [Page]", "Show today's sales", "Clear data".
+
+Production Reset: A single button to wipe all test/dummy data for a clean launch.
+
+8. Cleanup: > * Delete standalone: AI BG Enhancer, AI Size Adviser (Admin version), and AI Claim Validator page.
+
+Save all AI history in chat_history.
+
+Report once all modules are synchronized and database integrity is verified.

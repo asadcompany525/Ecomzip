@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit, Trash2, Search, Upload, Sparkles, Loader2, Video } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Upload, Sparkles, Loader2, Video, ShieldAlert } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
@@ -322,7 +322,6 @@ const AdminProducts = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this product?')) return;
-    // Save product code to deleted_product_codes to prevent future reuse
     const product = products.find(p => p.id === id);
     if (product) {
       const code = (product.tags as string[])?.[0];
@@ -331,8 +330,35 @@ const AdminProducts = () => {
       }
     }
     await supabase.from('product_variants').delete().eq('product_id', id);
-    await supabase.from('products').delete().eq('id', id);
-    toast({ title: 'Product deleted' });
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Cannot delete', description: 'Product has linked orders. Use Force Delete.', variant: 'destructive' });
+    } else {
+      toast({ title: 'Product deleted' });
+    }
+    fetchProducts();
+  };
+
+  const handleForceDelete = async (id: string) => {
+    if (!confirm('FORCE DELETE: This will remove the product and nullify all linked order references. Continue?')) return;
+    const product = products.find(p => p.id === id);
+    if (product) {
+      const code = (product.tags as string[])?.[0];
+      if (code) {
+        await supabase.from('deleted_product_codes').upsert({ code, product_title: product.title }, { onConflict: 'code' });
+      }
+    }
+    await supabase.from('order_items').update({ product_id: null, variant_id: null }).eq('product_id', id);
+    await supabase.from('reviews').delete().eq('product_id', id);
+    await supabase.from('stock_alerts').delete().eq('product_id', id);
+    await supabase.from('ai_discount_suggestions').delete().eq('product_id', id);
+    await supabase.from('product_variants').delete().eq('product_id', id);
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Force delete failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Product force deleted successfully' });
+    }
     fetchProducts();
   };
 
@@ -663,8 +689,11 @@ const AdminProducts = () => {
                     <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(p.id)}>
+                    <Button size="icon" variant="ghost" className="text-destructive" title="Delete" onClick={() => handleDelete(p.id)}>
                       <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="text-orange-600 hover:text-orange-800 hover:bg-orange-100" title="Force Delete (removes linked orders)" onClick={() => handleForceDelete(p.id)}>
+                      <ShieldAlert className="h-4 w-4" />
                     </Button>
                   </div>
                 </td>
