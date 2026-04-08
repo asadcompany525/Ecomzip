@@ -23,9 +23,8 @@ const CategoryGrid = () => {
         {categories.map((cat, i) => (
           <motion.div key={cat.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Link to={`/products?category=${cat.name}`}
-              className="flex flex-col items-center gap-2 p-3 rounded-xl bg-card hover:shadow-md hover:scale-105 transition-all group border">
-              <span className="text-3xl md:text-4xl group-hover:scale-110 transition-transform">{cat.icon || '📁'}</span>
-              <span className="text-[11px] md:text-xs font-medium text-center leading-tight">{cat.name}</span>
+              className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-card hover:shadow-md hover:scale-105 transition-all group border min-h-[56px]">
+              <span className="text-[11px] md:text-xs font-semibold text-center leading-tight">{cat.name}</span>
             </Link>
           </motion.div>
         ))}

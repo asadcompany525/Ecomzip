@@ -11,6 +11,57 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { messages, type, imageUrl, message, history } = body;
+
+    // Handle OTP email separately — uses Resend (free email API)
+    if (type === "send-otp-email") {
+      const { email, otp, name } = body;
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      const htmlBody = `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border:1px solid #eee">
+          <div style="text-align:center;margin-bottom:24px">
+            <h2 style="color:#f97316;margin:0">Stopy Shoes</h2>
+            <p style="color:#666;font-size:13px;margin:4px 0">Pakistan's #1 Shoes & Bags Store</p>
+          </div>
+          <p style="font-size:15px;color:#333">Hi <strong>${name || 'there'}</strong>,</p>
+          <p style="font-size:14px;color:#555">Your one-time verification code is:</p>
+          <div style="text-align:center;margin:24px 0">
+            <span style="display:inline-block;background:#f97316;color:#fff;font-size:36px;font-weight:bold;letter-spacing:10px;padding:14px 28px;border-radius:10px">${otp}</span>
+          </div>
+          <p style="font-size:13px;color:#888">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
+          <p style="font-size:12px;color:#aaa;text-align:center">Stopy Shoes — stopychoices.com</p>
+        </div>`;
+
+      if (RESEND_API_KEY) {
+        const emailRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: "Stopy Shoes <noreply@stopychoices.com>",
+            to: [email],
+            subject: `${otp} — Your Stopy Shoes Verification Code`,
+            html: htmlBody,
+          }),
+        });
+        const emailResult = await emailRes.json();
+        if (!emailRes.ok) {
+          console.error("Resend error:", emailResult);
+          return new Response(JSON.stringify({ error: "Email delivery failed", detail: emailResult }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ success: true, id: emailResult.id }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } else {
+        // No email service configured — log OTP for debugging
+        console.log(`[OTP] To: ${email} | Code: ${otp} | (Set RESEND_API_KEY env var to enable real email delivery)`);
+        return new Response(JSON.stringify({ success: true, debug: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 

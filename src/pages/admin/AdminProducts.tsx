@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { utcToPKTInput, pktInputToUtcIso, logTimezoneSync } from '@/lib/pkt';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -87,7 +88,7 @@ const AdminProducts = () => {
     setCategories((data || []) as Category[]);
   };
 
-  useEffect(() => { fetchProducts(); fetchCategories(); }, []);
+  useEffect(() => { fetchProducts(); fetchCategories(); logTimezoneSync(); }, []);
 
   const getSizesForProduct = () => {
     if (form.product_type === 'bags') return bagSizes;
@@ -234,7 +235,7 @@ const AdminProducts = () => {
       is_active: form.is_active,
       is_flash_sale: form.discount_type === 'flash_sale',
       is_new_arrival: form.is_new_arrival,
-      flash_sale_ends: form.discount_type === 'flash_sale' && form.flash_sale_ends ? form.flash_sale_ends : null,
+      flash_sale_ends: form.discount_type === 'flash_sale' && form.flash_sale_ends ? pktInputToUtcIso(form.flash_sale_ends) : null,
       images: form.images,
       video_url: form.video_url || null,
       brand: form.brand || null,
@@ -292,7 +293,7 @@ const AdminProducts = () => {
       original_price: product.original_price,
       discount_percent: product.discount_percent || 0,
       discount_type: product.is_flash_sale ? 'flash_sale' : (product.discount_percent > 0 ? 'discount' : 'none'),
-      flash_sale_ends: product.flash_sale_ends || '',
+      flash_sale_ends: utcToPKTInput(product.flash_sale_ends || ''),
       category_id: product.category_id,
       sub_category_id: product.sub_category_id,
       sub_sub_category_id: product.sub_sub_category_id,

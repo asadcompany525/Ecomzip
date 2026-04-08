@@ -31,6 +31,18 @@ const MyOrders = () => {
   const [submitting, setSubmitting] = useState(false);
   const [claimPhotos, setClaimPhotos] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [returnDays, setReturnDays] = useState(7);
+  const [claimDays, setClaimDays] = useState(30);
+
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'return_policy').maybeSingle().then(({ data }) => {
+      if (data?.value && typeof data.value === 'object') {
+        const v = data.value as any;
+        if (v.days) setReturnDays(Number(v.days));
+        if (v.claim_days) setClaimDays(Number(v.claim_days));
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -92,16 +104,27 @@ const MyOrders = () => {
     setCancelDialog(null); setSubmitting(false);
   };
 
-  // Check if order is within return/claim window
-  const canReturn = (order: any) => ['delivered', 'received'].includes(order.status);
+  // 24h cancel window from creation
+  const canCancel = (order: any) => {
+    if (!['pending', 'confirmed'].includes(order.status)) return false;
+    const created = new Date(order.created_at);
+    const hoursDiff = (Date.now() - created.getTime()) / (1000 * 60 * 60);
+    return hoursDiff <= 24;
+  };
+  // Configurable return window (default 7 days from admin settings)
+  const canReturn = (order: any) => {
+    if (!['delivered', 'received'].includes(order.status)) return false;
+    const delivered = new Date(order.updated_at);
+    const daysDiff = (Date.now() - delivered.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff <= returnDays;
+  };
+  // Configurable claim window (default 30 days from admin settings)
   const canClaim = (order: any) => {
     if (!['delivered', 'received'].includes(order.status)) return false;
     const delivered = new Date(order.updated_at);
-    const now = new Date();
-    const daysDiff = (now.getTime() - delivered.getTime()) / (1000 * 60 * 60 * 24);
-    return daysDiff <= 30; // 30 day claim window
+    const daysDiff = (Date.now() - delivered.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff <= claimDays;
   };
-  const canCancel = (order: any) => ['pending', 'confirmed'].includes(order.status);
 
   if (!user) return <div className="min-h-screen bg-background"><Header /><div className="container py-20 text-center"><p>Please <Link to="/login" className="text-primary underline">login</Link> to view orders.</p></div><BottomNav /></div>;
 
@@ -147,11 +170,14 @@ const MyOrders = () => {
                 
                 {/* Action buttons */}
                 <div className="flex gap-2 flex-wrap pt-2 border-t">
-                  {canCancel(order) && (
-                    <Button size="sm" variant="outline" className="text-destructive gap-1" onClick={() => setCancelDialog(order)}>
-                      <XCircle className="h-3 w-3" /> Cancel
-                    </Button>
-                  )}
+                  {canCancel(order) && (() => {
+                    const hoursLeft = 24 - (Date.now() - new Date(order.created_at).getTime()) / (1000 * 60 * 60);
+                    return (
+                      <Button size="sm" variant="outline" className="text-destructive gap-1" onClick={() => setCancelDialog(order)} title={`${hoursLeft.toFixed(1)}h left to cancel`}>
+                        <XCircle className="h-3 w-3" /> Cancel ({hoursLeft.toFixed(0)}h left)
+                      </Button>
+                    );
+                  })()}
                   {canReturn(order) && (
                     <Button size="sm" variant="outline" className="gap-1" onClick={() => setReturnDialog(order)}>
                       <RotateCcw className="h-3 w-3" /> Return

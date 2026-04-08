@@ -21,6 +21,7 @@ const NAVIGATION_MAP: Record<string, string> = {
   'city-manager': '/admin/city-manager',
   'citymanager': '/admin/city-manager',
   'orders': '/admin/orders',
+  'today orders': '/admin/today-orders',
   'products': '/admin/products',
   'dashboard': '/admin',
   'returns': '/admin/returns',
@@ -30,11 +31,21 @@ const NAVIGATION_MAP: Record<string, string> = {
   'settings': '/admin/settings',
   'promo': '/admin/promo-codes',
   'promo codes': '/admin/promo-codes',
-  'ai voice': '/admin/ai/voice',
-  'bulk creator': '/admin/ai/bulk-creator',
-  'claim validator': '/admin/ai/claim-validator',
-  'size advisor': '/admin/ai/size-advisor',
-  'background enhancer': '/admin/ai/bg-enhancer',
+  'staff': '/admin/staff',
+  'banners': '/admin/banners',
+  'payments': '/admin/payments',
+  'chat': '/admin/chat',
+  'ai voice': '/admin/ai-voice',
+  'voice': '/admin/ai-voice',
+  'bulk creator': '/admin/ai-bulk-creator',
+  'bulk': '/admin/ai-bulk-creator',
+  'fraud': '/admin/ai-fraud-detector',
+  'fraud detector': '/admin/ai-fraud-detector',
+  'sales predictor': '/admin/ai-sales-predictor',
+  'marketing': '/admin/ai-marketing-hub',
+  'marketing hub': '/admin/ai-marketing-hub',
+  'feedback': '/admin/ai-feedback-analyzer',
+  'price intelligence': '/admin/ai-price-intelligence',
 };
 
 export default function AdminAiVoice() {
@@ -49,6 +60,7 @@ export default function AdminAiVoice() {
   });
   const [isSpeaking, setIsSpeaking] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>('');
   const synth = window.speechSynthesis;
 
   useEffect(() => {
@@ -74,6 +86,7 @@ export default function AdminAiVoice() {
     recognition.onstart = () => {
       setIsListening(true);
       setTranscript('');
+      transcriptRef.current = '';
       setResult(null);
     };
 
@@ -82,13 +95,15 @@ export default function AdminAiVoice() {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         text += event.results[i][0].transcript;
       }
+      transcriptRef.current = text;
       setTranscript(text);
     };
 
     recognition.onend = () => {
       setIsListening(false);
-      if (transcript || recognitionRef.current?._lastTranscript) {
-        processCommand(transcript || recognitionRef.current?._lastTranscript);
+      const finalText = transcriptRef.current;
+      if (finalText) {
+        processCommand(finalText);
       }
     };
 

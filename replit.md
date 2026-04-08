@@ -117,6 +117,15 @@ supabase.functions.invoke('ai-assistant', { body: { type, imageUrl, messages } }
 
 Types: `product-ai`, `size-advisor`, `voice-command`, `send-otp-email`, `fraud-check`, `sales-predictor`, `marketing-hub`, `feedback-analyzer`, `price-intelligence`, `price-intelligence-bulk`
 
+## Timezone
+
+All date/time operations use `date-fns-tz` with `Asia/Karachi` (PKT, UTC+5):
+- `src/lib/pkt.ts` — utility functions: `nowPKT()`, `utcToPKTInput()`, `pktInputToUtcIso()`, `logTimezoneSync()`
+- Flash sale end times: stored as UTC in DB, displayed in PKT in admin form (datetime-local)
+- When admin sets a 5-hour flash sale end time in the admin panel, it is treated as PKT and saved correctly as UTC to the DB
+- `logTimezoneSync()` logs to console on app load for verification
+- Server is UTC+0, all conversions done in the browser via `date-fns-tz`
+
 ## Force Delete (Products)
 
 The orange shield icon next to each product in Admin → Products runs a "force delete" that:

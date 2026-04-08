@@ -4,6 +4,7 @@ import ProductCard from './ProductCard';
 import { Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Product } from '@/types/product';
+import { logTimezoneSync } from '@/lib/pkt';
 
 const mapDbProduct = (p: any): Product => ({
   id: p.id, name: p.title, price: Number(p.price),
@@ -38,6 +39,7 @@ const FlashSale = () => {
   const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnightPKT);
 
   useEffect(() => {
+    logTimezoneSync();
     supabase.from('products').select('*').eq('is_active', true).eq('is_flash_sale', true).limit(5)
       .then(({ data }) => setProducts((data || []).map(mapDbProduct)));
   }, []);
