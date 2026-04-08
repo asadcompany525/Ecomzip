@@ -46,10 +46,16 @@ Starts the Vite dev server on port 5000.
 - Product gallery with video (.mp4/.mov/.webm) autoplay support
 - Size selector with real-time variant stock from `product_variants` table
 - AI Size Advisor in product detail (measurements-based recommendation)
+- **Virtual Try-On** (`VirtualTryOn.tsx`): Camera overlay on product detail — overlay product image, adjust opacity/size/position, capture photo
+- **Smart Cross-sell "Pairs Well With"**: AI-curated related product grid shown on product detail page
+- **Order Tracking** (`/track-order`): Animated progress bar + auto courier detection (TCS/Leopards/BlueEx/PostEx by tracking ID pattern)
+- **Abandoned Cart Recovery**: Detects idle carts 30+ min with recovery metrics
 - Photo reviews (customers can upload up to 3 images with reviews)
 - Cart, wishlist, checkout with Pakistan province/city/area selector
-- Order tracking page with visual progress bar
 - WhatsApp/COD payment support with screenshot upload
+- Category nav bar visible only on Home page (hidden on other storefront pages)
+- **Developer Page** (`/developer`): Hard-coded profile for Muhammad Asad Ali (ASDEVOLPER) — non-editable from admin
+- **Branded loader** (StopyLoader): Pulse animation shown during admin auth guard
 
 ### Security & Verification
 - **OTP Email Signup**: 4-digit code sent on signup, must be verified before account is created
@@ -68,6 +74,7 @@ Starts the Vite dev server on port 5000.
 - View permissions per role
 
 #### AI Features
+- **AI Global Manager** (`/admin/ai-global-manager`): Text-based command center with live DB actions, quick commands (add product, mark order, create promo), command history, PKT time awareness. Replaces the old AI Voice Dashboard.
 - **AI Bulk Creator** (`/admin/ai-bulk-creator`): Upload 1-20 images batch-mode, AI generates complete listings, admin sets price/discount/qty-per-size in one grid
 - **AI Fraud Detector** (`/admin/ai-fraud-detector`): Auto-scan pending orders for blacklisted phones, invalid numbers, short addresses, large COD orders; manual check mode
 - **AI Sales Predictor** (`/admin/ai-sales-predictor`): 7-day demand prediction based on 30-day sales trends; stock suggestions
@@ -75,10 +82,11 @@ Starts the Vite dev server on port 5000.
 - **AI Feedback Analyzer** (`/admin/ai-feedback-analyzer`): Summarize product reviews into Pros/Cons, top complaints, action items
 - **AI Price Intelligence** (`/admin/ai-price-intelligence`): Single & bulk product pricing vs market trends, competitor comparison
 - **AI Helper** (`/admin/ai-helper`): Chat-based bulk operations assistant
-- **AI Voice Dashboard** (`/admin/ai-voice`): Urdu/English voice commands for admin queries
 - **AI Discounts** (`/admin/ai-discounts`): AI discount strategy suggestions
 - **AI Banner Creator** (`/admin/ai-banner-creator`): Auto-generate promotional banner copy
 - **AI Site Manager** (`/admin/ai-site-manager`): SEO/content management
+- **Inventory Insights — City Heatmap**: Order density visualization by city with animated bars (reads from `orders.delivery_address`)
+- **Abandoned Cart Recovery** (`/admin/abandoned-cart-recovery`): Detects carts idle 30+ min, shows recovery stats, sends WhatsApp/SMS nudges
 
 #### Operations
 - City Manager (city-wise delivery rates), Delivery Management

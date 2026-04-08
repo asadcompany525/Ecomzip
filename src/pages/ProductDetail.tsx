@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle, Sparkles } from 'lucide-react';
+import VirtualTryOn from '@/components/VirtualTryOn';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -410,7 +411,7 @@ Return ONLY valid JSON.`
               </div>
             </div>
 
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-3">
               <Button className="flex-1 h-11 text-sm font-semibold" onClick={handleAddToCart} disabled={availableStock <= 0 || (uniqueSizes.length > 0 && !selectedSize)}>
                 <ShoppingCart className="h-4 w-4 mr-2" /> {availableStock <= 0 ? 'Out of Stock' : 'Add to Cart'}
               </Button>
@@ -418,6 +419,9 @@ Return ONLY valid JSON.`
                 <Heart className={`h-5 w-5 ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
               </Button>
               <Button variant="outline" size="icon" className="h-11 w-11" onClick={handleShare}><Share2 className="h-5 w-5" /></Button>
+            </div>
+            <div className="mb-4">
+              <VirtualTryOn productImage={product.image} productName={product.name} />
             </div>
 
             {/* Policies inline */}
@@ -535,6 +539,33 @@ Return ONLY valid JSON.`
             <h2 className="text-lg md:text-xl font-bold mb-4">Related Products</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
               {relatedProducts.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Smart Cross-sell: Pairs well with */}
+        {relatedProducts.length > 0 && (
+          <section className="mt-8 bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-bold">Pairs Well With</h2>
+              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">AI Curated</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">Customers who bought <strong>{product?.name}</strong> also loved these:</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {relatedProducts.slice(0, 4).map((p, i) => (
+                <Link key={p.id} to={`/product/${p.id}`} className="group">
+                  <div className="bg-card rounded-xl border overflow-hidden hover:border-primary/30 hover:shadow-md transition-all">
+                    <div className="aspect-square overflow-hidden">
+                      <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                    </div>
+                    <div className="p-2">
+                      <p className="text-xs font-medium truncate">{p.name}</p>
+                      <p className="text-xs text-primary font-bold">Rs. {p.price.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </section>
         )}

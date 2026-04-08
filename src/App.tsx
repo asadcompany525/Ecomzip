@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AIChatWidget from "@/components/chat/AIChatWidget";
+import AbandonedCartRecovery from "@/components/AbandonedCartRecovery";
+import StopyLoader from "@/components/StopyLoader";
 import Index from "./pages/Index";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
@@ -60,7 +62,7 @@ import AdminInventoryInsights from "./pages/admin/AdminInventoryInsights";
 import AdminAiSiteManager from "./pages/admin/AdminAiSiteManager";
 import AdminAiBannerCreator from "./pages/admin/AdminAiBannerCreator";
 import AdminAiBulkCreator from "./pages/admin/AdminAiBulkCreator";
-import AdminAiVoice from "./pages/admin/AdminAiVoice";
+import AdminAiGlobalManager from "./pages/admin/AdminAiGlobalManager";
 import AdminStaff from "./pages/admin/AdminStaff";
 import AdminAiFraudDetector from "./pages/admin/AdminAiFraudDetector";
 import AdminAiSalesPredictor from "./pages/admin/AdminAiSalesPredictor";
@@ -73,7 +75,7 @@ const queryClient = new QueryClient();
 
 const AdminGuard = ({ children }: { children: React.ReactNode }) => {
   const { isAdmin, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (loading) return <StopyLoader fullScreen />;
   if (!isAdmin) return <Navigate to="/admin/login" replace />;
   return <>{children}</>;
 };
@@ -145,7 +147,8 @@ const App = () => (
                 <Route path="ai-marketing-hub" element={<AdminAiMarketingHub />} />
                 <Route path="ai-feedback-analyzer" element={<AdminAiFeedbackAnalyzer />} />
                 <Route path="ai-price-intelligence" element={<AdminAiPriceIntelligence />} />
-                <Route path="ai-voice" element={<AdminAiVoice />} />
+                <Route path="ai-global-manager" element={<AdminAiGlobalManager />} />
+                <Route path="ai-voice" element={<AdminAiGlobalManager />} />
                 <Route path="inventory" element={<AdminInventoryInsights />} />
                 <Route path="activity" element={<AdminActivity />} />
                 <Route path="settings" element={<AdminSettings />} />
@@ -154,6 +157,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <AIChatWidget />
+            <AbandonedCartRecovery />
           </BrowserRouter>
         </CartProvider>
       </AuthProvider>

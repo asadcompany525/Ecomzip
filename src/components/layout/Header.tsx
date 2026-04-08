@@ -271,18 +271,20 @@ const Header = () => {
             </div>
           </div>
 
-          <nav className="border-t bg-card">
-            <div className="container">
-              <div className="flex items-center gap-1">
-                {NAV_ITEMS.map(item => (
-                  <Link key={item.path} to={item.path}
-                    className={`px-4 py-2.5 text-sm font-medium transition-colors ${location.pathname === item.path ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-primary'}`}>
-                    {item.label}
-                  </Link>
-                ))}
+          {location.pathname === '/' && (
+            <nav className="border-t bg-card">
+              <div className="container">
+                <div className="flex items-center gap-1">
+                  {NAV_ITEMS.map(item => (
+                    <Link key={item.path} to={item.path}
+                      className={`px-4 py-2.5 text-sm font-medium transition-colors ${location.pathname === item.path ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-primary'}`}>
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
-          </nav>
+            </nav>
+          )}
         </div>
       </header>
 

@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, Image, Tag, Settings, LogOut, Menu, X,
-  BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard, TrendingUp, Truck, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe, ImagePlus, Mic, Shield, DollarSign, Megaphone, ThumbsUp, UserCog
+  BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard, TrendingUp, Truck, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe, ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,7 @@ const sidebarItems = [
   { icon: Megaphone, label: 'AI Marketing Hub', path: '/admin/ai-marketing-hub' },
   { icon: ThumbsUp, label: 'AI Feedback Analyzer', path: '/admin/ai-feedback-analyzer' },
   { icon: DollarSign, label: 'AI Price Intelligence', path: '/admin/ai-price-intelligence' },
-  { icon: Mic, label: 'AI Voice Dashboard', path: '/admin/ai-voice' },
+  { icon: Command, label: 'AI Global Manager', path: '/admin/ai-global-manager' },
   { icon: PackageSearch, label: 'Inventory Insights', path: '/admin/inventory' },
   { icon: FileText, label: 'Activity Log', path: '/admin/activity' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },

@@ -1,0 +1,59 @@
+This is the final and most critical production build. You must synchronize all modules with UTC+5 (Pakistan Time). REMOVE ALL VOICE COMMAND LOGIC and replace it with the new AI Global Manager.
+
+1. Universal AI Commerce Engine:
+
+Logic: Transform the site from a "Shoe Store" into a category-agnostic "Universal Engine".
+
+Adaptability: All labels and AI suggestions must adapt dynamically to the product category (e.g., if Category is 'Clothing', Size Advisor asks for measurements; if 'Electronics', it suggests specs).
+
+2. AI Global Manager (Text-to-Action):
+
+New Feature: A text-based command center in Admin.
+
+Action: Admin can type: "Change site title to Stopy Luxury" or "Apply 20% store-wide discount for 12 hours". The AI must update the DB and Frontend configuration instantly.
+
+3. Virtual Try-On (AR) & AI Size Advisor:
+
+AR Feature: Add a "Virtual Try-On" button for mobile users (using camera/overlay logic) where possible.
+
+Size Advisor: Implement a "Foot/Body Scanner" via photo upload. AI analyzes the image to suggest the best size based on Live Stock.
+
+4. Tracking & Logistics (TCS/Leopards/BlueEx):
+
+Live Tracker: A beautiful, animated progress bar on /track-order.
+
+Courier Sync: Admin enters Tracking ID -> System auto-detects courier -> Provides a "Live Track" external link button.
+
+5. Developer/Owner Lockdown Page (Muhammad Asad Ali):
+
+Hard-Coded Page: Create a /developer page featuring the developer's profile and contact.
+
+Security: This page must be Non-Editable from the Admin UI or AI Manager. It must be hard-coded to protect the original creator's credit.
+
+6. "Expensive Store" AI Features:
+
+AI Abandoned Cart Recovery: Auto-logs and reminders for users who leave items in the cart.
+
+AI Visual Claim Validator: analyze defect photos for returns/claims via AI.
+
+Smart Cross-Sell: "Pairs well with..." automated suggestions based on style/color.
+
+Inventory Heatmap: Sales density visualization by city for the Admin.
+
+7. UI/UX & Security:
+
+Header: Main category header appears ONLY on the Home Page.
+
+Categories: Clean Text-Only labels (No folders/icons).
+
+Branded Loader: High-quality "Stopy Shoes" Pulse Logo Loader.
+
+Security: 4-digit Gmail OTP for Forget Password/Signup.
+
+Logic: Auto-hide 'Cancel' after 24h; Auto-hide 'Return' after Admin-defined days.
+
+8. Performance:
+
+Implement Lazy Loading for all 20+ HD videos and images to keep the site lightning-fast.
+
+Verify all modules, perform a final clean production build, and ensure the Developer Page is locked.
