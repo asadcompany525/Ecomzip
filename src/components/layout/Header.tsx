@@ -1,13 +1,16 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, ShoppingCart, User, SlidersHorizontal, Menu, X, Home, Percent, Zap, Bell } from 'lucide-react';
+import { Search, ShoppingCart, User, SlidersHorizontal, Menu, X, Home, Percent, Zap, Bell, Shield, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
+import SecretDevDashboard, { MASTER_PW_HASH } from '@/components/SecretDevDashboard';
+import { toast } from '@/hooks/use-toast';
 
 const NAV_ITEMS = [
   { label: 'Home', path: '/', icon: Home },
@@ -23,6 +26,8 @@ const Header = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isHome = location.pathname === '/';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -32,6 +37,13 @@ const Header = () => {
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('searchHistory') || '[]'); } catch { return []; }
   });
+
+  // 5-click secret trigger state
+  const clickTimestampsRef = useRef<number[]>([]);
+  const [masterPwOpen, setMasterPwOpen] = useState(false);
+  const [masterPwInput, setMasterPwInput] = useState('');
+  const [devDashOpen, setDevDashOpen] = useState(false);
+
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
@@ -39,9 +51,7 @@ const Header = () => {
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowSuggestions(false);
-      if (mobileSearchRef.current && !mobileSearchRef.current.contains(e.target as Node)) {
-        setShowMobileSearch(false);
-      }
+      if (mobileSearchRef.current && !mobileSearchRef.current.contains(e.target as Node)) setShowMobileSearch(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -62,6 +72,27 @@ const Header = () => {
     };
     load();
   }, []);
+
+  // ── Secret 5-click trigger on logo ──
+  const handleLogoClick = useCallback(() => {
+    const now = Date.now();
+    clickTimestampsRef.current = [...clickTimestampsRef.current, now].filter(t => now - t < 3000);
+    if (clickTimestampsRef.current.length >= 5) {
+      clickTimestampsRef.current = [];
+      setMasterPwOpen(true);
+    }
+  }, []);
+
+  const handleMasterPwSubmit = () => {
+    if (masterPwInput === MASTER_PW_HASH) {
+      setMasterPwOpen(false);
+      setMasterPwInput('');
+      setDevDashOpen(true);
+    } else {
+      toast({ title: 'Access denied', description: 'Incorrect master password.', variant: 'destructive' });
+      setMasterPwInput('');
+    }
+  };
 
   const suggestions = searchQuery.trim()
     ? products.filter(p =>
@@ -106,7 +137,7 @@ const Header = () => {
             suggestions.length > 0 ? suggestions.map((p: any) => (
               <button key={p.id} onClick={() => selectSuggestion(p.title)}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent transition-colors w-full text-left">
-                <img src={(p.images as any)?.[0] || '/placeholder.svg'} alt="" className="w-10 h-10 rounded object-cover" />
+                <img src={(p.images as any)?.[0] || '/placeholder.svg'} alt="" className="w-10 h-10 rounded object-cover" loading="lazy" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{p.title}</p>
                   <p className="text-xs text-muted-foreground">{p.brand || ''} · Rs. {Number(p.price).toLocaleString()}</p>
@@ -136,7 +167,7 @@ const Header = () => {
     <>
       <header className="sticky top-0 z-50 bg-card shadow-sm">
         {/* Top bar - only on home page */}
-        {location.pathname === '/' && (
+        {isHome && (
           <div className="bg-primary text-primary-foreground">
             <div className="container flex items-center justify-between py-1.5 text-xs md:text-sm">
               <span>Pakistan's #1 Shoes & Bags Store</span>
@@ -145,150 +176,191 @@ const Header = () => {
           </div>
         )}
 
-        {/* ── MOBILE HEADER: Single Row ── */}
-        <div className="md:hidden">
-          <div className="container flex items-center h-14 gap-2">
-            {/* Left: Hamburger */}
-            <button
-              className="flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent transition-colors shrink-0"
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="Menu"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-
-            {/* Center: Logo */}
-            <Link to="/" className="flex-1 flex items-center justify-center gap-2 min-w-0">
-              <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-9 w-9 object-contain" />
-              <span className="font-bold text-sm truncate hidden xs:inline">{logoData.name || 'Stopy Shoes'}</span>
-            </Link>
-
-            {/* Right: Search icon + Cart */}
-            <div className="flex items-center gap-1 shrink-0">
+        {/* ── MOBILE: Only show full header on Home page ── */}
+        {isHome ? (
+          <div className="md:hidden">
+            <div className="container flex items-center h-14 gap-2">
               <button
-                className="flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent transition-colors"
-                onClick={() => setShowMobileSearch(v => !v)}
-                aria-label="Search"
+                className="flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent transition-colors shrink-0"
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Menu"
               >
-                <Search className="h-5 w-5" />
+                <Menu className="h-5 w-5" />
               </button>
-              <Link to="/cart">
-                <button className="relative flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent transition-colors">
-                  <ShoppingCart className="h-5 w-5" />
-                  {cartCount > 0 && (
-                    <Badge className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center p-0 text-[9px] bg-primary text-primary-foreground">{cartCount}</Badge>
-                  )}
+              <button onClick={handleLogoClick} className="flex-1 flex items-center justify-center gap-2 min-w-0 bg-transparent border-0">
+                <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-9 w-9 object-contain" loading="lazy" />
+                <span className="font-bold text-sm truncate hidden xs:inline">{logoData.name || 'Stopy Shoes'}</span>
+              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  className="flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent transition-colors"
+                  onClick={() => setShowMobileSearch(v => !v)}
+                  aria-label="Search"
+                >
+                  <Search className="h-5 w-5" />
                 </button>
+                <Link to="/cart">
+                  <button className="relative flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent transition-colors">
+                    <ShoppingCart className="h-5 w-5" />
+                    {cartCount > 0 && (
+                      <Badge className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center p-0 text-[9px] bg-primary text-primary-foreground">{cartCount}</Badge>
+                    )}
+                  </button>
+                </Link>
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {showMobileSearch && (
+                <motion.div
+                  ref={mobileSearchRef}
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden border-t"
+                >
+                  <div className="container py-2 relative">
+                    <form onSubmit={handleSearch} className="flex gap-2 items-center">
+                      <Button variant="outline" size="icon" className="shrink-0 h-9 w-9" onClick={() => { setShowMobileSearch(false); navigate('/products'); }}>
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </Button>
+                      <div className="relative flex-1">
+                        <Input
+                          ref={mobileInputRef}
+                          placeholder="Search shoes, bags, brands..."
+                          value={searchQuery}
+                          onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                          onFocus={() => setShowSuggestions(true)}
+                          className="pr-9 bg-muted border-0 h-9 text-sm"
+                        />
+                        <Button type="submit" size="icon" variant="ghost" className="absolute right-0 top-0 h-full w-9">
+                          <Search className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <button type="button" onClick={() => setShowMobileSearch(false)} className="text-muted-foreground p-1">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </form>
+                    <div className="relative">
+                      <SuggestionDropdown />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : (
+          /* On non-home mobile: show a slim back-nav bar */
+          <div className="md:hidden">
+            <div className="container flex items-center h-11 gap-2">
+              <button onClick={() => navigate(-1)} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent shrink-0">
+                <X className="h-4 w-4" />
+              </button>
+              <button onClick={handleLogoClick} className="flex-1 flex items-center justify-center gap-1.5 bg-transparent border-0">
+                <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
+                <span className="font-semibold text-sm">{logoData.name || 'Stopy Shoes'}</span>
+              </button>
+              <Link to="/cart" className="relative flex items-center justify-center h-8 w-8 rounded-lg hover:bg-accent">
+                <ShoppingCart className="h-4 w-4" />
+                {cartCount > 0 && (
+                  <Badge className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 flex items-center justify-center p-0 text-[8px] bg-primary text-primary-foreground">{cartCount}</Badge>
+                )}
               </Link>
             </div>
           </div>
-
-          {/* Mobile Search Bar (slides down when activated) */}
-          <AnimatePresence>
-            {showMobileSearch && (
-              <motion.div
-                ref={mobileSearchRef}
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden border-t"
-              >
-                <div className="container py-2 relative">
-                  <form onSubmit={handleSearch} className="flex gap-2 items-center">
-                    <Button variant="outline" size="icon" className="shrink-0 h-9 w-9" onClick={() => { setShowMobileSearch(false); navigate('/products'); }}>
-                      <SlidersHorizontal className="h-4 w-4" />
-                    </Button>
-                    <div className="relative flex-1">
-                      <Input
-                        ref={mobileInputRef}
-                        placeholder="Search shoes, bags, brands..."
-                        value={searchQuery}
-                        onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                        onFocus={() => setShowSuggestions(true)}
-                        className="pr-9 bg-muted border-0 h-9 text-sm"
-                      />
-                      <Button type="submit" size="icon" variant="ghost" className="absolute right-0 top-0 h-full w-9">
-                        <Search className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <button type="button" onClick={() => setShowMobileSearch(false)} className="text-muted-foreground p-1">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </form>
-                  <div className="relative">
-                    <SuggestionDropdown />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        )}
 
         {/* ── DESKTOP HEADER ── */}
         <div className="hidden md:block">
-          <div className="container py-3">
-            <div className="flex items-center gap-3 md:gap-6">
-              <Link to="/" className="shrink-0 flex items-center gap-2">
-                <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className={logoData.size || 'h-12 w-12'} />
-              </Link>
+          {/* Main row: only on home page */}
+          {isHome && (
+            <div className="container py-3">
+              <div className="flex items-center gap-3 md:gap-6">
+                <button onClick={handleLogoClick} className="shrink-0 flex items-center gap-2 bg-transparent border-0 cursor-pointer select-none">
+                  <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className={logoData.size || 'h-12 w-12'} loading="lazy" />
+                </button>
 
-              <div className="hidden md:flex flex-1 max-w-xl relative items-center gap-2" ref={searchRef}>
-                <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={() => navigate('/products')}>
-                  <SlidersHorizontal className="h-4 w-4" />
-                </Button>
-                <form onSubmit={handleSearch} className="w-full flex relative">
-                  <Input
-                    placeholder="Search shoes, bags, brands..."
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                    onFocus={() => setShowSuggestions(true)}
-                    className="pr-10 bg-muted border-0 focus-visible:ring-primary"
-                  />
-                  <Button type="submit" size="icon" className="absolute right-0 top-0 h-full rounded-l-none">
-                    <Search className="h-4 w-4" />
+                <div className="hidden md:flex flex-1 max-w-xl relative items-center gap-2" ref={searchRef}>
+                  <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={() => navigate('/products')}>
+                    <SlidersHorizontal className="h-4 w-4" />
                   </Button>
-                </form>
-                <SuggestionDropdown />
-              </div>
+                  <form onSubmit={handleSearch} className="w-full flex relative">
+                    <Input
+                      placeholder="Search shoes, bags, brands..."
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                      onFocus={() => setShowSuggestions(true)}
+                      className="pr-10 bg-muted border-0 focus-visible:ring-primary"
+                    />
+                    <Button type="submit" size="icon" className="absolute right-0 top-0 h-full rounded-l-none">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </form>
+                  <SuggestionDropdown />
+                </div>
 
-              <div className="flex items-center gap-1 md:gap-2 ml-auto">
-                <Link to="/cart">
-                  <Button variant="ghost" size="icon" className="relative">
-                    <ShoppingCart className="h-5 w-5" />
-                    {cartCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] bg-primary text-primary-foreground">{cartCount}</Badge>
-                    )}
-                  </Button>
-                </Link>
-                <Link to={user ? "/my-page" : "/login"}>
-                  <Button variant="ghost" size="sm" className="gap-1">
-                    <User className="h-4 w-4" />
-                    {user ? (user.user_metadata?.full_name?.split(' ')[0] || 'Account') : 'Login'}
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {location.pathname === '/' && (
-            <nav className="border-t bg-card">
-              <div className="container">
-                <div className="flex items-center gap-1">
-                  {NAV_ITEMS.map(item => (
-                    <Link key={item.path} to={item.path}
-                      className={`px-4 py-2.5 text-sm font-medium transition-colors ${location.pathname === item.path ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-primary'}`}>
-                      {item.label}
-                    </Link>
-                  ))}
+                <div className="flex items-center gap-1 md:gap-2 ml-auto">
+                  <Link to="/cart">
+                    <Button variant="ghost" size="icon" className="relative">
+                      <ShoppingCart className="h-5 w-5" />
+                      {cartCount > 0 && (
+                        <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] bg-primary text-primary-foreground">{cartCount}</Badge>
+                      )}
+                    </Button>
+                  </Link>
+                  <Link to={user ? "/my-page" : "/login"}>
+                    <Button variant="ghost" size="sm" className="gap-1">
+                      <User className="h-4 w-4" />
+                      {user ? (user.user_metadata?.full_name?.split(' ')[0] || 'Account') : 'Login'}
+                    </Button>
+                  </Link>
                 </div>
               </div>
-            </nav>
+            </div>
           )}
+
+          {/* Nav bar: on home page below main row, on other pages as the only desktop header row */}
+          <nav className={`border-t bg-card ${isHome ? '' : 'border-b'}`}>
+            <div className="container">
+              <div className="flex items-center gap-1">
+                {!isHome && (
+                  <button onClick={handleLogoClick} className="flex items-center gap-2 mr-2 bg-transparent border-0 cursor-pointer select-none py-2">
+                    <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
+                    <span className="font-bold text-sm">{logoData.name || 'Stopy Shoes'}</span>
+                  </button>
+                )}
+                {NAV_ITEMS.map(item => (
+                  <Link key={item.path} to={item.path}
+                    className={`px-3 py-2.5 text-sm font-medium transition-colors ${location.pathname === item.path ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-primary'}`}>
+                    {item.label}
+                  </Link>
+                ))}
+                {!isHome && (
+                  <div className="ml-auto flex items-center gap-1">
+                    <Link to="/cart">
+                      <Button variant="ghost" size="icon" className="relative h-8 w-8">
+                        <ShoppingCart className="h-4 w-4" />
+                        {cartCount > 0 && (
+                          <Badge className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center p-0 text-[9px] bg-primary text-primary-foreground">{cartCount}</Badge>
+                        )}
+                      </Button>
+                    </Link>
+                    <Link to={user ? "/my-page" : "/login"}>
+                      <Button variant="ghost" size="sm" className="gap-1 h-8 text-xs">
+                        <User className="h-3.5 w-3.5" />
+                        {user ? (user.user_metadata?.full_name?.split(' ')[0] || 'Me') : 'Login'}
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </nav>
         </div>
       </header>
 
-      {/* ── Mobile Slide-out Menu ── */}
+      {/* ── Mobile Slide-out Menu (home page only) ── */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
@@ -303,10 +375,10 @@ const Header = () => {
               className="fixed inset-y-0 left-0 z-50 w-72 bg-card shadow-2xl md:hidden flex flex-col"
             >
               <div className="flex items-center justify-between p-4 border-b">
-                <div className="flex items-center gap-2">
-                  <img src={logoData.url || '/favicon.ico'} alt="Stopy Shoes" className="h-9 w-9" />
+                <button onClick={handleLogoClick} className="flex items-center gap-2 bg-transparent border-0">
+                  <img src={logoData.url || '/favicon.ico'} alt="Stopy Shoes" className="h-9 w-9" loading="lazy" />
                   <span className="font-bold text-lg">Stopy Shoes</span>
-                </div>
+                </button>
                 <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded hover:bg-accent">
                   <X className="h-5 w-5" />
                 </button>
@@ -353,6 +425,38 @@ const Header = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* ── Master Password Dialog ── */}
+      <Dialog open={masterPwOpen} onOpenChange={v => { if (!v) { setMasterPwOpen(false); setMasterPwInput(''); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-primary" />
+              Developer Access
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">Enter the master developer password to access the hidden dashboard.</p>
+            <Input
+              type="password"
+              placeholder="Master password..."
+              value={masterPwInput}
+              onChange={e => setMasterPwInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleMasterPwSubmit(); }}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setMasterPwOpen(false); setMasterPwInput(''); }}>Cancel</Button>
+              <Button className="flex-1 gap-2" onClick={handleMasterPwSubmit}>
+                <Shield className="h-4 w-4" />Unlock
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Secret Developer Dashboard ── */}
+      <SecretDevDashboard open={devDashOpen} onClose={() => setDevDashOpen(false)} />
     </>
   );
 };

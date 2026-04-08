@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle, Sparkles } from 'lucide-react';
 import VirtualTryOn from '@/components/VirtualTryOn';
@@ -78,6 +78,8 @@ const ProductDetail = () => {
   const [advisorBrand, setAdvisorBrand] = useState('');
   const [advisorLoading, setAdvisorLoading] = useState(false);
   const [advisorResult, setAdvisorResult] = useState<any>(null);
+  const [advisorFootPhoto, setAdvisorFootPhoto] = useState<string | null>(null);
+  const footPhotoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -146,18 +148,28 @@ const ProductDetail = () => {
     addToCart(product, selectedSize, selectedColor);
   };
 
+  const handleFootPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setAdvisorFootPhoto(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const getSizeAdvice = async () => {
-    if (!advisorFootLength && !advisorUsualSize) {
-      toast({ title: 'Enter your foot length or usual size', variant: 'destructive' });
+    if (!advisorFootLength && !advisorUsualSize && !advisorFootPhoto) {
+      toast({ title: 'Upload a foot photo or enter measurements to continue', variant: 'destructive' });
       return;
     }
     setAdvisorLoading(true);
     setAdvisorResult(null);
     try {
       const gender = product?.gender || 'men';
+      const photoNote = advisorFootPhoto ? 'A foot photo has been provided — analyze it to estimate foot length/width and deduce the correct size.' : '';
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
           type: 'size-advisor',
+          imageUrl: advisorFootPhoto || undefined,
           messages: [{
             role: 'user',
             content: `You are a shoe size expert for Stopy Shoes Pakistan.
@@ -166,11 +178,14 @@ PRODUCT: ${product?.name || 'Shoe'}
 GENDER: ${gender}
 
 CUSTOMER INPUT:
+- Foot Photo: ${advisorFootPhoto ? 'Provided (analyze the image to estimate foot measurements)' : 'Not provided'}
 - Foot Length: ${advisorFootLength ? advisorFootLength + ' cm' : 'Not provided'}
 - Foot Width: ${advisorFootWidth ? advisorFootWidth + ' cm' : 'Not provided'}
 - Usual size in another brand: ${advisorUsualSize ? `${advisorUsualSize} (${advisorBrand || 'unspecified brand'})` : 'Not provided'}
 
 AVAILABLE SIZES FOR THIS PRODUCT: ${product?.sizes?.join(', ') || 'Standard sizing'}
+
+${photoNote}
 
 Based on this info, give a short, friendly recommendation.
 Return JSON:
@@ -609,8 +624,38 @@ Return ONLY valid JSON.`
 
           <div className="space-y-4 pb-4">
             <p className="text-sm text-muted-foreground">
-              Not sure which size to pick? Tell us your measurements or your usual size in another brand — our AI will recommend the perfect fit.
+              Not sure which size to pick? Upload a photo of your foot or enter your measurements — our AI will recommend the perfect fit.
             </p>
+
+            {/* Foot Photo Upload */}
+            <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 text-center bg-primary/5">
+              <input ref={footPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFootPhotoChange} />
+              {advisorFootPhoto ? (
+                <div className="space-y-2">
+                  <img src={advisorFootPhoto} alt="Foot photo" className="h-32 mx-auto rounded-lg object-contain" />
+                  <div className="flex gap-2 justify-center">
+                    <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => footPhotoRef.current?.click()}>
+                      <Camera className="h-3.5 w-3.5" /> Retake
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-xs text-destructive" onClick={() => setAdvisorFootPhoto(null)}>
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => footPhotoRef.current?.click()} className="w-full space-y-1.5">
+                  <Camera className="h-8 w-8 mx-auto text-primary/50" />
+                  <p className="text-sm font-medium text-primary">Upload Foot Photo</p>
+                  <p className="text-xs text-muted-foreground">AI will analyze your foot shape to find the perfect size</p>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 border-t" />
+              <span className="text-xs text-muted-foreground px-2">OR enter measurements</span>
+              <div className="flex-1 border-t" />
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>

@@ -1,13 +1,8 @@
+import { useState, useEffect } from 'react';
 import { Shield, Code2, Smartphone, Brain, Cloud, Palette, ExternalLink, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import BottomNav from '@/components/layout/BottomNav';
-
-const STATS = [
-  { label: 'Projects', value: '50+' },
-  { label: 'Clients', value: '30+' },
-  { label: 'Experience', value: '5+ Yrs' },
-  { label: 'Technologies', value: '20+' },
-];
+import { DEV_INFO_KEY, DEFAULT_DEV_INFO } from '@/components/SecretDevDashboard';
 
 const SERVICES = [
   { icon: Code2, label: 'E-Commerce Development', desc: 'Full-stack storefronts with AI & real-time features' },
@@ -23,6 +18,24 @@ const TECH_STACK = [
 ];
 
 const DeveloperPage = () => {
+  const [info, setInfo] = useState(DEFAULT_DEV_INFO);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(DEV_INFO_KEY);
+      if (stored) setInfo({ ...DEFAULT_DEV_INFO, ...JSON.parse(stored) });
+    } catch {}
+  }, []);
+
+  const initials = info.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+
+  const stats = [
+    { label: 'Projects', value: info.projects },
+    { label: 'Clients', value: info.clients },
+    { label: 'Experience', value: info.experience },
+    { label: 'Technologies', value: info.technologies },
+  ];
+
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       {/* Locked header banner */}
@@ -30,7 +43,7 @@ const DeveloperPage = () => {
         <div className="container flex items-center justify-between py-2 text-xs">
           <div className="flex items-center gap-1.5">
             <Lock className="h-3.5 w-3.5" />
-            <span>Developer Profile — Hard-Coded · Non-Editable from Admin</span>
+            <span>Developer Profile — Protected · Non-Editable from Admin</span>
           </div>
           <Badge className="bg-white/20 text-white border-white/30 text-[10px]">PROTECTED</Badge>
         </div>
@@ -41,7 +54,7 @@ const DeveloperPage = () => {
         <div className="text-center space-y-4 mb-12">
           <div className="relative inline-block">
             <div className="h-28 w-28 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto shadow-xl shadow-primary/25">
-              <span className="text-4xl font-black text-white">MA</span>
+              <span className="text-4xl font-black text-white">{initials}</span>
             </div>
             <div className="absolute -bottom-1 -right-1 bg-green-500 w-6 h-6 rounded-full border-2 border-background flex items-center justify-center">
               <span className="text-[8px] font-bold text-white">✓</span>
@@ -49,24 +62,23 @@ const DeveloperPage = () => {
           </div>
 
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Muhammad Asad Ali</h1>
-            <p className="text-primary font-semibold text-lg">ASDEVOLPER</p>
+            <h1 className="text-3xl font-black tracking-tight">{info.name}</h1>
+            <p className="text-primary font-semibold text-lg">{info.handle}</p>
             <p className="text-muted-foreground mt-2 max-w-xl mx-auto leading-relaxed">
-              Full-Stack Web & Mobile Developer specializing in AI-powered e-commerce platforms,
-              scalable cloud architectures, and intelligent automation systems.
+              {info.tagline}
             </p>
           </div>
 
           <div className="flex items-center justify-center gap-2 flex-wrap">
-            <Badge className="bg-green-100 text-green-800 border-green-200">Available for Projects</Badge>
-            <Badge variant="outline">Pakistan 🇵🇰</Badge>
+            <Badge className="bg-green-100 text-green-800 border-green-200">{info.availabilityBadge}</Badge>
+            <Badge variant="outline">{info.location} 🇵🇰</Badge>
             <Badge variant="outline">Remote Worldwide</Badge>
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          {STATS.map(s => (
+          {stats.map(s => (
             <div key={s.label} className="bg-card border rounded-xl p-4 text-center hover:border-primary/30 transition-colors">
               <p className="text-2xl font-black text-primary">{s.value}</p>
               <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
@@ -80,14 +92,8 @@ const DeveloperPage = () => {
             <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
             <div>
               <h3 className="font-bold text-base mb-1">Original Creator — Stopy Shoes</h3>
-              <p className="text-sm text-muted-foreground">
-                This platform (Stopy Shoes — Universal AI Commerce Engine) was entirely designed, developed,
-                and deployed by <strong className="text-foreground">Muhammad Asad Ali (ASDEVOLPER)</strong>.
-                Including all AI modules, e-commerce logic, admin dashboard, and real-time integrations.
-              </p>
-              <p className="text-xs text-primary font-medium mt-2">
-                © 2024–2026 Muhammad Asad Ali · All Rights Reserved
-              </p>
+              <p className="text-sm text-muted-foreground">{info.origin_story}</p>
+              <p className="text-xs text-primary font-medium mt-2">{info.copyright}</p>
             </div>
           </div>
         </div>
@@ -129,7 +135,7 @@ const DeveloperPage = () => {
           <div className="flex gap-3 justify-center flex-wrap">
             <a href="mailto:asdevolper@gmail.com">
               <button className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition">
-                Email Muhammad Asad
+                Email {info.name.split(' ')[0]}
                 <ExternalLink className="h-3.5 w-3.5" />
               </button>
             </a>
@@ -146,7 +152,7 @@ const DeveloperPage = () => {
         <div className="mt-8 text-center">
           <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
             <Lock className="h-3 w-3" />
-            This page is hard-coded and protected from Admin UI and AI Manager edits.
+            This page is protected from Admin UI and AI Manager edits.
           </p>
         </div>
       </main>

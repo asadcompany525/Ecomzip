@@ -1,0 +1,43 @@
+Action: In the Admin Settings or Main Header, implement a hidden logic. If the user clicks a specific spot (e.g., the Logo or a blank area) 5 times rapidly, a "Secret Admin Login" popup appears.
+
+Logic: This popup asks for a Master Developer Password. Upon successful entry, it opens a hidden dashboard.
+
+Capabilities: From this hidden dashboard, the developer (Muhammad Asad Ali) can edit the hard-coded developer info, change the system logo, and override site settings that are otherwise locked for the regular admin.
+
+2. Dynamic Header & UI Cleanup:
+
+Header Logic: On all pages except Home, HIDE the Upper Header (Search bar, Logo row, Cart icon). Only show the Navigation Bar (Menu items like Discounts, Shop, etc.).
+
+Product Cards: Display the Review Count (e.g., "15 Reviews") and Star Rating directly under the Product Title. Ensure these update instantly when a new review is posted.
+
+3. Universal AI Size Advisor (Foot Pic Upload):
+
+Logic: In the "Find My Size" modal, add a mandatory Foot Picture Upload. AI analyzes the photo to suggest the exact size from the live inventory.
+
+4. Master Reset & Factory Settings:
+
+New Feature: Add a "Factory Reset" button in the Admin (protected by the Master Password).
+
+Action: This must wipe ALL data (Orders, Sales, Products, Reviews, Customer info) and reset the Store Name, Logo, and Branding to default, forcing the new owner to set it up from scratch.
+
+5. AI Site Manager & Chat History:
+
+Persistence: All conversations with the "AI Site Manager" must be saved in the chat_history database table so they remain visible after page refresh.
+
+6. Advanced Admin Settings (Logistics & More):
+
+Delivery Manager: Allow Admin to remove/disable specific delivery cities or provinces.
+
+Expensive Features: Implement AI Abandoned Cart Recovery, Smart Cross-Sell, and Inventory Heatmaps.
+
+Virtual Try-On (AR): Implement the mobile-camera foot overlay for AR shoe testing.
+
+7. Security & Performance:
+
+Implement Lazy Loading for all videos and images.
+
+Set global timezone to UTC+5 (Pakistan Time).
+
+Ensure 4-digit Gmail OTP for Forget Password.
+
+Perform a final clean build. Verify the 5-click secret trigger is invisible to the average user.
