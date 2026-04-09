@@ -62,6 +62,50 @@ const defaultForm: ProductForm = {
   images: [], video_url: '', sizes: [], tags: [], product_type: 'shoes',
 };
 
+const COLOR_PALETTES: Record<string, { name: string; hex: string }[]> = {
+  shoes_gents: [
+    { name: 'Black', hex: '#1a1a1a' }, { name: 'Brown', hex: '#7B3F00' }, { name: 'White', hex: '#FFFFFF' },
+    { name: 'Navy', hex: '#1B2A4A' }, { name: 'Grey', hex: '#808080' }, { name: 'Tan', hex: '#D2B48C' },
+    { name: 'Burgundy', hex: '#800020' }, { name: 'Camel', hex: '#C19A6B' }, { name: 'Olive', hex: '#6B6B3A' },
+  ],
+  shoes_ladies: [
+    { name: 'Black', hex: '#1a1a1a' }, { name: 'White', hex: '#FFFFFF' }, { name: 'Nude', hex: '#E3C4A8' },
+    { name: 'Red', hex: '#CC0000' }, { name: 'Gold', hex: '#CFB53B' }, { name: 'Silver', hex: '#C0C0C0' },
+    { name: 'Pink', hex: '#FFB6C1' }, { name: 'Beige', hex: '#F5F5DC' }, { name: 'Maroon', hex: '#800000' },
+  ],
+  shoes_kids: [
+    { name: 'Blue', hex: '#1E6BD4' }, { name: 'Red', hex: '#CC0000' }, { name: 'White', hex: '#FFFFFF' },
+    { name: 'Black', hex: '#1a1a1a' }, { name: 'Pink', hex: '#FFB6C1' }, { name: 'Orange', hex: '#FF6B00' },
+    { name: 'Yellow', hex: '#FFD700' }, { name: 'Green', hex: '#228B22' },
+  ],
+  bags_ladies: [
+    { name: 'Black', hex: '#1a1a1a' }, { name: 'Brown', hex: '#7B3F00' }, { name: 'Beige', hex: '#F5F5DC' },
+    { name: 'Red', hex: '#CC0000' }, { name: 'Mustard', hex: '#FFDB58' }, { name: 'Olive', hex: '#6B6B3A' },
+    { name: 'Blush', hex: '#FFB6C1' }, { name: 'Cream', hex: '#FFFDD0' },
+  ],
+  bags_gents: [
+    { name: 'Black', hex: '#1a1a1a' }, { name: 'Brown', hex: '#7B3F00' }, { name: 'Navy', hex: '#1B2A4A' },
+    { name: 'Grey', hex: '#808080' }, { name: 'Tan', hex: '#D2B48C' }, { name: 'Dark Green', hex: '#013220' },
+  ],
+  default: [
+    { name: 'Black', hex: '#1a1a1a' }, { name: 'White', hex: '#FFFFFF' }, { name: 'Brown', hex: '#7B3F00' },
+    { name: 'Grey', hex: '#808080' }, { name: 'Navy', hex: '#1B2A4A' }, { name: 'Beige', hex: '#F5F5DC' },
+    { name: 'Red', hex: '#CC0000' }, { name: 'Green', hex: '#228B22' }, { name: 'Blue', hex: '#1E6BD4' },
+  ],
+};
+
+const getColorSuggestions = (productType: string, gender: string) => {
+  const type = (productType || '').toLowerCase();
+  const g = (gender || '').toLowerCase();
+  if (type.includes('bag')) return g.includes('gent') || g.includes('men') ? COLOR_PALETTES.bags_gents : COLOR_PALETTES.bags_ladies;
+  if (type.includes('shoe') || type.includes('sandal') || type.includes('slipper') || type.includes('boot')) {
+    if (g.includes('kid') || g.includes('child') || g.includes('boy') || g.includes('girl')) return COLOR_PALETTES.shoes_kids;
+    if (g.includes('lad') || g.includes('women') || g.includes('female')) return COLOR_PALETTES.shoes_ladies;
+    return COLOR_PALETTES.shoes_gents;
+  }
+  return COLOR_PALETTES.default;
+};
+
 const parseSizeInput = (input: string): string[] => {
   if (!input.trim()) return [];
   const result: string[] = [];
@@ -563,6 +607,50 @@ const AdminProducts = () => {
                     </div>
                   )}
                 </div>
+
+                {/* AI Color Suggestions — appear when sizes are entered */}
+                {getSizesForProduct().length > 0 && (
+                  <div className="border border-dashed border-primary/30 rounded-lg p-3 bg-primary/5">
+                    <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> Suggested Colors — click to add
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {getColorSuggestions(form.product_type, form.gender).map(c => {
+                        const alreadyAdded = variants.some(v => v.color.toLowerCase() === c.name.toLowerCase());
+                        return (
+                          <button
+                            key={c.name}
+                            type="button"
+                            disabled={alreadyAdded}
+                            onClick={() => {
+                              if (alreadyAdded) return;
+                              const sizes = getSizesForProduct();
+                              setVariants(prev => [...prev, {
+                                color: c.name,
+                                color_hex: c.hex,
+                                sizes: Object.fromEntries(sizes.map(s => [s, 0])),
+                                images: [],
+                              }]);
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                              alreadyAdded
+                                ? 'opacity-40 cursor-not-allowed border-muted bg-muted text-muted-foreground'
+                                : 'hover:scale-105 active:scale-95 cursor-pointer border-gray-300 bg-white text-gray-800 shadow-sm hover:shadow-md'
+                            }`}
+                          >
+                            <span
+                              className="h-3.5 w-3.5 rounded-full border border-gray-300 flex-shrink-0"
+                              style={{ backgroundColor: c.hex }}
+                            />
+                            {c.name}
+                            {alreadyAdded && <span className="ml-0.5 text-[10px]">✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <ProductVariantTable
                   variants={variants}
                   setVariants={setVariants}
