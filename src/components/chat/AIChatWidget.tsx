@@ -137,11 +137,17 @@ const AIChatWidget = () => {
 
     try {
       const convoId = user ? await ensureConversation() : null;
+      const pktTimestamp = new Date(Date.now() + 5 * 3600000).toISOString();
       if (convoId) {
         await supabase.from('chat_messages').insert({
           conversation_id: convoId, sender_type: 'user', sender_id: user!.id,
           message: uploadedUrl ? `${userMsg}\n[Image: ${uploadedUrl}]` : userMsg,
         });
+        // Also persist to chat_history for unified history
+        supabase.from('chat_history' as any).insert([
+          { session_type: 'customer_chat', role: 'user', content: userMsg || '📷 Image',
+            metadata: { conversation_id: convoId, image: uploadedUrl }, created_at: pktTimestamp, user_id: user?.id },
+        ]).then(() => {});
       }
       // No AI reply - wait for admin response via realtime
     } catch {}

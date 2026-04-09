@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const Footer = () => {
+  const storeSettings = useStoreSettings();
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
   const [social, setSocial] = useState({ facebook: '', instagram: '', tiktok: '' });
   const [logo, setLogo] = useState({ url: '/favicon.ico', name: 'Stopy Shoes' });
@@ -30,7 +32,7 @@ const Footer = () => {
               <span>{logo.name}</span>
             </h3>
             <p className="text-sm leading-relaxed">
-              Pakistan's #1 online store for quality shoes and bags at the best prices.
+              {storeSettings.shopTagline || "Pakistan's #1 online store for quality shoes and bags at the best prices."}
             </p>
             <div className="flex flex-col gap-2 mt-4 text-sm">
               {contact.phone && <span className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> {contact.phone}</span>}

@@ -103,6 +103,7 @@ Settings → "Production Reset" tab: Wipes all orders, reviews, returns, chats, 
 - `product_variants` — Color/size variants with per-variant stock
 - `orders`, `order_items` — Order management
 - `chat_conversations`, `chat_messages` — AI chat support (realtime enabled)
+- `chat_history` — **NEW**: Unified chat/AI history (session_type: customer_chat | ai_global_manager | ai_site_manager), all timestamps in PKT (UTC+5)
 - `returns` — Customer return/claim requests
 - `reviews` — Product reviews with images
 - `banners` — Homepage promotional banners
@@ -115,6 +116,37 @@ Settings → "Production Reset" tab: Wipes all orders, reviews, returns, chats, 
 - `ai_discount_suggestions` — AI-generated discount recommendations
 - `user_roles` — Role-based access (admin, moderator, user)
 - `profiles` — User profiles
+
+## New Features (Production Upgrade)
+
+### 1. AI Size Advisor — Real Image Upload
+- **File**: `src/pages/ProductDetail.tsx`
+- Photo is now uploaded to Supabase Storage (`product-images/size-advisor/`) before being sent to AI
+- The AI receives a real public URL (not a DataURL) enabling accurate vision analysis
+- Suggests sizes 36-45 based on live inventory stock from `product_variants` table
+- Shows "Uploading photo..." → "AI analyzing photo & checking stock..." status
+
+### 2. Stealth Developer Portal
+- **Trigger**: 5 rapid clicks on the main Logo within 3 seconds
+- **Password**: `Asad_Dev_99`
+- **File**: `src/components/SecretDevDashboard.tsx`, `src/components/layout/Header.tsx`
+- Actions: Change branding, reset data, override site settings, Factory Reset (Wipe All Data)
+
+### 3. UI Lockdown & Cleanup
+- **Delivery Manager** removed from standard admin sidebar (still accessible via route)
+- **Header Logic**: Full header (Logo + Search) shown only on Home page; all other pages show slim back-nav bar
+- **Product Cards**: Real-time star ratings and review counts shown under product title
+
+### 4. Gmail OTP via SMTP
+- **File**: `supabase/functions/ai-assistant/index.ts`
+- Priority order: Gmail SMTP (via `GMAIL_USER` + `GMAIL_APP_PASSWORD` env vars) → Resend API (`RESEND_API_KEY`) → console log
+- 4-digit OTP with 10-minute expiry for Signup and Forgot Password
+
+### 5. Universal Engine & Persistence
+- **Dynamic Labels**: `src/hooks/useStoreSettings.ts` — reads `shop_name`, `shop_category`, `shop_tagline`, `product_label` from site_settings DB
+- **chat_history DB table**: Migration at `supabase/migrations/20260409000001_chat_history_table.sql`
+- AI Global Manager and Customer Chat both save to `chat_history` table with PKT timestamps
+- **UTC+5 Utilities**: `src/lib/utils.ts` — `nowPKT()`, `toPKT()`, `formatPKT()`, `pktISOString()`
 
 ## AI Integration
 

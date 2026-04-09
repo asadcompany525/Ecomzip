@@ -12,10 +12,13 @@ serve(async (req) => {
     const body = await req.json();
     const { messages, type, imageUrl, message, history } = body;
 
-    // Handle OTP email separately — uses Resend (free email API)
+    // Handle OTP email — tries Gmail SMTP first, then Resend, then logs as fallback
     if (type === "send-otp-email") {
       const { email, otp, name } = body;
       const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      const GMAIL_USER = Deno.env.get("GMAIL_USER");
+      const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
+
       const htmlBody = `
         <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border:1px solid #eee">
           <div style="text-align:center;margin-bottom:24px">
@@ -32,6 +35,70 @@ serve(async (req) => {
           <p style="font-size:12px;color:#aaa;text-align:center">Stopy Shoes — stopychoices.com</p>
         </div>`;
 
+      // 1. Try Gmail SMTP via nodemailer-compatible approach (RFC 2822 raw SMTP over fetch to Gmail API)
+      if (GMAIL_USER && GMAIL_APP_PASSWORD) {
+        try {
+          // Use Gmail SMTP via raw TCP (Deno native SMTP)
+          const encoder = new TextEncoder();
+          const boundary = `stopy_${Date.now()}`;
+          const rawEmail = [
+            `From: Stopy Shoes <${GMAIL_USER}>`,
+            `To: ${email}`,
+            `Subject: ${otp} — Your Stopy Shoes Verification Code`,
+            `MIME-Version: 1.0`,
+            `Content-Type: text/html; charset=UTF-8`,
+            ``,
+            htmlBody,
+          ].join("\r\n");
+
+          // Encode as base64url for Gmail API
+          const encodedEmail = btoa(unescape(encodeURIComponent(rawEmail)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+          // Use Gmail API with app password auth via SMTP relay
+          // Since Deno Edge Functions can't do raw TCP, use Gmail SMTP via fetch to smtp2go or similar
+          // Fallback: use a lightweight SMTP-over-HTTPS approach
+          console.log(`[OTP-Gmail] Would send via ${GMAIL_USER} to ${email} | Code: ${otp}`);
+          
+          // Actually send via Gmail SMTP using Deno's net (TCP)
+          const smtpConn = await Deno.connectTls({ hostname: "smtp.gmail.com", port: 465 });
+          const dec = new TextDecoder();
+          const read = async () => dec.decode(await smtpConn.read(new Uint8Array(4096)) ?? new Uint8Array());
+          const write = async (s: string) => await smtpConn.write(encoder.encode(s + "\r\n"));
+          
+          await read(); // 220 greeting
+          await write(`EHLO stopy.edge`);
+          await read();
+          await write(`AUTH LOGIN`);
+          await read();
+          await write(btoa(GMAIL_USER));
+          await read();
+          await write(btoa(GMAIL_APP_PASSWORD));
+          const authResp = await read();
+          if (!authResp.includes('235')) throw new Error(`Gmail auth failed: ${authResp}`);
+          
+          await write(`MAIL FROM:<${GMAIL_USER}>`);
+          await read();
+          await write(`RCPT TO:<${email}>`);
+          await read();
+          await write(`DATA`);
+          await read();
+          await write(rawEmail + "\r\n.");
+          await read();
+          await write(`QUIT`);
+          smtpConn.close();
+          
+          console.log(`[OTP-Gmail-SMTP] Sent to ${email}`);
+          return new Response(JSON.stringify({ success: true, provider: "gmail_smtp" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (gmailErr) {
+          console.error("[OTP-Gmail] Error:", gmailErr);
+          // Fall through to Resend
+        }
+      }
+
+      // 2. Try Resend API
       if (RESEND_API_KEY) {
         const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -50,16 +117,16 @@ serve(async (req) => {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        return new Response(JSON.stringify({ success: true, id: emailResult.id }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } else {
-        // No email service configured — log OTP for debugging
-        console.log(`[OTP] To: ${email} | Code: ${otp} | (Set RESEND_API_KEY env var to enable real email delivery)`);
-        return new Response(JSON.stringify({ success: true, debug: true }), {
+        return new Response(JSON.stringify({ success: true, id: emailResult.id, provider: "resend" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // 3. Fallback: log the OTP code (dev mode)
+      console.log(`[OTP-DEV] To: ${email} | Code: ${otp} | Configure GMAIL_USER+GMAIL_APP_PASSWORD or RESEND_API_KEY for real delivery`);
+      return new Response(JSON.stringify({ success: true, debug: true, note: "OTP logged server-side. Set GMAIL_USER+GMAIL_APP_PASSWORD or RESEND_API_KEY env vars to enable real delivery." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");

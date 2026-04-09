@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, Image, Tag, Settings, LogOut, Menu, X,
-  BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard, TrendingUp, Truck, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe, ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command
+  BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard, TrendingUp, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe, ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,6 @@ const sidebarItems = [
   { icon: Sparkles, label: 'AI Discounts', path: '/admin/ai-discounts' },
   { icon: ClipboardList, label: 'Order Checklist', path: '/admin/order-checklist' },
   { icon: FileText, label: 'AI Form Generator', path: '/admin/form-generator' },
-  { icon: Truck, label: 'Delivery Mgmt', path: '/admin/delivery' },
   { icon: Bell, label: 'Stock Alerts', path: '/admin/stock-alerts' },
   { icon: MapPin, label: 'City Manager', path: '/admin/city-manager' },
   { icon: Bot, label: 'AI Helper', path: '/admin/ai-helper' },

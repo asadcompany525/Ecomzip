@@ -79,6 +79,8 @@ const ProductDetail = () => {
   const [advisorLoading, setAdvisorLoading] = useState(false);
   const [advisorResult, setAdvisorResult] = useState<any>(null);
   const [advisorFootPhoto, setAdvisorFootPhoto] = useState<string | null>(null);
+  const [advisorFootPhotoFile, setAdvisorFootPhotoFile] = useState<File | null>(null);
+  const [advisorUploadingPhoto, setAdvisorUploadingPhoto] = useState(false);
   const footPhotoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -151,9 +153,30 @@ const ProductDetail = () => {
   const handleFootPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAdvisorFootPhotoFile(file);
     const reader = new FileReader();
     reader.onload = ev => setAdvisorFootPhoto(ev.target?.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const uploadAdvisorPhoto = async (): Promise<string | null> => {
+    if (!advisorFootPhotoFile) return null;
+    setAdvisorUploadingPhoto(true);
+    try {
+      const ext = advisorFootPhotoFile.name.split('.').pop() || 'jpg';
+      const path = `size-advisor/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(path, advisorFootPhotoFile, { upsert: true, contentType: advisorFootPhotoFile.type });
+      if (uploadError) {
+        console.warn('Storage upload failed, using data URL:', uploadError.message);
+        return advisorFootPhoto;
+      }
+      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
+      return urlData.publicUrl;
+    } finally {
+      setAdvisorUploadingPhoto(false);
+    }
   };
 
   // Detect category type from product name/category for adaptive advisor
@@ -175,9 +198,16 @@ const ProductDetail = () => {
     setAdvisorLoading(true);
     setAdvisorResult(null);
     try {
+      // Upload photo to Supabase Storage to get a real public URL for AI vision
+      let uploadedPhotoUrl: string | null = null;
+      if (advisorFootPhotoFile) {
+        uploadedPhotoUrl = await uploadAdvisorPhoto();
+        toast({ title: '📸 Photo uploaded — analyzing with AI...', description: 'Checking live inventory stock for your size.' });
+      }
+
       const gender = product?.gender || 'unisex';
       const catType = getCategoryType();
-      const photoProvided = !!advisorFootPhoto;
+      const photoProvided = !!uploadedPhotoUrl;
 
       const categoryContext = {
         shoes: `You are an expert shoe size advisor. ${photoProvided ? 'Carefully analyze the foot in the provided photo — estimate foot length from heel to longest toe. Use standard Pakistani/EU sizing (36-46).' : ''}`,
@@ -202,7 +232,7 @@ const ProductDetail = () => {
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
           type: 'size-advisor',
-          imageUrl: advisorFootPhoto || undefined,
+          imageUrl: uploadedPhotoUrl || undefined,
           messages: [{
             role: 'user',
             content: `${categoryContext}
@@ -750,9 +780,9 @@ Return ONLY this JSON (no extra text):
               </div>
             </div>
 
-            <Button onClick={getSizeAdvice} disabled={advisorLoading} className="w-full gap-2">
-              {advisorLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ruler className="h-4 w-4" />}
-              {advisorLoading ? 'AI is calculating...' : 'Get My Size Recommendation'}
+            <Button onClick={getSizeAdvice} disabled={advisorLoading || advisorUploadingPhoto} className="w-full gap-2">
+              {(advisorLoading || advisorUploadingPhoto) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ruler className="h-4 w-4" />}
+              {advisorUploadingPhoto ? 'Uploading photo...' : advisorLoading ? 'AI analyzing photo & checking stock...' : 'Get My Size Recommendation'}
             </Button>
 
             {advisorResult && (

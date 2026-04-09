@@ -202,26 +202,37 @@ Return ONLY valid JSON inside <RESPONSE_JSON>...</RESPONSE_JSON> and optionally 
 
       setResult(parsed);
 
+      // PKT timestamp (UTC+5)
+      const pktTimestamp = new Date(Date.now() + 5 * 3600000).toISOString();
       const entry: CommandEntry = {
         command,
         result: parsed,
-        timestamp: new Date().toISOString(),
+        timestamp: pktTimestamp,
         status: 'success',
       };
       const newHistory = [entry, ...history].slice(0, 30);
       setHistory(newHistory);
       localStorage.setItem('ai_global_manager_history', JSON.stringify(newHistory));
-      // Persist to DB for cross-device reference
+      // Persist to chat_history DB table for cross-device reference
+      supabase.from('chat_history' as any).insert([
+        { session_type: 'ai_global_manager', role: 'user', content: command, metadata: { type: 'command' }, created_at: pktTimestamp },
+        { session_type: 'ai_global_manager', role: 'assistant', content: parsed.response || JSON.stringify(parsed), metadata: parsed, created_at: pktTimestamp },
+      ]).then(() => {});
+      // Also backup to site_settings
       supabase.from('site_settings').upsert({ key: 'ai_global_manager_history', value: newHistory }, { onConflict: 'key' }).then(() => {});
 
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
 
     } catch (e: any) {
-      const entry: CommandEntry = { command, result: null, timestamp: new Date().toISOString(), status: 'error' };
+      const errPkt = new Date(Date.now() + 5 * 3600000).toISOString();
+      const entry: CommandEntry = { command, result: null, timestamp: errPkt, status: 'error' };
       const newHistory = [entry, ...history].slice(0, 30);
       setHistory(newHistory);
       localStorage.setItem('ai_global_manager_history', JSON.stringify(newHistory));
       supabase.from('site_settings').upsert({ key: 'ai_global_manager_history', value: newHistory }, { onConflict: 'key' }).then(() => {});
+      supabase.from('chat_history' as any).insert([
+        { session_type: 'ai_global_manager', role: 'user', content: command, metadata: { error: e.message }, created_at: errPkt },
+      ]).then(() => {});
       toast({ title: 'AI Error', description: e.message, variant: 'destructive' });
     }
     setProcessing(false);
