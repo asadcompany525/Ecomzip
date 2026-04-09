@@ -84,9 +84,9 @@ export default function AdminStaff() {
 
   const fetchStaff = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data: roles, error } = await supabase
       .from('user_roles')
-      .select('*, profiles(full_name, email)')
+      .select('id, user_id, role, created_at')
       .not('role', 'eq', 'admin')
       .order('created_at', { ascending: false });
 
@@ -96,13 +96,27 @@ export default function AdminStaff() {
       return;
     }
 
+    const userIds = (roles || []).map((r: any) => r.user_id).filter(Boolean);
+    let profileMap: Record<string, { full_name: string; email: string }> = {};
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', userIds);
+      (profiles || []).forEach((p: any) => {
+        profileMap[p.user_id] = { full_name: p.full_name || 'Unknown', email: p.email || 'N/A' };
+      });
+    }
+
     const stored = loadPerms();
-    const mapped: StaffMember[] = (data || []).map((r: any) => {
+    const mapped: StaffMember[] = (roles || []).map((r: any) => {
       const normRole = r.role === 'moderator' ? 'manager' : r.role;
+      const profile = profileMap[r.user_id] || { full_name: 'Unknown', email: 'N/A' };
       return {
         id: r.id,
-        email: r.profiles?.email || 'N/A',
-        name: r.profiles?.full_name || 'Unknown',
+        email: profile.email,
+        name: profile.full_name,
         role: normRole,
         created_at: r.created_at,
         permissions: stored[r.id] ?? DEFAULT_ROLE_PERMS[normRole] ?? [],
