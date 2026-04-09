@@ -87,19 +87,8 @@ const AdminLayout = () => {
   const [secretInput, setSecretInput] = useState('');
   const [secretError, setSecretError] = useState('');
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [brandName, setBrandName] = useState('AS Admin');
-  const [brandLogo, setBrandLogo] = useState('/favicon.ico');
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('as_brand');
-      if (stored) {
-        const b = JSON.parse(stored);
-        if (b.name) setBrandName(b.name);
-        if (b.logo) setBrandLogo(b.logo);
-      }
-    } catch {}
-  }, []);
+  const [brandName] = useState('Admin');
+  const [brandLogo] = useState('/favicon.ico');
 
   const handleLogout = async () => {
     await signOut();
