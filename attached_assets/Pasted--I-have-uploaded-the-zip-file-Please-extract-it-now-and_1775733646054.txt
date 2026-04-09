@@ -1,0 +1,46 @@
+"I have uploaded the zip file. Please extract it now and set up the environment. Make sure all dependencies are installed. Do not change any logic yet, just ensure the project is running and the database is connected."
+
+1. THE 5 "NEVER-SEEN-BEFORE" ADMIN PAGES:
+
+Page 1: AI Trend Predictor: This page scans your sales data and predicts which shoe size or color will go Out of Stock in the next 7 days. It gives you a "Restock Now" warning.
+
+Page 2: Dynamic Pricing Engine: A page where I can set "Happy Hours". For example: "Reduce all prices by 10% automatically from 9 PM to 12 PM". The site updates the prices in real-time.
+
+Page 3: Customer Loyalty Heatmap: A visual map (or list) showing your "Diamond Customers" (who spent the most) vs "Churning Customers" (who haven't visited in 30 days) with a one-click button to send them a special discount.
+
+Page 4: Visual Search Logs: A page that shows exactly what keywords or colors customers are typing into your search bar but NOT finding. This helps you know what new shoes to buy.
+
+Page 5: Newsletter & Bulk Email (The Pro Version): Send HTML emails to all users. Add a "Track Open Rate" feature to see how many people actually opened your email.
+
+2. Staff & Permissions (Iron-Clad):
+
+Fix: Staff Management must be 100% functional.
+
+Granular Control: I must be able to restrict staff from seeing "Customer Plain-text Passwords" or "Sales Reports" while allowing them to manage "Orders".
+
+3. "AS Developer" Branding & Secret Portal:
+
+Personal Branding: Strictly for "AS" Company. Upload AS Logo, Phone, and Email.
+
+Secret Access: 5 rapid clicks on Main Logo + Password Asad_Dev_99.
+
+UI: Remove the orange "Protected" bar and clean up the Sidebar.
+
+4. Customer & Product Engine:
+
+Data: Show Name, Email, Phone, and Plain-text Password for all customers.
+
+Sizes: Total manual control. No AI auto-sizes. Admin adds specific ranges or single sizes.
+
+Media: Full Support for .mp4 and .mov in gallery (Autoplay/Loop).
+
+Stars: Instant star updates on product cards from real reviews.
+
+5. Security & Build:
+
+Fix Nodemailer for 4-digit OTP using Replit Secrets.
+
+Ensure the system handles bulk emails without crashing.
+
+Execute a clean sync. This is the final production-ready version.
+
