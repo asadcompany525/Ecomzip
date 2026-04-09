@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Code2, Smartphone, Brain, Cloud, Palette, ExternalLink, Lock } from 'lucide-react';
+import { Shield, Code2, Smartphone, Brain, Cloud, Palette, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import BottomNav from '@/components/layout/BottomNav';
 import { DEV_INFO_KEY, DEFAULT_DEV_INFO } from '@/components/SecretDevDashboard';
@@ -38,17 +38,6 @@ const DeveloperPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      {/* Locked header banner */}
-      <div className="bg-primary text-primary-foreground">
-        <div className="container flex items-center justify-between py-2 text-xs">
-          <div className="flex items-center gap-1.5">
-            <Lock className="h-3.5 w-3.5" />
-            <span>Developer Profile — Protected · Non-Editable from Admin</span>
-          </div>
-          <Badge className="bg-white/20 text-white border-white/30 text-[10px]">PROTECTED</Badge>
-        </div>
-      </div>
-
       <main className="container py-10 max-w-3xl mx-auto">
         {/* Hero */}
         <div className="text-center space-y-4 mb-12">
@@ -148,13 +137,6 @@ const DeveloperPage = () => {
           </div>
         </div>
 
-        {/* Lock notice */}
-        <div className="mt-8 text-center">
-          <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
-            <Lock className="h-3 w-3" />
-            This page is protected from Admin UI and AI Manager edits.
-          </p>
-        </div>
       </main>
       <BottomNav />
     </div>

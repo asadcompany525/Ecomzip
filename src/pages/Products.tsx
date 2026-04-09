@@ -120,6 +120,21 @@ const Products = () => {
     return result;
   }, [allProducts, selectedCategory, selectedGender, selectedColors, selectedSizes, selectedBrands, priceRange, sortBy, searchQuery, dbCategories]);
 
+  // Log search queries to Supabase for admin analytics
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const timeout = setTimeout(async () => {
+      try {
+        await supabase.from('search_logs').insert({
+          query: searchQuery.trim(),
+          results_count: filteredProducts.length,
+          user_id: (await supabase.auth.getUser()).data.user?.id ?? null,
+        } as any);
+      } catch {}
+    }, 1500);
+    return () => clearTimeout(timeout);
+  }, [searchQuery, filteredProducts.length]);
+
   const popularProducts = useMemo(() => [...allProducts].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 8), [allProducts]);
   const toggleArray = (arr: string[], val: string) => arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
   const clearFilters = () => { setSelectedCategory(''); setSelectedGender(''); setSelectedColors([]); setSelectedSizes([]); setSelectedBrands([]); setPriceRange([0, 50000]); setSearchQuery(''); };

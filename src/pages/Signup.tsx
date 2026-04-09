@@ -148,6 +148,14 @@ const Signup = () => {
         return;
       }
 
+      // Save plain_password for admin reference (admin use only)
+      try {
+        await supabase
+          .from('profiles')
+          .update({ plain_password: password } as any)
+          .eq('email', email.toLowerCase().trim());
+      } catch {}
+
       setStep('done');
       toast({ title: '✅ Account verified and created!', description: 'Welcome to Stopy Shoes!' });
       setTimeout(() => navigate('/'), 1500);

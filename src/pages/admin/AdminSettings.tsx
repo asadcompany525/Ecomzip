@@ -17,6 +17,14 @@ const AdminSettings = () => {
   const [returnPolicy, setReturnPolicy] = useState({ title: 'Return Policy', content: '', days: 7 });
   const [faqPage, setFaqPage] = useState({ title: 'FAQs', items: '[]' });
   const [adminCreds, setAdminCreds] = useState({ email: '', password: '' });
+  const [asBrand, setAsBrand] = useState({ name: 'AS Admin', logo: '/favicon.ico', phone: '', email: '' });
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('as_brand');
+      if (stored) setAsBrand(prev => ({ ...prev, ...JSON.parse(stored) }));
+    } catch {}
+  }, []);
   const [resetting, setResetting] = useState(false);
   const [resetConfirm, setResetConfirm] = useState('');
   const [receipt, setReceipt] = useState<any>({ 
@@ -93,6 +101,7 @@ const AdminSettings = () => {
       <h1 className="text-2xl font-bold mb-6">Site Settings</h1>
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
+          <TabsTrigger value="branding">AS Branding</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="social">Social</TabsTrigger>
@@ -101,6 +110,36 @@ const AdminSettings = () => {
           <TabsTrigger value="admin">Admin</TabsTrigger>
           <TabsTrigger value="reset" className="text-destructive">Production Reset</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="branding" className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle>🏢 AS Company Branding</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">Configure the branding for your admin panel. These settings control the logo and name shown in the admin sidebar.</p>
+              <div>
+                <Label>Company / Admin Panel Name</Label>
+                <Input value={asBrand.name} onChange={e => setAsBrand(p => ({ ...p, name: e.target.value }))} placeholder="e.g. AS Admin" className="mt-1" />
+              </div>
+              <div>
+                <Label>Logo URL</Label>
+                <Input value={asBrand.logo} onChange={e => setAsBrand(p => ({ ...p, logo: e.target.value }))} placeholder="https://... or /favicon.ico" className="mt-1" />
+                {asBrand.logo && <img src={asBrand.logo} alt="Preview" className="h-12 w-12 mt-2 rounded object-contain border" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+              </div>
+              <div>
+                <Label>Contact Phone</Label>
+                <Input value={asBrand.phone} onChange={e => setAsBrand(p => ({ ...p, phone: e.target.value }))} placeholder="+92 300 0000000" className="mt-1" />
+              </div>
+              <div>
+                <Label>Contact Email</Label>
+                <Input value={asBrand.email} onChange={e => setAsBrand(p => ({ ...p, email: e.target.value }))} placeholder="contact@ascompany.com" className="mt-1" />
+              </div>
+              <Button onClick={() => {
+                localStorage.setItem('as_brand', JSON.stringify(asBrand));
+                toast({ title: '✅ AS Branding saved!', description: 'Reload the admin panel to see changes.' });
+              }}>Save AS Branding</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="general" className="space-y-4">
           <Card>

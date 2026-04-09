@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Edit, Trash2, Search, Upload, Sparkles, Loader2, Video, ShieldAlert } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
@@ -62,10 +62,24 @@ const defaultForm: ProductForm = {
   images: [], video_url: '', sizes: [], tags: [], product_type: 'shoes',
 };
 
-const shoesSizesMen = ['39','40','41','42','43','44','45'];
-const shoesSizesWomen = ['36','37','38','39','40','41'];
-const shoesSizesKids = ['28','29','30','31','32','33','34','35'];
-const bagSizes = ['Small','Medium','Large','XL'];
+const parseSizeInput = (input: string): string[] => {
+  if (!input.trim()) return [];
+  const result: string[] = [];
+  const parts = input.split(',').map(p => p.trim()).filter(Boolean);
+  for (const part of parts) {
+    if (part.includes('-')) {
+      const [start, end] = part.split('-').map(Number);
+      if (!isNaN(start) && !isNaN(end) && end >= start) {
+        for (let i = start; i <= end; i++) result.push(String(i));
+      } else {
+        result.push(part);
+      }
+    } else {
+      result.push(part);
+    }
+  }
+  return [...new Set(result)];
+};
 
 const AdminProducts = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -77,6 +91,8 @@ const AdminProducts = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [sizeInput, setSizeInput] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{ id: string; title: string; force: boolean } | null>(null);
 
   const fetchProducts = async () => {
     const { data } = await supabase.from('products').select('*, product_variants(*)').order('created_at', { ascending: false });
@@ -90,11 +106,9 @@ const AdminProducts = () => {
 
   useEffect(() => { fetchProducts(); fetchCategories(); logTimezoneSync(); }, []);
 
-  const getSizesForProduct = () => {
-    if (form.product_type === 'bags') return bagSizes;
-    if (form.gender === 'women') return shoesSizesWomen;
-    if (form.gender === 'kids') return shoesSizesKids;
-    return shoesSizesMen;
+  const getSizesForProduct = (): string[] => {
+    const manual = parseSizeInput(sizeInput);
+    return manual.length > 0 ? manual : (form.sizes.length > 0 ? form.sizes : []);
   };
 
   const level1 = categories.filter(c => c.level === 1);
@@ -283,6 +297,8 @@ const AdminProducts = () => {
   };
 
   const handleEdit = async (product: any) => {
+    const existingSizes = (product.sizes as string[]) || [];
+    setSizeInput(existingSizes.join(','));
     setForm({
       id: product.id,
       title: product.title || '',
@@ -303,7 +319,7 @@ const AdminProducts = () => {
       claim_policy: product.claim_policy || '',
       images: (product.images as string[]) || [],
       video_url: product.video_url || '',
-      sizes: (product.sizes as string[]) || [],
+      sizes: existingSizes,
       tags: product.tags || [],
       product_type: product.gender === 'bags' ? 'bags' : 'shoes',
     });
@@ -321,27 +337,19 @@ const AdminProducts = () => {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this product?')) return;
+  const handleDelete = (id: string) => {
     const product = products.find(p => p.id === id);
-    if (product) {
-      const code = (product.tags as string[])?.[0];
-      if (code) {
-        await supabase.from('deleted_product_codes').upsert({ code, product_title: product.title }, { onConflict: 'code' });
-      }
-    }
-    await supabase.from('product_variants').delete().eq('product_id', id);
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) {
-      toast({ title: 'Cannot delete', description: 'Product has linked orders. Use Force Delete.', variant: 'destructive' });
-    } else {
-      toast({ title: 'Product deleted' });
-    }
-    fetchProducts();
+    setDeleteDialog({ id, title: product?.title || 'this product', force: false });
   };
 
-  const handleForceDelete = async (id: string) => {
-    if (!confirm('FORCE DELETE: This will remove the product and nullify all linked order references. Continue?')) return;
+  const handleForceDelete = (id: string) => {
+    const product = products.find(p => p.id === id);
+    setDeleteDialog({ id, title: product?.title || 'this product', force: true });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteDialog) return;
+    const { id, force } = deleteDialog;
     const product = products.find(p => p.id === id);
     if (product) {
       const code = (product.tags as string[])?.[0];
@@ -349,17 +357,20 @@ const AdminProducts = () => {
         await supabase.from('deleted_product_codes').upsert({ code, product_title: product.title }, { onConflict: 'code' });
       }
     }
-    await supabase.from('order_items').update({ product_id: null, variant_id: null }).eq('product_id', id);
-    await supabase.from('reviews').delete().eq('product_id', id);
-    await supabase.from('stock_alerts').delete().eq('product_id', id);
-    await supabase.from('ai_discount_suggestions').delete().eq('product_id', id);
+    if (force) {
+      await supabase.from('order_items').update({ product_id: null, variant_id: null }).eq('product_id', id);
+      await supabase.from('reviews').delete().eq('product_id', id);
+      await supabase.from('stock_alerts').delete().eq('product_id', id);
+      await supabase.from('ai_discount_suggestions').delete().eq('product_id', id);
+    }
     await supabase.from('product_variants').delete().eq('product_id', id);
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) {
-      toast({ title: 'Force delete failed', description: error.message, variant: 'destructive' });
+      toast({ title: force ? 'Force delete failed' : 'Cannot delete', description: force ? error.message : 'Product has linked orders. Use Force Delete.', variant: 'destructive' });
     } else {
-      toast({ title: 'Product force deleted successfully' });
+      toast({ title: force ? 'Product force deleted!' : 'Product deleted' });
     }
+    setDeleteDialog(null);
     fetchProducts();
   };
 
@@ -375,7 +386,7 @@ const AdminProducts = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm(defaultForm); setVariants([]); } }}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm(defaultForm); setVariants([]); setSizeInput(''); } }}>
           <DialogTrigger asChild>
             <Button onClick={() => { setForm(defaultForm); setVariants([]); }}>
               <Plus className="h-4 w-4 mr-2" /> Add Product
@@ -530,9 +541,28 @@ const AdminProducts = () => {
                 )}
               </div>
 
-              {/* Variants */}
+              {/* Manual Sizes + Variants */}
               <div className="bg-muted/30 rounded-xl p-4 space-y-3">
-                <Label className="text-base font-semibold">🎨 Colors & Sizes</Label>
+                <Label className="text-base font-semibold">📐 Manual Sizes & Colors</Label>
+                <div>
+                  <Label className="text-xs">Enter Sizes Manually</Label>
+                  <Input
+                    value={sizeInput}
+                    onChange={e => setSizeInput(e.target.value)}
+                    placeholder="e.g. 39-45 or 36,37,38,39 or Small,Medium,Large"
+                    className="mt-1 font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Ranges: <code className="bg-muted px-1 rounded">39-45</code> · Singles: <code className="bg-muted px-1 rounded">36,38,40</code> · Text: <code className="bg-muted px-1 rounded">S,M,L,XL</code> · Kids: <code className="bg-muted px-1 rounded">16-25</code>
+                  </p>
+                  {getSizesForProduct().length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {getSizesForProduct().map(s => (
+                        <span key={s} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{s}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <ProductVariantTable
                   variants={variants}
                   setVariants={setVariants}
@@ -706,6 +736,28 @@ const AdminProducts = () => {
           </tbody>
         </table>
       </div>
+
+      <Dialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {deleteDialog?.force ? <ShieldAlert className="h-5 w-5 text-orange-600" /> : <Trash2 className="h-5 w-5 text-destructive" />}
+              {deleteDialog?.force ? 'Force Delete Product?' : 'Delete Product?'}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {deleteDialog?.force
+              ? `This will permanently remove "${deleteDialog?.title}" and nullify all linked order references. This cannot be undone.`
+              : `Are you sure you want to delete "${deleteDialog?.title}"? This cannot be undone.`}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Cancel</Button>
+            <Button variant={deleteDialog?.force ? 'outline' : 'destructive'} className={deleteDialog?.force ? 'border-orange-400 text-orange-600 hover:bg-orange-50' : ''} onClick={confirmDelete}>
+              {deleteDialog?.force ? 'Force Delete' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

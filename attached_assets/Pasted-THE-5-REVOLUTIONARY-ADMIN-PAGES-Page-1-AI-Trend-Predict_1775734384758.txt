@@ -1,0 +1,43 @@
+THE 5 REVOLUTIONARY ADMIN PAGES:
+
+Page 1: AI Trend Predictor: Create a dashboard that analyzes orders and inventory tables to predict stock-outs in the next 7 days. Display a "Restock Now" alert for high-risk items.
+
+Page 2: Dynamic Pricing Engine: Build a scheduler where I can set "Happy Hours" (e.g., 9 PM - 12 AM). Automatically adjust database prices during this window and revert them after.
+
+Page 3: Customer Loyalty Heatmap: A visual list categorizing customers: "Diamond" (High spenders) vs "Churning" (Inactive for 30+ days). Add a button to send targeted discount codes to each group.
+
+Page 4: Visual Search Logs: Create a table that logs and displays search queries that returned zero results. This will help identify customer demand for missing products.
+
+Page 5: Pro Newsletter & Bulk Email: Implement a tool to send HTML emails to all users using Nodemailer. Add tracking logic to record "Open Rates" in a new email_logs table.
+
+2. IRON-CLAD STAFF & PERMISSIONS:
+
+Full Fix: Ensure the staff management system is 100% functional (Add/Edit/Delete).
+
+Granular Logic: Implement a permission-based middleware. Allow me to block staff from seeing "Plain-text Passwords" or "Sales Reports" while they maintain access to "Order Management".
+
+3. "AS" BRANDING & HIDDEN PORTAL:
+
+Re-Branding: Remove all generic developer references. Re-brand everything to "AS" Company. Add settings for AS Logo, Email, and Phone.
+
+Secret Trigger: Access the Developer Portal ONLY via 5 rapid clicks on the Main Logo followed by password Asad_Dev_99.
+
+UI Cleanup: Remove the orange "Protected" bar and simplify the Admin Sidebar.
+
+4. CORE ENGINE ENHANCEMENTS:
+
+Customer Data: Display Name, Email, Phone, and Plain-text Password in the Customer Management table.
+
+Manual Sizes: Completely disable AI auto-sizing. Enable manual input for size ranges (e.g., 36-41) or individual sizes in the Product Editor.
+
+Video Gallery: Fix the product gallery to support .mp4 and .mov files with autoplay, muted, and loop.
+
+Live Stars: Update star ratings on product cards instantly based on the average of real database reviews.
+
+5. SYSTEM STABILITY & SECURITY:
+
+Gmail OTP: Fix Nodemailer to send 4-digit OTPs for Signup and Password Recovery using Replit Secrets (EMAIL_USER, EMAIL_PASS).
+
+Bulk Optimization: Ensure the newsletter system uses a queue or batching to prevent timeouts during large email blasts.
+
+Perform a full system sync. Ensure all Supabase schemas are updated to support these features. This is the final production build.

@@ -69,6 +69,11 @@ import AdminAiSalesPredictor from "./pages/admin/AdminAiSalesPredictor";
 import AdminAiMarketingHub from "./pages/admin/AdminAiMarketingHub";
 import AdminAiFeedbackAnalyzer from "./pages/admin/AdminAiFeedbackAnalyzer";
 import AdminAiPriceIntelligence from "./pages/admin/AdminAiPriceIntelligence";
+import AdminTrendPredictor from "./pages/admin/AdminTrendPredictor";
+import AdminPricingEngine from "./pages/admin/AdminPricingEngine";
+import AdminLoyaltyHeatmap from "./pages/admin/AdminLoyaltyHeatmap";
+import AdminSearchLogs from "./pages/admin/AdminSearchLogs";
+import AdminNewsletter from "./pages/admin/AdminNewsletter";
 import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
@@ -152,6 +157,11 @@ const App = () => (
                 <Route path="inventory" element={<AdminInventoryInsights />} />
                 <Route path="activity" element={<AdminActivity />} />
                 <Route path="settings" element={<AdminSettings />} />
+                <Route path="trend-predictor" element={<AdminTrendPredictor />} />
+                <Route path="pricing-engine" element={<AdminPricingEngine />} />
+                <Route path="loyalty-heatmap" element={<AdminLoyaltyHeatmap />} />
+                <Route path="search-logs" element={<AdminSearchLogs />} />
+                <Route path="newsletter" element={<AdminNewsletter />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />

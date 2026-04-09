@@ -1,0 +1,53 @@
+Instructions for Replit Agent (Final Execution):
+
+1. THE 5 REVOLUTIONARY ADMIN PAGES:
+
+AI Trend Predictor: Dashboard analyzing orders and inventory to predict stock-outs within 7 days. Add "Restock Now" alerts.
+
+Dynamic Pricing Engine: A scheduler for "Happy Hours" (e.g., 9 PM - 12 AM). Update DB prices automatically and revert after.
+
+Customer Loyalty Heatmap: Categorize users as "Diamond" (top spenders) or "Churning" (30 days inactive). Add a "Send Discount" button.
+
+Visual Search Logs: Table logging search terms that returned zero results to track customer demand.
+
+Pro Newsletter & Bulk Email: HTML email tool via Nodemailer with "Open Rate" tracking in a new email_logs table.
+
+2. MODERN UI NOTIFICATIONS (REPLACING BROWSER ALERTS):
+
+Custom Modals: Replace ALL standard browser alerts (Delete, Errors, Success) with stylish Tailwind CSS Modals.
+
+Confirmation Boxes: When deleting, show a custom pop-up with 'Cancel' and 'Delete' buttons.
+
+Toast Notifications: Use non-intrusive "Toast" pop-ups (Top-right corner) for success messages like "Product Added" or "Price Updated".
+
+3. IRON-CLAD STAFF & PERMISSIONS:
+
+Full Fix: Ensure Staff Management (Add/Edit/Delete) is 100% functional.
+
+Granular Logic: Implement middleware to restrict staff from seeing "Plain-text Passwords" or "Sales Reports" based on admin-set permissions.
+
+4. "AS" BRANDING & SECRET PORTAL:
+
+Branding: Re-brand everything to "AS" Company. Add settings for AS Logo, Email, and Phone.
+
+Secret Trigger: Hide Developer Portal. Access ONLY via 5 rapid clicks on the Main Logo + Password Asad_Dev_99.
+
+Cleanup: Remove the orange "Protected" bar and simplify the sidebar.
+
+5. CORE ENGINE & MEDIA:
+
+Customer Data: Display Name, Email, Phone, and Plain-text Password in the admin table.
+
+Manual Sizes: Disable AI auto-sizes. Enable manual input for ranges (e.g., 16-25, 39-45) or single sizes in the editor.
+
+Video Gallery: Full support for .mp4 and .mov with autoplay, muted, and loop.
+
+Live Stars: Instant rating updates on product cards based on actual database review averages.
+
+6. STABILITY & SECURITY:
+
+Gmail OTP: Fix Nodemailer for 4-digit OTPs using Replit Secrets (EMAIL_USER, EMAIL_PASS).
+
+Queueing: Optimize bulk emails to prevent timeouts.
+
+Perform a full sync and update all Supabase schemas. This is the final production build.
