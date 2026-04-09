@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { Product } from '@/types/product';
 import { motion } from 'framer-motion';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ProductCardProps {
@@ -26,7 +26,6 @@ const CountdownTimer = ({ endsAt, productId }: { endsAt: string; productId: stri
       if (diff <= 0) {
         setExpired(true);
         setTimeLeft('EXPIRED');
-        // Auto-revert price when flash sale expires
         (async () => {
           const { data: p } = await supabase.from('products').select('original_price').eq('id', productId).maybeSingle();
           if (p?.original_price) {
@@ -60,14 +59,44 @@ const CountdownTimer = ({ endsAt, productId }: { endsAt: string; productId: stri
 const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) => {
   const { addToCart, toggleWishlist, isInWishlist } = useCart();
   const [dbFlashEnd, setDbFlashEnd] = useState<string | null>(flashSaleEnds || null);
+  const [liveRating, setLiveRating] = useState(product.rating ?? 0);
+  const [liveReviews, setLiveReviews] = useState(product.reviews ?? 0);
 
-  // Fetch flash_sale_ends from DB if product is flash sale but no flashSaleEnds prop
   useEffect(() => {
     if (product.isFlashSale && !flashSaleEnds) {
       supabase.from('products').select('flash_sale_ends').eq('id', product.id).maybeSingle()
         .then(({ data }) => { if (data?.flash_sale_ends) setDbFlashEnd(data.flash_sale_ends); });
     }
   }, [product.id, product.isFlashSale, flashSaleEnds]);
+
+  useEffect(() => {
+    const fetchRating = async () => {
+      const { data } = await supabase
+        .from('reviews')
+        .select('rating')
+        .eq('product_id', product.id);
+      if (data && data.length > 0) {
+        const avg = data.reduce((s: number, r: any) => s + (r.rating || 0), 0) / data.length;
+        setLiveRating(Math.round(avg * 10) / 10);
+        setLiveReviews(data.length);
+      }
+    };
+    fetchRating();
+
+    const channel = supabase
+      .channel(`reviews-card-${product.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'reviews',
+        filter: `product_id=eq.${product.id}`,
+      }, () => {
+        fetchRating();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [product.id]);
 
   const timerEnd = dbFlashEnd || flashSaleEnds;
 
@@ -107,9 +136,13 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
         <p className="text-[9px] md:text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{product.brand}</p>
         <h3 className="text-xs md:text-sm font-semibold leading-tight line-clamp-2 mb-1.5 group-hover:text-primary transition-colors">{product.name}</h3>
         <div className="flex items-center gap-1 mb-1.5">
-          <Star className="h-3 w-3 fill-warning text-warning" />
-          <span className="text-[10px] md:text-xs font-medium">{product.rating}</span>
-          <span className="text-[9px] md:text-[10px] text-muted-foreground">({product.reviews})</span>
+          <div className="flex">
+            {[1, 2, 3, 4, 5].map(i => (
+              <Star key={i} className={`h-3 w-3 ${i <= Math.round(liveRating) ? 'fill-warning text-warning' : 'text-muted-foreground/40'}`} />
+            ))}
+          </div>
+          <span className="text-[10px] md:text-xs font-medium">{liveRating > 0 ? liveRating.toFixed(1) : '—'}</span>
+          <span className="text-[9px] md:text-[10px] text-muted-foreground">({liveReviews})</span>
           {product.sold ? <span className="text-[9px] md:text-[10px] text-muted-foreground ml-auto">{product.sold}+ sold</span> : null}
         </div>
         <div className="flex items-center gap-1.5">

@@ -50,17 +50,25 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
       const stored = localStorage.getItem(DEV_INFO_KEY);
       if (stored) setDevInfo(JSON.parse(stored));
     } catch {}
-    supabase.from('site_settings').select('*').eq('key', 'logo').maybeSingle().then(({ data }) => {
-      if (data?.value) {
-        const v = data.value as any;
-        setLogoUrl(v.url || '');
-        setLogoName(v.name || 'Stopy Shoes');
-      }
+    supabase.from('site_settings').select('*').then(({ data }) => {
+      (data || []).forEach((s: any) => {
+        if (s.key === 'logo') {
+          const v = s.value as any;
+          setLogoUrl(v.url || '');
+          setLogoName(v.name || 'Stopy Shoes');
+        }
+        if (s.key === 'developer_page') {
+          const v = s.value as any;
+          setDevInfo(d => ({ ...d, ...v }));
+          localStorage.setItem(DEV_INFO_KEY, JSON.stringify({ ...DEFAULT_DEV_INFO, ...v }));
+        }
+      });
     });
   }, [open]);
 
-  const saveDevInfo = () => {
+  const saveDevInfo = async () => {
     localStorage.setItem(DEV_INFO_KEY, JSON.stringify(devInfo));
+    await supabase.from('site_settings').upsert({ key: 'developer_page', value: devInfo }, { onConflict: 'key' });
     toast({ title: '✅ Developer info saved!', description: 'Changes will reflect on the Developer page.' });
   };
 

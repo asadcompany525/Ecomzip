@@ -11,11 +11,9 @@ import { AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 
 const AdminSettings = () => {
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
-  const [delivery, setDelivery] = useState({ free_delivery_min: 0, default_fee: 200, express_fee: 400 });
   const [social, setSocial] = useState({ facebook: '', instagram: '', tiktok: '' });
   const [logo, setLogo] = useState({ url: '/favicon.ico', name: 'Stopy Shoes', size: 'h-8 w-8' });
   const [helpPage, setHelpPage] = useState({ title: 'Help & Support', content: '', phone: '', email: '', whatsapp: '' });
-  const [developerPage, setDeveloperPage] = useState({ name: 'ASDEVOLPER', logo: '', phone: '', email: '', description: '' });
   const [returnPolicy, setReturnPolicy] = useState({ title: 'Return Policy', content: '', days: 7 });
   const [faqPage, setFaqPage] = useState({ title: 'FAQs', items: '[]' });
   const [adminCreds, setAdminCreds] = useState({ email: '', password: '' });
@@ -34,11 +32,9 @@ const AdminSettings = () => {
       const { data } = await supabase.from('site_settings').select('*');
       (data || []).forEach((s: any) => {
         if (s.key === 'contact') setContact(s.value);
-        if (s.key === 'delivery') setDelivery(s.value);
         if (s.key === 'social') setSocial(s.value);
         if (s.key === 'logo') setLogo(s.value);
         if (s.key === 'help_page') setHelpPage(s.value);
-        if (s.key === 'developer_page') setDeveloperPage(s.value);
         if (s.key === 'return_policy') setReturnPolicy(s.value);
         if (s.key === 'faq_page') setFaqPage(s.value);
         if (s.key === 'receipt') setReceipt(s.value);
@@ -99,7 +95,6 @@ const AdminSettings = () => {
         <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="contact">Contact</TabsTrigger>
-          <TabsTrigger value="delivery">Delivery</TabsTrigger>
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="receipt">Receipt</TabsTrigger>
           <TabsTrigger value="pages">Pages</TabsTrigger>
@@ -129,18 +124,6 @@ const AdminSettings = () => {
               <div><Label>WhatsApp</Label><Input value={contact.whatsapp} onChange={e => setContact(p => ({ ...p, whatsapp: e.target.value }))} /></div>
               <div><Label>Address</Label><Input value={contact.address} onChange={e => setContact(p => ({ ...p, address: e.target.value }))} /></div>
               <Button onClick={() => save('contact', contact)}>Save Contact</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="delivery" className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle>Delivery Fees</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div><Label>Free Delivery Min (Rs.)</Label><Input type="number" value={delivery.free_delivery_min} onChange={e => setDelivery(p => ({ ...p, free_delivery_min: Number(e.target.value) }))} /></div>
-              <div><Label>Default Fee (Rs.)</Label><Input type="number" value={delivery.default_fee} onChange={e => setDelivery(p => ({ ...p, default_fee: Number(e.target.value) }))} /></div>
-              <div><Label>Express Fee (Rs.)</Label><Input type="number" value={delivery.express_fee} onChange={e => setDelivery(p => ({ ...p, express_fee: Number(e.target.value) }))} /></div>
-              <Button onClick={() => save('delivery', delivery)}>Save Delivery</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -218,18 +201,6 @@ const AdminSettings = () => {
               <div><Label>WhatsApp</Label><Input value={helpPage.whatsapp} onChange={e => setHelpPage(p => ({ ...p, whatsapp: e.target.value }))} /></div>
               <div><Label>Content</Label><Textarea rows={6} value={helpPage.content} onChange={e => setHelpPage(p => ({ ...p, content: e.target.value }))} /></div>
               <Button onClick={() => save('help_page', helpPage)}>Save Help Page</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle>Developer Page</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div><Label>Name</Label><Input value={developerPage.name} onChange={e => setDeveloperPage(p => ({ ...p, name: e.target.value }))} /></div>
-              <div><Label>Logo URL</Label><Input value={developerPage.logo} onChange={e => setDeveloperPage(p => ({ ...p, logo: e.target.value }))} /></div>
-              <div><Label>Phone</Label><Input value={developerPage.phone} onChange={e => setDeveloperPage(p => ({ ...p, phone: e.target.value }))} /></div>
-              <div><Label>Email</Label><Input value={developerPage.email} onChange={e => setDeveloperPage(p => ({ ...p, email: e.target.value }))} /></div>
-              <div><Label>Description</Label><Textarea rows={6} value={developerPage.description} onChange={e => setDeveloperPage(p => ({ ...p, description: e.target.value }))} /></div>
-              <Button onClick={() => save('developer_page', developerPage)}>Save Developer Page</Button>
             </CardContent>
           </Card>
 

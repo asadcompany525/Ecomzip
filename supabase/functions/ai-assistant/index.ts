@@ -129,6 +129,46 @@ serve(async (req) => {
       });
     }
 
+    // Handle password reset using Supabase Admin API
+    if (type === "reset_password") {
+      const { email: resetEmail, newPassword } = body;
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        return new Response(JSON.stringify({ error: "Service role key not configured" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(resetEmail)}`, {
+        headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, apikey: SUPABASE_SERVICE_ROLE_KEY },
+      });
+      const listData = await listRes.json();
+      const userId = listData.users?.[0]?.id;
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "User not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const updateData = await updateRes.json();
+      if (updateData.error) {
+        return new Response(JSON.stringify({ error: updateData.error }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
