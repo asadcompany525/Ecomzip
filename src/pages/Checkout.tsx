@@ -201,9 +201,18 @@ const PROVINCES: Record<string, Record<string, string[]>> = {
   },
 };
 
-const DELIVERY_FEE = 200;
+const DEFAULT_DELIVERY_FEE = 200;
 
 type LocationData = Record<string, Record<string, string[]>>;
+type DeliveryRates = Record<string, { fee: number; days: string }>;
+
+const parseDays = (daysStr: string): { min: number; max: number } => {
+  if (!daysStr) return { min: 3, max: 5 };
+  const parts = daysStr.split('-').map(s => parseInt(s.trim(), 10));
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return { min: parts[0], max: parts[1] };
+  if (parts.length === 1 && !isNaN(parts[0])) return { min: parts[0], max: parts[0] };
+  return { min: 3, max: 5 };
+};
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -216,6 +225,8 @@ const Checkout = () => {
   const [saveAddress, setSaveAddress] = useState(true);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [locationData, setLocationData] = useState<LocationData>(PROVINCES);
+  const [deliveryRates, setDeliveryRates] = useState<DeliveryRates>({});
+  const [deliveryFee, setDeliveryFee] = useState(DEFAULT_DELIVERY_FEE);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -234,9 +245,12 @@ const Checkout = () => {
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [notes, setNotes] = useState('');
 
-  const total = cartTotal - promoDiscount + DELIVERY_FEE;
+  const total = cartTotal - promoDiscount + deliveryFee;
 
-  const getDeliveryDays = () => {
+  const getDeliveryDays = (): { min: number; max: number } => {
+    if (city && deliveryRates[city]?.days) {
+      return parseDays(deliveryRates[city].days);
+    }
     if (!province) return { min: 3, max: 5 };
     const fast = ['Punjab', 'Islamabad', 'Federal'];
     const medium = ['KPK', 'Sindh', 'Khyber Pakhtunkhwa'];
@@ -248,19 +262,35 @@ const Checkout = () => {
   };
 
   const getEstimatedDelivery = () => {
-    const { min, max } = getDeliveryDays();
+    const { max } = getDeliveryDays();
     const today = new Date();
-    const minDate = new Date(today); minDate.setDate(today.getDate() + min);
-    const maxDate = new Date(today); maxDate.setDate(today.getDate() + max);
-    const fmt = (d: Date) => d.toLocaleDateString('en-PK', { weekday: 'short', day: 'numeric', month: 'short' });
-    return { label: `${fmt(minDate)} – ${fmt(maxDate)}`, min, max };
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() + max);
+    const fmt = (d: Date) => d.toLocaleDateString('en-PK', { day: 'numeric', month: 'long' });
+    return `${fmt(today)} – ${fmt(endDate)}`;
   };
+
+  // Update delivery fee + days whenever city or rates change
+  useEffect(() => {
+    if (city && deliveryRates[city]) {
+      setDeliveryFee(deliveryRates[city].fee || DEFAULT_DELIVERY_FEE);
+    } else if (!city) {
+      setDeliveryFee(DEFAULT_DELIVERY_FEE);
+    }
+  }, [city, deliveryRates]);
 
   useEffect(() => {
     // Load city data from CityManager (site_settings), fall back to hardcoded PROVINCES
     supabase.from('site_settings').select('value').eq('key', 'city_areas').maybeSingle().then(({ data }) => {
       if (data?.value && typeof data.value === 'object') {
         setLocationData(data.value as LocationData);
+      }
+    });
+
+    // Load city delivery rates
+    supabase.from('site_settings').select('value').eq('key', 'city_delivery_rates').maybeSingle().then(({ data }) => {
+      if (data?.value && typeof data.value === 'object') {
+        setDeliveryRates(data.value as DeliveryRates);
       }
     });
 
