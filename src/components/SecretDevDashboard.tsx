@@ -25,6 +25,12 @@ const DEFAULT_DEV_INFO = {
   technologies: '20+',
   origin_story: 'This platform (Stopy Shoes — Universal AI Commerce Engine) was entirely designed, developed, and deployed by Muhammad Asad Ali (ASDEVOLPER). Including all AI modules, e-commerce logic, admin dashboard, and real-time integrations.',
   copyright: '© 2024–2026 Muhammad Asad Ali · All Rights Reserved',
+  email: 'asdevolper@gmail.com',
+  whatsapp: '+923001234567',
+  github: '',
+  instagram: '',
+  linkedin: '',
+  asLogoUrl: '',
 };
 
 interface Props {
@@ -43,6 +49,7 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   const [resetting, setResetting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const asLogoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -167,7 +174,7 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
           </TabsList>
 
           <TabsContent value="dev-info" className="space-y-3 mt-4">
-            <p className="text-xs text-muted-foreground">These fields appear on the /developer page. Changes saved locally.</p>
+            <p className="text-xs text-muted-foreground">These fields appear on the /developer page. All changes saved permanently.</p>
             {field('Full Name', 'name')}
             {field('Handle / Username', 'handle')}
             {field('Tagline', 'tagline', true)}
@@ -181,7 +188,54 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
             </div>
             {field('Origin Story', 'origin_story', true)}
             {field('Copyright', 'copyright')}
-            <Button onClick={saveDevInfo} className="w-full gap-2"><Save className="h-4 w-4" />Save Developer Info</Button>
+
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact & Social Links</p>
+              {field('Email Address', 'email' as any)}
+              {field('WhatsApp Number (with country code)', 'whatsapp' as any)}
+              {field('GitHub URL', 'github' as any)}
+              {field('Instagram URL', 'instagram' as any)}
+              {field('LinkedIn URL', 'linkedin' as any)}
+            </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AS Developer Logo</p>
+              <p className="text-xs text-muted-foreground">This logo appears as your profile avatar on the /developer page.</p>
+              {(devInfo as any).asLogoUrl && (
+                <div className="flex justify-center p-3 border rounded-xl bg-muted/30">
+                  <img src={(devInfo as any).asLogoUrl} alt="AS Logo" className="h-20 w-20 rounded-full object-cover border-2 border-primary/20" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                </div>
+              )}
+              <div>
+                <Label className="text-xs">Logo URL (paste link)</Label>
+                <Input className="mt-1 text-sm" value={(devInfo as any).asLogoUrl || ''} onChange={e => setDevInfo(d => ({ ...d, asLogoUrl: e.target.value }))} placeholder="https://..." />
+              </div>
+              <div>
+                <Label className="text-xs">Or Upload Logo File</Label>
+                <input ref={asLogoRef} type="file" accept="image/*" className="hidden" onChange={async e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploading(true);
+                  try {
+                    const ext = file.name.split('.').pop();
+                    const path = `logos/as-dev-logo-${Date.now()}.${ext}`;
+                    const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
+                    if (uploadError) throw uploadError;
+                    const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
+                    setDevInfo(d => ({ ...d, asLogoUrl: urlData.publicUrl }));
+                    toast({ title: '✅ Logo uploaded! Click Save to apply.' });
+                  } catch (err: any) {
+                    toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+                  }
+                  setUploading(false);
+                }} />
+                <Button variant="outline" className="w-full mt-1 gap-2" onClick={() => asLogoRef.current?.click()} disabled={uploading}>
+                  <Upload className="h-4 w-4" />{uploading ? 'Uploading...' : 'Upload AS Logo'}
+                </Button>
+              </div>
+            </div>
+
+            <Button onClick={saveDevInfo} className="w-full gap-2"><Save className="h-4 w-4" />Save All Developer Info</Button>
           </TabsContent>
 
           <TabsContent value="logo" className="space-y-4 mt-4">

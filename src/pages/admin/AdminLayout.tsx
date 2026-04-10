@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, Image, Tag, Settings, LogOut, Menu, X,
   BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard,
@@ -86,11 +87,32 @@ const AdminLayout = () => {
   const [showSecretModal, setShowSecretModal] = useState(false);
   const [secretInput, setSecretInput] = useState('');
   const [secretError, setSecretError] = useState('');
+  const [secretShake, setSecretShake] = useState(false);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attendanceId = useRef<string | null>(null);
   const [brandName] = useState('Admin');
   const [brandLogo] = useState('/favicon.ico');
 
+  // Record attendance login
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from('staff_attendance').insert({ user_id: user.id, login_at: new Date().toISOString() })
+      .select('id').single().then(({ data }) => {
+        if (data?.id) attendanceId.current = data.id;
+      });
+    const handleUnload = () => {
+      if (attendanceId.current) {
+        supabase.from('staff_attendance').update({ logout_at: new Date().toISOString() }).eq('id', attendanceId.current).then(() => {});
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => { window.removeEventListener('beforeunload', handleUnload); handleUnload(); };
+  }, [user?.id]);
+
   const handleLogout = async () => {
+    if (attendanceId.current) {
+      await supabase.from('staff_attendance').update({ logout_at: new Date().toISOString() }).eq('id', attendanceId.current);
+    }
     await signOut();
     navigate('/admin/login');
   };
@@ -104,6 +126,7 @@ const AdminLayout = () => {
       setShowSecretModal(true);
       setSecretInput('');
       setSecretError('');
+      setSecretShake(false);
     } else {
       clickTimer.current = setTimeout(() => setLogoClicks(0), 2000);
     }
@@ -115,6 +138,8 @@ const AdminLayout = () => {
       navigate('/developer');
     } else {
       setSecretError('Incorrect password. Access denied.');
+      setSecretShake(true);
+      setTimeout(() => setSecretShake(false), 600);
     }
   };
 
@@ -172,27 +197,44 @@ const AdminLayout = () => {
         </main>
       </div>
 
-      <Dialog open={showSecretModal} onOpenChange={setShowSecretModal}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" /> Developer Portal
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">Enter the secret password to access the developer portal.</p>
-          <Input
-            type="password"
-            placeholder="Password"
-            value={secretInput}
-            onChange={e => { setSecretInput(e.target.value); setSecretError(''); }}
-            onKeyDown={e => { if (e.key === 'Enter') handleSecretSubmit(); }}
-            autoFocus
-          />
-          {secretError && <p className="text-sm text-destructive">{secretError}</p>}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSecretModal(false)}>Cancel</Button>
-            <Button onClick={handleSecretSubmit}>Enter Portal</Button>
-          </DialogFooter>
+      {/* Polished Secret Developer Portal Modal */}
+      <Dialog open={showSecretModal} onOpenChange={open => { if (!open) { setShowSecretModal(false); setSecretError(''); setSecretInput(''); } }}>
+        <DialogContent className="max-w-xs p-0 overflow-hidden border-2 border-primary/20 shadow-2xl">
+          {/* Header gradient banner */}
+          <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/70 px-6 pt-6 pb-5 text-center">
+            <div className="w-14 h-14 rounded-full bg-white/15 backdrop-blur flex items-center justify-center mx-auto mb-3 shadow-inner">
+              <Shield className="h-7 w-7 text-white" />
+            </div>
+            <h2 className="text-white font-black text-lg tracking-tight">Developer Portal</h2>
+            <p className="text-white/70 text-xs mt-1">Restricted Access · ASDEVOLPER</p>
+          </div>
+
+          {/* Body */}
+          <div className={`p-5 space-y-4 transition-all ${secretShake ? 'animate-[shake_0.4s_ease-in-out]' : ''}`}>
+            <p className="text-sm text-muted-foreground text-center">Enter the secret password to continue.</p>
+            <Input
+              type="password"
+              placeholder="••••••••••••"
+              className={`text-center tracking-widest text-base h-11 ${secretError ? 'border-destructive focus-visible:ring-destructive/40' : ''}`}
+              value={secretInput}
+              onChange={e => { setSecretInput(e.target.value); setSecretError(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleSecretSubmit(); }}
+              autoFocus
+            />
+            {secretError && (
+              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                <X className="h-3.5 w-3.5 text-destructive shrink-0" />
+                <p className="text-xs text-destructive font-medium">{secretError}</p>
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => { setShowSecretModal(false); setSecretError(''); setSecretInput(''); }}>Cancel</Button>
+              <Button className="flex-1 gap-2" onClick={handleSecretSubmit}>
+                <Shield className="h-4 w-4" />Enter
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 text-center">This portal is private and encrypted.</p>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -238,19 +238,22 @@ const Checkout = () => {
 
   const getDeliveryDays = () => {
     if (!province) return { min: 3, max: 5 };
-    const fast = ['Punjab', 'Islamabad'];
-    const medium = ['KPK', 'Sindh'];
+    const fast = ['Punjab', 'Islamabad', 'Federal'];
+    const medium = ['KPK', 'Sindh', 'Khyber Pakhtunkhwa'];
+    const slow = ['Balochistan', 'AJK', 'Azad Kashmir', 'Gilgit-Baltistan'];
     if (fast.includes(province)) return { min: 2, max: 4 };
+    if (slow.includes(province)) return { min: 5, max: 8 };
     if (medium.includes(province)) return { min: 3, max: 5 };
-    return { min: 4, max: 7 };
+    return { min: 3, max: 6 };
   };
 
   const getEstimatedDelivery = () => {
     const { min, max } = getDeliveryDays();
-    const minDate = new Date(); minDate.setDate(minDate.getDate() + min);
-    const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + max);
-    const fmt = (d: Date) => d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short' });
-    return `${fmt(minDate)} – ${fmt(maxDate)}`;
+    const today = new Date();
+    const minDate = new Date(today); minDate.setDate(today.getDate() + min);
+    const maxDate = new Date(today); maxDate.setDate(today.getDate() + max);
+    const fmt = (d: Date) => d.toLocaleDateString('en-PK', { weekday: 'short', day: 'numeric', month: 'short' });
+    return { label: `${fmt(minDate)} – ${fmt(maxDate)}`, min, max };
   };
 
   useEffect(() => {
@@ -458,8 +461,8 @@ const Checkout = () => {
                   <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2">
                     <Truck className="h-4 w-4 text-green-600 shrink-0" />
                     <div>
-                      <span className="text-sm font-medium text-green-700 dark:text-green-400">Estimated Delivery: {getEstimatedDelivery()}</span>
-                      <p className="text-xs text-green-600 dark:text-green-500">{getDeliveryDays().min}–{getDeliveryDays().max} working days to {city || province}</p>
+                      <span className="text-sm font-medium text-green-700 dark:text-green-400">Expected: {getEstimatedDelivery().label}</span>
+                      <p className="text-xs text-green-600 dark:text-green-500">{getDeliveryDays().min}–{getDeliveryDays().max} working days · {city || province}</p>
                     </div>
                   </div>
                 )}

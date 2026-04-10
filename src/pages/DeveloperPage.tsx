@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Shield, Code2, Smartphone, Brain, Cloud, Palette, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Shield, Code2, Smartphone, Brain, Cloud, Palette, ExternalLink, ArrowLeft, Mail, MessageCircle, Github, Instagram, Linkedin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import BottomNav from '@/components/layout/BottomNav';
 import { DEV_INFO_KEY, DEFAULT_DEV_INFO } from '@/components/SecretDevDashboard';
 
@@ -19,6 +21,7 @@ const TECH_STACK = [
 
 const DeveloperPage = () => {
   const [info, setInfo] = useState(DEFAULT_DEV_INFO);
+  const navigate = useNavigate();
 
   useEffect(() => {
     try {
@@ -38,13 +41,34 @@ const DeveloperPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
+
+      {/* Compact Header with Back Button */}
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
+        <div className="container flex items-center gap-3 h-14">
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <span className="font-semibold text-sm flex-1">Developer Portal</span>
+          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">{info.availabilityBadge}</Badge>
+        </div>
+      </header>
+
       <main className="container py-10 max-w-3xl mx-auto">
         {/* Hero */}
         <div className="text-center space-y-4 mb-12">
           <div className="relative inline-block">
-            <div className="h-28 w-28 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto shadow-xl shadow-primary/25">
-              <span className="text-4xl font-black text-white">{initials}</span>
-            </div>
+            {(info as any).asLogoUrl ? (
+              <img
+                src={(info as any).asLogoUrl}
+                alt="AS Logo"
+                className="h-28 w-28 rounded-full object-cover mx-auto shadow-xl border-4 border-primary/20"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <div className="h-28 w-28 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto shadow-xl shadow-primary/25">
+                <span className="text-4xl font-black text-white">{initials}</span>
+              </div>
+            )}
             <div className="absolute -bottom-1 -right-1 bg-green-500 w-6 h-6 rounded-full border-2 border-background flex items-center justify-center">
               <span className="text-[8px] font-bold text-white">✓</span>
             </div>
@@ -53,9 +77,7 @@ const DeveloperPage = () => {
           <div>
             <h1 className="text-3xl font-black tracking-tight">{info.name}</h1>
             <p className="text-primary font-semibold text-lg">{info.handle}</p>
-            <p className="text-muted-foreground mt-2 max-w-xl mx-auto leading-relaxed">
-              {info.tagline}
-            </p>
+            <p className="text-muted-foreground mt-2 max-w-xl mx-auto leading-relaxed">{info.tagline}</p>
           </div>
 
           <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -116,25 +138,59 @@ const DeveloperPage = () => {
         </div>
 
         {/* Contact */}
-        <div className="bg-card border rounded-xl p-6 text-center space-y-4">
-          <h2 className="text-xl font-bold">Get In Touch</h2>
-          <p className="text-sm text-muted-foreground">
-            Looking for a skilled developer for your next project?
-          </p>
+        <div className="bg-card border rounded-xl p-6 space-y-4">
+          <h2 className="text-xl font-bold text-center">Get In Touch</h2>
+          <p className="text-sm text-muted-foreground text-center">Looking for a skilled developer for your next project?</p>
+
           <div className="flex gap-3 justify-center flex-wrap">
-            <a href="mailto:asdevolper@gmail.com">
-              <button className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition">
-                Email {info.name.split(' ')[0]}
-                <ExternalLink className="h-3.5 w-3.5" />
-              </button>
-            </a>
-            <a href="https://wa.me/923001234567" target="_blank" rel="noopener noreferrer">
-              <button className="flex items-center gap-2 px-5 py-2.5 rounded-lg border text-sm font-medium hover:bg-accent transition">
-                WhatsApp
-                <ExternalLink className="h-3.5 w-3.5" />
-              </button>
-            </a>
+            {(info as any).email && (
+              <a href={`mailto:${(info as any).email}`}>
+                <Button className="gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email Me
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              </a>
+            )}
+            {(info as any).whatsapp && (
+              <a href={`https://wa.me/${(info as any).whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              </a>
+            )}
           </div>
+
+          {/* Social Links */}
+          {((info as any).github || (info as any).instagram || (info as any).linkedin) && (
+            <div className="flex gap-3 justify-center pt-2 border-t">
+              {(info as any).github && (
+                <a href={(info as any).github} target="_blank" rel="noopener noreferrer">
+                  <Button variant="ghost" size="icon"><Github className="h-5 w-5" /></Button>
+                </a>
+              )}
+              {(info as any).instagram && (
+                <a href={(info as any).instagram} target="_blank" rel="noopener noreferrer">
+                  <Button variant="ghost" size="icon"><Instagram className="h-5 w-5" /></Button>
+                </a>
+              )}
+              {(info as any).linkedin && (
+                <a href={(info as any).linkedin} target="_blank" rel="noopener noreferrer">
+                  <Button variant="ghost" size="icon"><Linkedin className="h-5 w-5" /></Button>
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Back Button */}
+        <div className="text-center mt-8">
+          <Button variant="outline" onClick={() => navigate(-1)} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Website
+          </Button>
         </div>
 
       </main>

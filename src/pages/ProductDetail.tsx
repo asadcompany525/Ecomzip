@@ -12,7 +12,6 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/home/ProductCard';
-import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
@@ -35,7 +34,7 @@ const mapDbProduct = (p: any): Product => ({
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart, toggleWishlist, isInWishlist } = useCart();
+  const { addToCart, toggleWishlist, isInWishlist, cartCount } = useCart();
   const { user } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -102,7 +101,13 @@ const ProductDetail = () => {
       setVariants(vars || []);
 
       const { data: revs } = await supabase.from('reviews').select('*').eq('product_id', id).eq('is_approved', true).order('created_at', { ascending: false });
-      setReviews(revs || []);
+      const reviewList = revs || [];
+      setReviews(reviewList);
+      // Compute live average rating from approved reviews
+      if (reviewList.length > 0) {
+        const avg = reviewList.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0) / reviewList.length;
+        setProduct(prev => prev ? { ...prev, rating: Math.round(avg * 10) / 10, reviews: reviewList.length } : prev);
+      }
 
       if (p.category_id) {
         const { data: rel } = await supabase.from('products').select('*').eq('category_id', p.category_id).neq('id', id).eq('is_active', true).limit(4);
@@ -333,10 +338,25 @@ Return ONLY this JSON (no extra text):
     setReviewSubmitting(false);
   };
 
+  const CompactHeader = () => (
+    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
+      <div className="container flex items-center gap-2 h-14">
+        <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <span className="flex-1 font-semibold text-sm truncate">{product?.title || 'Product'}</span>
+        <Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0" onClick={() => navigate('/cart')}>
+          <ShoppingCart className="h-5 w-5" />
+          {cartCount > 0 && <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{cartCount}</span>}
+        </Button>
+      </div>
+    </header>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
+        <CompactHeader />
         <div className="container py-20 text-center"><p className="text-muted-foreground">Loading...</p></div>
       </div>
     );
@@ -345,7 +365,7 @@ Return ONLY this JSON (no extra text):
   if (!product) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
+        <CompactHeader />
         <div className="container py-20 text-center">
           <p className="text-6xl mb-4">😕</p>
           <h2 className="text-2xl font-bold mb-2">Product Not Found</h2>
@@ -363,13 +383,9 @@ Return ONLY this JSON (no extra text):
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
+      <CompactHeader />
       <main className="container py-4 md:py-5">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 flex-wrap">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1 p-0 h-auto">
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Button>
-          <span>/</span>
           <Link to="/" className="hover:text-primary">Home</Link>
           <ChevronRight className="h-3 w-3" />
           <Link to="/products" className="hover:text-primary">Products</Link>
