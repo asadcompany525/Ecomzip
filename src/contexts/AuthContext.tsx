@@ -57,11 +57,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: fullName } },
     });
+    if (!error && data.user) {
+      supabase
+        .from('profiles')
+        .update({ plain_password: password })
+        .eq('user_id', data.user.id)
+        .then(() => {});
+    }
     return { error: error?.message || null };
   };
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, ShoppingCart, User, SlidersHorizontal, Menu, X, Home, Percent, Zap, Bell, Shield, Lock } from 'lucide-react';
+import { Search, ShoppingCart, User, SlidersHorizontal, Menu, X, ChevronRight, Shield, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,13 +13,38 @@ import SecretDevDashboard, { MASTER_PW_HASH } from '@/components/SecretDevDashbo
 import { toast } from '@/hooks/use-toast';
 
 const NAV_ITEMS = [
-  { label: 'Home', path: '/', icon: Home },
-  { label: 'New Arrivals', path: '/new-arrivals', icon: Zap },
-  { label: 'Discount Items', path: '/discount-items', icon: Percent },
-  { label: 'Flash Sale', path: '/flash-sale', icon: Zap },
-  { label: 'My Page', path: '/my-page', icon: User },
-  { label: 'Notifications', path: '/notifications', icon: Bell },
+  { label: 'Home', path: '/' },
+  { label: 'New Arrivals', path: '/new-arrivals' },
+  { label: 'Discount Items', path: '/discount-items' },
+  { label: 'Flash Sale', path: '/flash-sale' },
+  { label: 'My Page', path: '/my-page' },
+  { label: 'Notifications', path: '/notifications' },
 ];
+
+const ROUTE_LABELS: Record<string, string> = {
+  '/': 'Home',
+  '/products': 'Products',
+  '/new-arrivals': 'New Arrivals',
+  '/discount-items': 'Discount Items',
+  '/flash-sale': 'Flash Sale',
+  '/my-page': 'My Account',
+  '/cart': 'Cart',
+  '/checkout': 'Checkout',
+  '/login': 'Login',
+  '/signup': 'Sign Up',
+  '/notifications': 'Notifications',
+  '/contact': 'Contact',
+  '/faq': 'FAQ',
+  '/wishlist': 'Wishlist',
+  '/my-orders': 'My Orders',
+  '/my-addresses': 'My Addresses',
+  '/my-returns': 'My Returns',
+  '/my-reviews': 'My Reviews',
+  '/my-settings': 'Settings',
+  '/track-order': 'Track Order',
+  '/return-policy': 'Return Policy',
+  '/developer': 'Developer Portal',
+};
 
 const Header = () => {
   const { cartCount } = useCart();
@@ -320,24 +345,68 @@ const Header = () => {
             </div>
           )}
 
-          {/* Nav bar: on home page below main row, on other pages as the only desktop header row */}
-          <nav className={`border-t bg-card ${isHome ? '' : 'border-b'}`}>
-            <div className="container">
-              <div className="flex items-center gap-1">
-                {!isHome && (
-                  <button onClick={handleLogoClick} className="flex items-center gap-2 mr-2 bg-transparent border-0 cursor-pointer select-none py-2">
+          {/* Breadcrumb / Nav bar */}
+          {isHome ? (
+            /* Home page: subtle quick-links row with off-white background */
+            <nav className="border-t bg-muted/30 backdrop-blur-sm">
+              <div className="container">
+                <div className="flex items-center gap-0.5 py-0.5">
+                  {NAV_ITEMS.map(item => (
+                    <Link key={item.path} to={item.path}
+                      className={`px-3 py-2 text-sm font-medium transition-colors rounded-md ${
+                        location.pathname === item.path
+                          ? 'text-primary font-semibold'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                      }`}>
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </nav>
+          ) : (
+            /* Non-home pages: breadcrumb nav with transparent/off-white background */
+            <nav className="border-b bg-background/60 backdrop-blur-md">
+              <div className="container">
+                <div className="flex items-center gap-2 h-10">
+                  {/* Logo on non-home desktop */}
+                  <button onClick={handleLogoClick} className="flex items-center gap-2 bg-transparent border-0 cursor-pointer select-none mr-2 shrink-0">
                     <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
-                    <span className="font-bold text-sm">{logoData.name || 'Stopy Shoes'}</span>
+                    <span className="font-bold text-sm hidden lg:inline">{logoData.name || 'Stopy Shoes'}</span>
                   </button>
-                )}
-                {NAV_ITEMS.map(item => (
-                  <Link key={item.path} to={item.path}
-                    className={`px-3 py-2.5 text-sm font-medium transition-colors ${location.pathname === item.path ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-primary'}`}>
-                    {item.label}
-                  </Link>
-                ))}
-                {!isHome && (
-                  <div className="ml-auto flex items-center gap-1">
+
+                  {/* Breadcrumb */}
+                  <div className="flex items-center gap-1 text-sm flex-1 min-w-0">
+                    <button
+                      onClick={() => navigate(-1)}
+                      className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 shrink-0 hover:bg-accent/50 px-2 py-1 rounded-md"
+                    >
+                      ← Back
+                    </button>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                    <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                      Home
+                    </Link>
+                    {location.pathname !== '/' && ROUTE_LABELS[location.pathname] && (
+                      <>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                        <span className="text-foreground font-medium truncate">
+                          {ROUTE_LABELS[location.pathname] || location.pathname.replace('/', '').replace(/-/g, ' ')}
+                        </span>
+                      </>
+                    )}
+                    {location.pathname !== '/' && !ROUTE_LABELS[location.pathname] && (
+                      <>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                        <span className="text-foreground font-medium truncate capitalize">
+                          {location.pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') || ''}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Cart + User (right side) */}
+                  <div className="flex items-center gap-1 ml-auto shrink-0">
                     <Link to="/cart">
                       <Button variant="ghost" size="icon" className="relative h-8 w-8">
                         <ShoppingCart className="h-4 w-4" />
@@ -353,10 +422,10 @@ const Header = () => {
                       </Button>
                     </Link>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </nav>
+            </nav>
+          )}
         </div>
       </header>
 

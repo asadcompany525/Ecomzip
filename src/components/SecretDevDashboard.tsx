@@ -114,6 +114,14 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
     setDevInfo(d => ({ ...d, customLinks: updated }));
   };
 
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -122,13 +130,24 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
       await ensureLogosBucket();
       const ext = file.name.split('.').pop();
       const path = `site-logo-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
-      setLogoUrl(urlData.publicUrl);
-      toast({ title: 'Logo uploaded!', description: 'Click "Save Logo" to apply.' });
+      const { error: uploadError, data: uploadData } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
+      if (!uploadError && uploadData) {
+        const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
+        setLogoUrl(urlData.publicUrl);
+        toast({ title: '✅ Logo uploaded to storage!', description: 'Click "Save Logo" to apply.' });
+      } else {
+        const base64 = await fileToBase64(file);
+        setLogoUrl(base64);
+        toast({ title: '✅ Logo ready (embedded)', description: 'Stored as inline image. Click "Save Logo" to apply.' });
+      }
     } catch (e: any) {
-      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
+      try {
+        const base64 = await fileToBase64(file);
+        setLogoUrl(base64);
+        toast({ title: '✅ Logo ready (embedded)', description: 'Click "Save Logo" to apply.' });
+      } catch {
+        toast({ title: 'Upload failed', description: 'Could not process image file.', variant: 'destructive' });
+      }
     }
     setUploading(false);
   };
@@ -319,13 +338,24 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
                     await ensureLogosBucket();
                     const ext = file.name.split('.').pop();
                     const path = `as-dev-logo-${Date.now()}.${ext}`;
-                    const { error: uploadError } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
-                    if (uploadError) throw uploadError;
-                    const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
-                    setDevInfo(d => ({ ...d, asLogoUrl: urlData.publicUrl }));
-                    toast({ title: '✅ Logo uploaded! Click Save to apply.' });
+                    const { error: uploadError, data: uploadData } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
+                    if (!uploadError && uploadData) {
+                      const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
+                      setDevInfo(d => ({ ...d, asLogoUrl: urlData.publicUrl }));
+                      toast({ title: '✅ AS Logo uploaded! Click Save to apply.' });
+                    } else {
+                      const base64 = await fileToBase64(file);
+                      setDevInfo(d => ({ ...d, asLogoUrl: base64 }));
+                      toast({ title: '✅ AS Logo ready (embedded)', description: 'Click Save to apply.' });
+                    }
                   } catch (err: any) {
-                    toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+                    try {
+                      const base64 = await fileToBase64(file);
+                      setDevInfo(d => ({ ...d, asLogoUrl: base64 }));
+                      toast({ title: '✅ AS Logo ready (embedded)', description: 'Click Save to apply.' });
+                    } catch {
+                      toast({ title: 'Upload failed', description: 'Could not process image.', variant: 'destructive' });
+                    }
                   }
                   setUploading(false);
                 }} />
