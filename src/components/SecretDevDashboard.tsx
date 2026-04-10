@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Trash2, Upload, Save, Settings, RefreshCw, AlertTriangle, User } from 'lucide-react';
+import { Shield, Trash2, Upload, Save, Settings, RefreshCw, AlertTriangle, User, Plus, X, Link as LinkIcon, ArrowLeft } from 'lucide-react';
 
 const MASTER_PW_HASH = 'Asad_Dev_99';
 
@@ -31,6 +31,7 @@ const DEFAULT_DEV_INFO = {
   instagram: '',
   linkedin: '',
   asLogoUrl: '',
+  customLinks: [] as { title: string; url: string }[],
 };
 
 interface Props {
@@ -38,9 +39,16 @@ interface Props {
   onClose: () => void;
 }
 
+const ensureLogosBucket = async () => {
+  const { error } = await supabase.storage.createBucket('logos', { public: true });
+  if (error && !error.message.includes('already exists')) {
+    console.warn('Bucket creation note:', error.message);
+  }
+};
+
 const SecretDevDashboard = ({ open, onClose }: Props) => {
   const [tab, setTab] = useState('dev-info');
-  const [devInfo, setDevInfo] = useState(DEFAULT_DEV_INFO);
+  const [devInfo, setDevInfo] = useState<typeof DEFAULT_DEV_INFO>(DEFAULT_DEV_INFO);
   const [logoUrl, setLogoUrl] = useState('');
   const [logoName, setLogoName] = useState('Stopy Shoes');
   const [settingKey, setSettingKey] = useState('');
@@ -48,6 +56,8 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   const [resetConfirm, setResetConfirm] = useState('');
   const [resetting, setResetting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [newLinkTitle, setNewLinkTitle] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const asLogoRef = useRef<HTMLInputElement>(null);
 
@@ -55,7 +65,10 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
     if (!open) return;
     try {
       const stored = localStorage.getItem(DEV_INFO_KEY);
-      if (stored) setDevInfo(JSON.parse(stored));
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setDevInfo({ ...DEFAULT_DEV_INFO, ...parsed, customLinks: parsed.customLinks || [] });
+      }
     } catch {}
     supabase.from('site_settings').select('*').then(({ data }) => {
       (data || []).forEach((s: any) => {
@@ -66,8 +79,9 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
         }
         if (s.key === 'developer_page') {
           const v = s.value as any;
-          setDevInfo(d => ({ ...d, ...v }));
-          localStorage.setItem(DEV_INFO_KEY, JSON.stringify({ ...DEFAULT_DEV_INFO, ...v }));
+          const merged = { ...DEFAULT_DEV_INFO, ...v, customLinks: v.customLinks || [] };
+          setDevInfo(merged);
+          localStorage.setItem(DEV_INFO_KEY, JSON.stringify(merged));
         }
       });
     });
@@ -75,8 +89,29 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
 
   const saveDevInfo = async () => {
     localStorage.setItem(DEV_INFO_KEY, JSON.stringify(devInfo));
-    await supabase.from('site_settings').upsert({ key: 'developer_page', value: devInfo }, { onConflict: 'key' });
-    toast({ title: '✅ Developer info saved!', description: 'Changes will reflect on the Developer page.' });
+    const { error } = await supabase.from('site_settings').upsert({ key: 'developer_page', value: devInfo }, { onConflict: 'key' });
+    if (error) {
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: '✅ Developer info saved!', description: 'Changes will reflect on the Developer page.' });
+    }
+  };
+
+  const addCustomLink = () => {
+    if (!newLinkTitle.trim() || !newLinkUrl.trim()) {
+      toast({ title: 'Both title and URL are required', variant: 'destructive' });
+      return;
+    }
+    const url = newLinkUrl.startsWith('http') ? newLinkUrl : `https://${newLinkUrl}`;
+    const updated = [...(devInfo.customLinks || []), { title: newLinkTitle.trim(), url }];
+    setDevInfo(d => ({ ...d, customLinks: updated }));
+    setNewLinkTitle('');
+    setNewLinkUrl('');
+  };
+
+  const removeCustomLink = (idx: number) => {
+    const updated = (devInfo.customLinks || []).filter((_, i) => i !== idx);
+    setDevInfo(d => ({ ...d, customLinks: updated }));
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,11 +119,12 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
     if (!file) return;
     setUploading(true);
     try {
+      await ensureLogosBucket();
       const ext = file.name.split('.').pop();
-      const path = `logo/site-logo-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
+      const path = `site-logo-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
       if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
       setLogoUrl(urlData.publicUrl);
       toast({ title: 'Logo uploaded!', description: 'Click "Save Logo" to apply.' });
     } catch (e: any) {
@@ -98,18 +134,26 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   };
 
   const saveLogo = async () => {
-    await supabase.from('site_settings').upsert({ key: 'logo', value: { url: logoUrl, name: logoName, size: 'h-10 w-10' } }, { onConflict: 'key' });
-    toast({ title: '✅ Logo updated!', description: 'Refresh the page to see the change.' });
+    const { error } = await supabase.from('site_settings').upsert({ key: 'logo', value: { url: logoUrl, name: logoName, size: 'h-10 w-10' } }, { onConflict: 'key' });
+    if (error) {
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: '✅ Logo updated!', description: 'Refresh the page to see the change.' });
+    }
   };
 
   const saveSetting = async () => {
     if (!settingKey.trim()) return;
     let val: any = settingValue;
     try { val = JSON.parse(settingValue); } catch {}
-    await supabase.from('site_settings').upsert({ key: settingKey, value: val }, { onConflict: 'key' });
-    toast({ title: `✅ Setting "${settingKey}" overridden!` });
-    setSettingKey('');
-    setSettingValue('');
+    const { error } = await supabase.from('site_settings').upsert({ key: settingKey, value: val }, { onConflict: 'key' });
+    if (error) {
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: `✅ Setting "${settingKey}" overridden!` });
+      setSettingKey('');
+      setSettingValue('');
+    }
   };
 
   const runFactoryReset = async () => {
@@ -143,13 +187,13 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
     setResetting(false);
   };
 
-  const field = (label: string, key: keyof typeof devInfo, multiline = false) => (
+  const field = (label: string, key: keyof typeof DEFAULT_DEV_INFO, multiline = false) => (
     <div key={key}>
       <Label className="text-xs">{label}</Label>
       {multiline ? (
-        <Textarea className="mt-1 text-sm" rows={3} value={devInfo[key]} onChange={e => setDevInfo(d => ({ ...d, [key]: e.target.value }))} />
+        <Textarea className="mt-1 text-sm" rows={3} value={(devInfo as any)[key] || ''} onChange={e => setDevInfo(d => ({ ...d, [key]: e.target.value }))} />
       ) : (
-        <Input className="mt-1 text-sm" value={devInfo[key]} onChange={e => setDevInfo(d => ({ ...d, [key]: e.target.value }))} />
+        <Input className="mt-1 text-sm" value={(devInfo as any)[key] || ''} onChange={e => setDevInfo(d => ({ ...d, [key]: e.target.value }))} />
       )}
     </div>
   );
@@ -198,6 +242,61 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
               {field('LinkedIn URL', 'linkedin' as any)}
             </div>
 
+            {/* Dynamic Custom Links */}
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <LinkIcon className="h-3.5 w-3.5 inline mr-1" />Add More Links
+              </p>
+              <p className="text-xs text-muted-foreground">Add custom links (e.g. TikTok, Portfolio, Behance) that appear on your developer page.</p>
+
+              {(devInfo.customLinks || []).length > 0 && (
+                <div className="space-y-2">
+                  {(devInfo.customLinks || []).map((link, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-muted/40 rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{link.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0"
+                        onClick={() => removeCustomLink(idx)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Link Title</Label>
+                  <Input
+                    className="mt-1 text-sm"
+                    placeholder="e.g. TikTok, Portfolio"
+                    value={newLinkTitle}
+                    onChange={e => setNewLinkTitle(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addCustomLink()}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">URL</Label>
+                  <Input
+                    className="mt-1 text-sm"
+                    placeholder="https://..."
+                    value={newLinkUrl}
+                    onChange={e => setNewLinkUrl(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addCustomLink()}
+                  />
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={addCustomLink}>
+                <Plus className="h-3.5 w-3.5" />Add Link
+              </Button>
+            </div>
+
             <div className="border-t pt-3 space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AS Developer Logo</p>
               <p className="text-xs text-muted-foreground">This logo appears as your profile avatar on the /developer page.</p>
@@ -211,17 +310,18 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
                 <Input className="mt-1 text-sm" value={(devInfo as any).asLogoUrl || ''} onChange={e => setDevInfo(d => ({ ...d, asLogoUrl: e.target.value }))} placeholder="https://..." />
               </div>
               <div>
-                <Label className="text-xs">Or Upload Logo File</Label>
+                <Label className="text-xs">Or Upload Logo File (saved to dedicated logos storage)</Label>
                 <input ref={asLogoRef} type="file" accept="image/*" className="hidden" onChange={async e => {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   setUploading(true);
                   try {
+                    await ensureLogosBucket();
                     const ext = file.name.split('.').pop();
-                    const path = `logos/as-dev-logo-${Date.now()}.${ext}`;
-                    const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
+                    const path = `as-dev-logo-${Date.now()}.${ext}`;
+                    const { error: uploadError } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
                     if (uploadError) throw uploadError;
-                    const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
+                    const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
                     setDevInfo(d => ({ ...d, asLogoUrl: urlData.publicUrl }));
                     toast({ title: '✅ Logo uploaded! Click Save to apply.' });
                   } catch (err: any) {
@@ -235,7 +335,10 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
               </div>
             </div>
 
-            <Button onClick={saveDevInfo} className="w-full gap-2"><Save className="h-4 w-4" />Save All Developer Info</Button>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={saveDevInfo} className="flex-1 gap-2"><Save className="h-4 w-4" />Save All Developer Info</Button>
+              <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="logo" className="space-y-4 mt-4">
@@ -254,13 +357,16 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
               <Input className="mt-1" value={logoName} onChange={e => setLogoName(e.target.value)} placeholder="Stopy Shoes" />
             </div>
             <div>
-              <Label className="text-xs">Or Upload a New Logo</Label>
+              <Label className="text-xs">Or Upload a New Logo (saved to logos bucket)</Label>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
               <Button variant="outline" className="w-full mt-1 gap-2" onClick={() => fileRef.current?.click()} disabled={uploading}>
                 <Upload className="h-4 w-4" />{uploading ? 'Uploading...' : 'Upload Logo File'}
               </Button>
             </div>
-            <Button onClick={saveLogo} className="w-full gap-2"><Save className="h-4 w-4" />Save Logo</Button>
+            <div className="flex gap-2">
+              <Button onClick={saveLogo} className="flex-1 gap-2"><Save className="h-4 w-4" />Save Logo</Button>
+              <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4 mt-4">
@@ -273,7 +379,10 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
               <Label className="text-xs">Value (JSON or plain text)</Label>
               <Textarea className="mt-1" rows={3} value={settingValue} onChange={e => setSettingValue(e.target.value)} placeholder='e.g. "Stopy Shoes" or {"url":"..."}' />
             </div>
-            <Button onClick={saveSetting} disabled={!settingKey.trim()} className="w-full gap-2"><Save className="h-4 w-4" />Override Setting</Button>
+            <div className="flex gap-2">
+              <Button onClick={saveSetting} disabled={!settingKey.trim()} className="flex-1 gap-2"><Save className="h-4 w-4" />Override Setting</Button>
+              <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="reset" className="space-y-4 mt-4">
@@ -296,15 +405,18 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
                 placeholder="FACTORY RESET"
               />
             </div>
-            <Button
-              variant="destructive"
-              className="w-full gap-2"
-              onClick={runFactoryReset}
-              disabled={resetting || resetConfirm !== 'FACTORY RESET'}
-            >
-              {resetting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              {resetting ? 'Wiping all data...' : 'Execute Factory Reset'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                className="flex-1 gap-2"
+                onClick={runFactoryReset}
+                disabled={resetting || resetConfirm !== 'FACTORY RESET'}
+              >
+                {resetting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {resetting ? 'Wiping all data...' : 'Execute Factory Reset'}
+              </Button>
+              <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

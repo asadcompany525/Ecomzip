@@ -20,13 +20,16 @@ const TECH_STACK = [
 ];
 
 const DeveloperPage = () => {
-  const [info, setInfo] = useState(DEFAULT_DEV_INFO);
+  const [info, setInfo] = useState<typeof DEFAULT_DEV_INFO>(DEFAULT_DEV_INFO);
   const navigate = useNavigate();
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(DEV_INFO_KEY);
-      if (stored) setInfo({ ...DEFAULT_DEV_INFO, ...JSON.parse(stored) });
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setInfo({ ...DEFAULT_DEV_INFO, ...parsed, customLinks: parsed.customLinks || [] });
+      }
     } catch {}
   }, []);
 
@@ -39,16 +42,22 @@ const DeveloperPage = () => {
     { label: 'Technologies', value: info.technologies },
   ];
 
+  const customLinks: { title: string; url: string }[] = (info as any).customLinks || [];
+
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
 
-      {/* Compact Header with Back Button */}
+      {/* Compact breadcrumb header — no main site header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
         <div className="container flex items-center gap-3 h-14">
           <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <span className="font-semibold text-sm flex-1">Developer Portal</span>
+          <nav className="flex items-center gap-1.5 text-sm text-muted-foreground flex-1">
+            <span className="hover:text-foreground cursor-pointer" onClick={() => navigate('/')}>Home</span>
+            <span>/</span>
+            <span className="text-foreground font-medium">Developer Portal</span>
+          </nav>
           <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">{info.availabilityBadge}</Badge>
         </div>
       </header>
@@ -165,7 +174,7 @@ const DeveloperPage = () => {
 
           {/* Social Links */}
           {((info as any).github || (info as any).instagram || (info as any).linkedin) && (
-            <div className="flex gap-3 justify-center pt-2 border-t">
+            <div className="flex gap-3 justify-center pt-2 border-t flex-wrap">
               {(info as any).github && (
                 <a href={(info as any).github} target="_blank" rel="noopener noreferrer">
                   <Button variant="ghost" size="icon"><Github className="h-5 w-5" /></Button>
@@ -181,6 +190,23 @@ const DeveloperPage = () => {
                   <Button variant="ghost" size="icon"><Linkedin className="h-5 w-5" /></Button>
                 </a>
               )}
+            </div>
+          )}
+
+          {/* Dynamic Custom Links */}
+          {customLinks.length > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground text-center mb-3">More Links</p>
+              <div className="flex gap-3 justify-center flex-wrap">
+                {customLinks.map((link, idx) => (
+                  <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" className="gap-2">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      {link.title}
+                    </Button>
+                  </a>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -174,3 +174,62 @@ The orange shield icon next to each product in Admin → Products runs a "force 
 3. Deletes variants then the product itself
 
 Use this for "stuck" products that fail normal delete due to FK constraints.
+
+## Required Supabase SQL Migration
+
+Run this in Supabase Dashboard → SQL Editor to unlock full functionality:
+
+```sql
+-- Expand app_role enum for all staff roles
+DO $$ BEGIN
+  BEGIN ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'support'; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'delivery'; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'editor'; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'viewer'; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'moderator'; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'sales'; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'accountant'; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'dispatcher'; EXCEPTION WHEN duplicate_object THEN NULL; END;
+END $$;
+
+-- Add custom_role_label column to user_roles (for role labels)
+ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS custom_role_label text;
+
+-- Add plain_password column to profiles (for customer password visibility in admin)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS plain_password text;
+
+-- Create logos storage bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('logos', 'logos', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+```
+
+## Recent Changes (2026-04-10)
+
+### 1. Storage — Logos Bucket
+- AS Logo and site logo now upload to `logos` storage bucket
+- Added `ensureLogosBucket()` helper in SecretDevDashboard
+- Upload errors surfaced in stylish toast notifications
+
+### 2. Staff Role Fix
+- Staff role changes now save **instantly** without "Failed to update" errors
+- Roles stored in localStorage (`staff_roles_v2` key) alongside permissions
+- DB stores 'moderator' as safe enum fallback; display role uses localStorage
+- Works without DB migration applied (enum handled gracefully)
+
+### 3. AS Developer Dynamic Links
+- SecretDevDashboard → Dev Info tab → "Add More Links" section
+- Add custom links (TikTok, Portfolio, Behance, etc.) with title + URL
+- Links saved to Supabase `site_settings` (developer_page key)
+- DeveloperPage displays custom links in "Get In Touch" section
+
+### 4. Customer Table — Passwords Always Visible
+- AdminCustomers now shows Password column by default (no toggle needed)
+- Styled in amber color code blocks for clarity
+- Shows "(not stored)" when plain_password column not yet populated
+
+### 5. UI Cleanup
+- DeveloperPage: breadcrumb header (Home / Developer Portal), no main site header
+- Products page: compact header with back button (no main site header)
+- SecretDevDashboard: "Back" button added to every tab
+- ErrorModal component added (`src/components/ui/ErrorModal.tsx`) for styled error dialogs

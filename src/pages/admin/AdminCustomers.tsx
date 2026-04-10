@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Eye, KeyRound } from 'lucide-react';
+import { Search, Eye, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,6 @@ const AdminCustomers = () => {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<any>(null);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
-  const [showPasswords, setShowPasswords] = useState(false);
 
   useEffect(() => {
     supabase
@@ -43,50 +42,48 @@ const AdminCustomers = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-blue-100 rounded-lg"><Users className="h-5 w-5 text-blue-600" /></div>
+          <div>
+            <h1 className="text-xl font-bold">Customers</h1>
+            <p className="text-xs text-muted-foreground">All registered store accounts</p>
+          </div>
+        </div>
+        <div className="relative flex-1 max-w-sm ml-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search by name, email, phone..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
         </div>
-        <Badge variant="outline">{profiles.length} Customers</Badge>
-        <Button
-          size="sm"
-          variant={showPasswords ? 'destructive' : 'outline'}
-          className="gap-1.5 text-xs"
-          onClick={() => setShowPasswords(v => !v)}
-        >
-          <KeyRound className="h-3.5 w-3.5" />
-          {showPasswords ? 'Hide Passwords' : 'Show Passwords'}
-        </Button>
+        <Badge variant="outline">{profiles.length} Total</Badge>
       </div>
 
       <div className="bg-card rounded-xl border overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Email</th>
-              <th className="text-left p-3">Phone</th>
-              {showPasswords && <th className="text-left p-3 text-destructive">Password</th>}
-              <th className="text-left p-3">WhatsApp</th>
-              <th className="text-left p-3">Joined</th>
-              <th className="text-left p-3">Actions</th>
+              <th className="text-left p-3 font-semibold">Name</th>
+              <th className="text-left p-3 font-semibold">Email</th>
+              <th className="text-left p-3 font-semibold">Phone</th>
+              <th className="text-left p-3 font-semibold text-amber-700">Password</th>
+              <th className="text-left p-3 font-semibold">Joined</th>
+              <th className="text-left p-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(p => (
               <tr key={p.id} className="border-b hover:bg-accent/50">
                 <td className="p-3 font-medium">{p.full_name || 'N/A'}</td>
-                <td className="p-3">{p.email || 'N/A'}</td>
-                <td className="p-3">{p.phone || 'N/A'}</td>
-                {showPasswords && (
-                  <td className="p-3">
-                    <code className="bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5 rounded text-xs">
-                      {p.plain_password || '(not stored)'}
+                <td className="p-3 text-muted-foreground">{p.email || 'N/A'}</td>
+                <td className="p-3">{p.phone || '—'}</td>
+                <td className="p-3">
+                  {p.plain_password ? (
+                    <code className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded text-xs font-mono">
+                      {p.plain_password}
                     </code>
-                  </td>
-                )}
-                <td className="p-3">{p.whatsapp || '-'}</td>
-                <td className="p-3">{new Date(p.created_at).toLocaleDateString()}</td>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">not stored</span>
+                  )}
+                </td>
+                <td className="p-3 text-muted-foreground text-xs">{new Date(p.created_at).toLocaleDateString()}</td>
                 <td className="p-3">
                   <Button size="sm" variant="ghost" onClick={() => viewCustomer(p)}>
                     <Eye className="h-4 w-4" />
@@ -95,12 +92,18 @@ const AdminCustomers = () => {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={showPasswords ? 7 : 6} className="p-8 text-center text-muted-foreground">No customers found</td></tr>
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  No customers found
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
 
+      {/* Customer Detail Modal */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -109,18 +112,32 @@ const AdminCustomers = () => {
           {selected && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-muted-foreground">Email:</span><br />{selected.email}</div>
-                <div><span className="text-muted-foreground">Phone:</span><br />{selected.phone || 'N/A'}</div>
-                <div><span className="text-muted-foreground">WhatsApp:</span><br />{selected.whatsapp || '-'}</div>
-                <div><span className="text-muted-foreground">Joined:</span><br />{new Date(selected.created_at).toLocaleDateString()}</div>
-                {selected.plain_password && (
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground text-xs">Password (plain-text):</span>
-                    <div className="mt-0.5">
-                      <code className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded text-sm">{selected.plain_password}</code>
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Email</p>
+                  <p className="font-medium">{selected.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Phone</p>
+                  <p className="font-medium">{selected.phone || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">WhatsApp</p>
+                  <p className="font-medium">{selected.whatsapp || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Joined</p>
+                  <p className="font-medium">{new Date(selected.created_at).toLocaleDateString()}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-0.5">Password (plain-text)</p>
+                  {selected.plain_password ? (
+                    <code className="inline-block bg-amber-50 text-amber-800 border border-amber-200 px-2 py-1 rounded text-sm font-mono">
+                      {selected.plain_password}
+                    </code>
+                  ) : (
+                    <span className="text-sm text-muted-foreground italic">Not stored in database</span>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Card>

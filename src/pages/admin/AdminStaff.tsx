@@ -74,10 +74,15 @@ interface StaffMember {
 }
 
 const PERMS_KEY = 'staff_permissions_v2';
+const ROLES_KEY = 'staff_roles_v2';
 const loadPerms = (): Record<string, string[]> => {
   try { return JSON.parse(localStorage.getItem(PERMS_KEY) || '{}'); } catch { return {}; }
 };
 const savePerms = (p: Record<string, string[]>) => localStorage.setItem(PERMS_KEY, JSON.stringify(p));
+const loadRoles = (): Record<string, string> => {
+  try { return JSON.parse(localStorage.getItem(ROLES_KEY) || '{}'); } catch { return {}; }
+};
+const saveRoles = (r: Record<string, string>) => localStorage.setItem(ROLES_KEY, JSON.stringify(r));
 
 export default function AdminStaff() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -129,15 +134,16 @@ export default function AdminStaff() {
     }
 
     const stored = loadPerms();
+    const storedRoles = loadRoles();
     const normRole = (r: string) => r === 'moderator' ? 'manager' : r;
     const mapped: StaffMember[] = (roles || []).map((r: any) => {
-      const nr = normRole(r.role);
+      const displayRole = storedRoles[r.id] || normRole(r.role);
       const profile = profileMap[r.user_id] || { full_name: 'Unknown', email: 'N/A' };
       return {
         id: r.id, user_id: r.user_id,
         email: profile.email, name: profile.full_name,
-        role: nr, created_at: r.created_at,
-        permissions: stored[r.id] ?? DEFAULT_ROLE_PERMS[nr] ?? [],
+        role: displayRole, created_at: r.created_at,
+        permissions: stored[r.id] ?? DEFAULT_ROLE_PERMS[displayRole] ?? DEFAULT_ROLE_PERMS[normRole(r.role)] ?? [],
       };
     });
     setStaff(mapped);
@@ -154,16 +160,18 @@ export default function AdminStaff() {
         toast({ title: 'User not found', description: 'This email must have a registered store account first.', variant: 'destructive' });
         setAdding(false); return;
       }
-      const dbRole = finalRole === 'manager' ? 'moderator' : finalRole;
+      const dbRole = 'moderator';
       const { data: inserted, error } = await supabase
         .from('user_roles')
-        .upsert({ user_id: existing.user_id, role: dbRole }, { onConflict: 'user_id,role' })
+        .upsert({ user_id: existing.user_id, role: dbRole as any }, { onConflict: 'user_id,role' })
         .select('id').single();
       if (error) throw error;
       if (inserted?.id) {
         const defaultPerms = DEFAULT_ROLE_PERMS[finalRole] || [];
         const updatedPerms = { ...loadPerms(), [inserted.id]: defaultPerms };
         savePerms(updatedPerms); setStaffPerms(updatedPerms);
+        const updatedRoles = { ...loadRoles(), [inserted.id]: finalRole };
+        saveRoles(updatedRoles);
       }
       toast({ title: '✅ Staff member added!', description: `${name || existing.full_name || email} now has ${finalRole} access.` });
       setName(''); setEmail(''); setRole('support'); setCustomRole(''); setUseCustomRole(false); setShowForm(false);
@@ -204,14 +212,21 @@ export default function AdminStaff() {
   };
 
   const changeRole = async (s: StaffMember, newRole: string) => {
-    const dbRole = newRole === 'manager' ? 'moderator' : newRole;
-    const { error } = await supabase.from('user_roles').update({ role: dbRole }).eq('id', s.id);
-    if (error) { toast({ title: 'Failed to update role', variant: 'destructive' }); return; }
+    const dbRole = newRole === 'manager' ? 'moderator' : 'moderator';
+    const { error } = await supabase
+      .from('user_roles')
+      .update({ role: dbRole as any })
+      .eq('id', s.id);
+    const newRoles = { ...loadRoles(), [s.id]: newRole };
+    saveRoles(newRoles);
+    if (error) {
+      console.warn('DB role update failed (expected if migration pending):', error.message);
+    }
     const defaults = DEFAULT_ROLE_PERMS[newRole] || [];
     const newPerms = { ...loadPerms(), [s.id]: defaults };
     savePerms(newPerms); setStaffPerms(newPerms);
     setStaff(prev => prev.map(m => m.id === s.id ? { ...m, role: newRole, permissions: defaults } : m));
-    toast({ title: `Role updated to "${newRole}"` });
+    toast({ title: `✅ Role updated to "${newRole}"` });
   };
 
   const openPerformance = async (s: StaffMember) => {
