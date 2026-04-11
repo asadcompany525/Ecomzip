@@ -111,25 +111,29 @@ const AdminCityManager = () => {
 
   const saveData = async () => {
     setSaving(true);
-    const { data: existing } = await supabase.from('site_settings').select('id').eq('key', 'city_areas').maybeSingle();
-    if (existing) {
-      await supabase.from('site_settings').update({ value: cityData as any }).eq('key', 'city_areas');
+    const { error } = await supabase.from('site_settings').upsert(
+      { key: 'city_areas', value: cityData as any },
+      { onConflict: 'key' }
+    );
+    if (error) {
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
     } else {
-      await supabase.from('site_settings').insert({ key: 'city_areas', value: cityData as any });
+      toast({ title: '✅ City data saved!' });
     }
-    toast({ title: 'City data saved!' });
     setSaving(false);
   };
 
   const saveDeliveryRates = async () => {
     setSaving(true);
-    const { data: existing } = await supabase.from('site_settings').select('id').eq('key', 'city_delivery_rates').maybeSingle();
-    if (existing) {
-      await supabase.from('site_settings').update({ value: deliveryRates as any }).eq('key', 'city_delivery_rates');
+    const { error } = await supabase.from('site_settings').upsert(
+      { key: 'city_delivery_rates', value: deliveryRates as any },
+      { onConflict: 'key' }
+    );
+    if (error) {
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
     } else {
-      await supabase.from('site_settings').insert({ key: 'city_delivery_rates', value: deliveryRates as any });
+      toast({ title: '✅ Delivery rates saved!' });
     }
-    toast({ title: 'Delivery rates saved!' });
     setSaving(false);
   };
 

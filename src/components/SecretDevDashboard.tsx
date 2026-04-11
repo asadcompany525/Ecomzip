@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Trash2, Upload, Save, Settings, RefreshCw, AlertTriangle, User, Plus, X, Link as LinkIcon, ArrowLeft } from 'lucide-react';
+import { Shield, Trash2, Upload, Save, Settings, RefreshCw, AlertTriangle, User, Plus, X, Link as LinkIcon, ArrowLeft, Globe } from 'lucide-react';
 
 const MASTER_PW_HASH = 'Asad_Dev_99';
 
@@ -58,8 +58,12 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   const [uploading, setUploading] = useState(false);
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [siteTitle, setSiteTitle] = useState('Stopy Shoes | Pakistan\'s Best Store');
+  const [faviconUrl, setFaviconUrl] = useState('');
+  const [savingBranding, setSavingBranding] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const asLogoRef = useRef<HTMLInputElement>(null);
+  const faviconRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -83,9 +87,34 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
           setDevInfo(merged);
           localStorage.setItem(DEV_INFO_KEY, JSON.stringify(merged));
         }
+        if (s.key === 'site_branding') {
+          const v = s.value as any;
+          if (v.title) setSiteTitle(v.title);
+          if (v.favicon) setFaviconUrl(v.favicon);
+        }
       });
     });
   }, [open]);
+
+  const saveBranding = async () => {
+    setSavingBranding(true);
+    document.title = siteTitle;
+    if (faviconUrl) {
+      let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+      link.href = faviconUrl;
+    }
+    const { error } = await supabase.from('site_settings').upsert(
+      { key: 'site_branding', value: { title: siteTitle, favicon: faviconUrl } as any },
+      { onConflict: 'key' }
+    );
+    if (error) {
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: '✅ Branding saved!', description: 'Title and favicon updated instantly.' });
+    }
+    setSavingBranding(false);
+  };
 
   const saveDevInfo = async () => {
     localStorage.setItem(DEV_INFO_KEY, JSON.stringify(devInfo));
@@ -229,9 +258,10 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="dev-info"><User className="h-3.5 w-3.5 mr-1" />Dev Info</TabsTrigger>
             <TabsTrigger value="logo"><Upload className="h-3.5 w-3.5 mr-1" />Logo</TabsTrigger>
+            <TabsTrigger value="branding"><Globe className="h-3.5 w-3.5 mr-1" />Branding</TabsTrigger>
             <TabsTrigger value="settings"><Settings className="h-3.5 w-3.5 mr-1" />Settings</TabsTrigger>
             <TabsTrigger value="reset"><Trash2 className="h-3.5 w-3.5 mr-1" />Factory Reset</TabsTrigger>
           </TabsList>
@@ -395,6 +425,67 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
             </div>
             <div className="flex gap-2">
               <Button onClick={saveLogo} className="flex-1 gap-2"><Save className="h-4 w-4" />Save Logo</Button>
+              <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="branding" className="space-y-4 mt-4">
+            <p className="text-xs text-muted-foreground">Control the browser tab title and website favicon. Changes apply instantly on save.</p>
+
+            <div>
+              <Label className="text-xs">Site Title (Browser Tab)</Label>
+              <Input
+                className="mt-1"
+                value={siteTitle}
+                onChange={e => { setSiteTitle(e.target.value); document.title = e.target.value; }}
+                placeholder="e.g. Stopy Shoes | Pakistan's Best Store"
+              />
+              <p className="text-xs text-muted-foreground mt-1">This updates the browser tab title in real-time as you type.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Favicon (Browser Tab Icon)</Label>
+              {faviconUrl && (
+                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                  <img src={faviconUrl} alt="Favicon" className="h-8 w-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <div>
+                    <p className="text-xs font-medium">Current Favicon</p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[200px]">{faviconUrl.startsWith('data:') ? 'Embedded image' : faviconUrl}</p>
+                  </div>
+                </div>
+              )}
+              <div>
+                <Label className="text-xs">Favicon URL (paste link to .ico or .png)</Label>
+                <Input className="mt-1 text-sm" value={faviconUrl} onChange={e => setFaviconUrl(e.target.value)} placeholder="https://... or upload below" />
+              </div>
+              <div>
+                <Label className="text-xs">Or Upload Favicon (.ico / .png / .svg)</Label>
+                <input ref={faviconRef} type="file" accept="image/x-icon,image/png,image/svg+xml,image/*" className="hidden" onChange={async e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploading(true);
+                  try {
+                    const base64 = await fileToBase64(file);
+                    setFaviconUrl(base64);
+                    let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+                    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+                    link.href = base64;
+                    toast({ title: '✅ Favicon uploaded!', description: 'Click Save Branding to apply permanently.' });
+                  } catch {
+                    toast({ title: 'Upload failed', variant: 'destructive' });
+                  }
+                  setUploading(false);
+                }} />
+                <Button variant="outline" className="w-full mt-1 gap-2" onClick={() => faviconRef.current?.click()} disabled={uploading}>
+                  <Upload className="h-4 w-4" />{uploading ? 'Uploading...' : 'Upload Favicon'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t">
+              <Button onClick={saveBranding} disabled={savingBranding} className="flex-1 gap-2">
+                <Save className="h-4 w-4" />{savingBranding ? 'Saving...' : 'Save Branding'}
+              </Button>
               <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
             </div>
           </TabsContent>

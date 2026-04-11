@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AIChatWidget from "@/components/chat/AIChatWidget";
@@ -78,6 +80,22 @@ import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
 
+const SiteBrandingLoader = () => {
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'site_branding').maybeSingle().then(({ data }) => {
+      if (!data?.value) return;
+      const v = data.value as any;
+      if (v.title) document.title = v.title;
+      if (v.favicon) {
+        let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+        if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+        link.href = v.favicon;
+      }
+    });
+  }, []);
+  return null;
+};
+
 const AdminGuard = ({ children }: { children: React.ReactNode }) => {
   const { isAdmin, loading } = useAuth();
   if (loading) return <StopyLoader fullScreen />;
@@ -92,6 +110,7 @@ const App = () => (
         <CartProvider>
           <Toaster />
           <Sonner />
+          <SiteBrandingLoader />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />

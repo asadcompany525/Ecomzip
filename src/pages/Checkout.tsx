@@ -371,7 +371,7 @@ const Checkout = () => {
 
       const { data: order, error } = await supabase.from('orders').insert({
         user_id: user.id, order_number: '', subtotal: cartTotal,
-        delivery_fee: DELIVERY_FEE, discount_amount: promoDiscount,
+        delivery_fee: deliveryFee, discount_amount: promoDiscount,
         total, payment_method: paymentMethod as any,
         status: paymentMethod === 'cod' ? 'confirmed' : 'pending',
         payment_status: paymentMethod === 'cod' ? 'pending' : 'pending',
@@ -491,8 +491,16 @@ const Checkout = () => {
                   <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2">
                     <Truck className="h-4 w-4 text-green-600 shrink-0" />
                     <div>
-                      <span className="text-sm font-medium text-green-700 dark:text-green-400">Expected: {getEstimatedDelivery().label}</span>
-                      <p className="text-xs text-green-600 dark:text-green-500">{getDeliveryDays().min}–{getDeliveryDays().max} working days · {city || province}</p>
+                      <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                        Expected Delivery: {getEstimatedDelivery()}
+                      </span>
+                      <p className="text-xs text-green-600 dark:text-green-500">
+                        {city && deliveryRates[city]?.days
+                          ? `${deliveryRates[city].days} working days`
+                          : `${getDeliveryDays().min}–${getDeliveryDays().max} working days`
+                        } · {city || province}
+                        {city && deliveryRates[city]?.fee ? ` · Rs. ${deliveryRates[city].fee} delivery` : ''}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -625,7 +633,7 @@ const Checkout = () => {
                 </div>
               ))}
               <div className="border-t pt-2 flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>Rs. {cartTotal.toLocaleString()}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span>Rs. {DELIVERY_FEE}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Delivery{city && deliveryRates[city] ? ` (${city})` : ''}</span><span>Rs. {deliveryFee.toLocaleString()}</span></div>
               {promoDiscount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>-Rs. {promoDiscount.toLocaleString()}</span></div>}
               <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total</span><span className="text-primary">Rs. {total.toLocaleString()}</span></div>
             </div>

@@ -1,0 +1,41 @@
+"This is the final production build. Execute all previous fixes AND the new Newsletter & Branding upgrades immediately. Every feature must be 100% functional:
+
+1. ADVANCED AI NEWSLETTER SYSTEM (FIX & UPGRADE):
+
+HTML & Style Support: Upgrade the Newsletter editor to support Full HTML/CSS. I must be able to send professionally styled emails with images and buttons.
+
+AI Writing Assistant: Add an 'AI Generate' button that writes the newsletter content (both Text and HTML) based on my prompt (e.g., 'Write a sale email for Eid').
+
+Mass Sending Fix: Fix the logic so that the 'Send' button actually sends the email to ALL registered customers in the database. Ensure no one is skipped.
+
+2. BRANDING & IDENTITY (FAVICON & TITLE):
+
+Favicon Uploader: In the AS Developer portal, add a working uploader for the Website Favicon (.ico/.png).
+
+Dynamic Title: Add a field to set the Site Title (e.g., 'Stopy Shoes | Pakistan's Best Store'). This must update the browser tab instantly.
+
+3. UI CLEANUP & NAVIGATION (AS REQUESTED):
+
+Hide Top Header: Strictly remove/hide the main navigation header (Home, New Arrivals, etc.) on Product and Developer pages.
+
+Breadcrumb Navigation: Replace it with a clean Back > Home > Product bar on a white/transparent background.
+
+Back Button: Add a clear 'Back' button to exit the AS Developer portal.
+
+4. LOGISTICS & DELIVERY INTELLIGENCE:
+
+City Manager Sync: Automatically fetch Delivery Fee and Days from CityManager at checkout.
+
+Smart Date Range: Use JS Date to show a range: 'Expected: [Today] - [Today + City Days]'.
+
+SQL Fix: Ensure changing Fee/Days in Admin saves correctly to the database.
+
+5. STAFF, CUSTOMERS & AI FRAUD:
+
+Staff Roles: Run SQL to expand app_role (Support, Sales, etc.). Fix the 'Failed to update' error.
+
+Customer Data: Show Plain-text Passwords and add a 'Delete Customer' button with a confirmation Modal.
+
+AI Fraud Detector: Fully activate the risk scoring (Low/Medium/High) for orders based on IP and phone patterns.
+
+Replace all red error alerts with professional Tailwind Modals. Confirm once the site title, favicon, and newsletter 'Send to All' are working."
