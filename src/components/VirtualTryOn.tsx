@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, X, RotateCcw, Download, Sparkles } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { Upload, X, Download, Sparkles, Camera, Loader2, RotateCcw, ZoomIn, ZoomOut, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from '@/hooks/use-toast';
@@ -9,94 +9,162 @@ interface VirtualTryOnProps {
   productName: string;
 }
 
+function removeBackground(img: HTMLImageElement, threshold = 240): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imageData.data;
+
+  const bgR = d[0], bgG = d[1], bgB = d[2];
+
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const nearWhite = r > threshold && g > threshold && b > threshold;
+    const nearBg = Math.abs(r - bgR) < 30 && Math.abs(g - bgG) < 30 && Math.abs(b - bgB) < 30;
+    if (nearWhite || nearBg) {
+      d[i + 3] = 0;
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+
+  ctx.filter = 'blur(1px)';
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(canvas, 0, 0);
+
+  return canvas.toDataURL('image/png');
+}
+
+function compositeImages(
+  userPhotoSrc: string,
+  shoeSrc: string,
+  shoeX: number,
+  shoeY: number,
+  shoeScale: number,
+  shoeOpacity: number,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const userImg = new Image();
+    userImg.crossOrigin = 'anonymous';
+    userImg.onload = () => {
+      canvas.width = userImg.naturalWidth;
+      canvas.height = userImg.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+
+      ctx.drawImage(userImg, 0, 0);
+
+      const shoeImg = new Image();
+      shoeImg.onload = () => {
+        const shoeW = (shoeScale / 100) * canvas.width;
+        const shoeH = (shoeW / shoeImg.naturalWidth) * shoeImg.naturalHeight;
+        const px = (shoeX / 100) * canvas.width - shoeW / 2;
+        const py = (shoeY / 100) * canvas.height - shoeH / 2;
+
+        ctx.globalAlpha = shoeOpacity / 100;
+        ctx.drawImage(shoeImg, px, py, shoeW, shoeH);
+        ctx.globalAlpha = 1;
+
+        resolve(canvas.toDataURL('image/jpeg', 0.92));
+      };
+      shoeImg.onerror = reject;
+      shoeImg.src = shoeSrc;
+    };
+    userImg.onerror = reject;
+    userImg.src = userPhotoSrc;
+  });
+}
+
 export default function VirtualTryOn({ productImage, productName }: VirtualTryOnProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState('');
-  const [overlayOpacity, setOverlayOpacity] = useState(0.7);
-  const [overlaySize, setOverlaySize] = useState(50);
-  const [overlayPos, setOverlayPos] = useState({ x: 50, y: 70 });
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [step, setStep] = useState<'upload' | 'adjust' | 'result'>('upload');
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const [processedShoe, setProcessedShoe] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [shoeX, setShoeX] = useState(50);
+  const [shoeY, setShoeY] = useState(80);
+  const [shoeScale, setShoeScale] = useState(30);
+  const [shoeOpacity, setShoeOpacity] = useState(90);
+  const [compositing, setCompositing] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
-  const startCamera = useCallback(async () => {
-    try {
-      setCameraError('');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        setCameraReady(true);
-      }
-    } catch (err: any) {
-      if (err.name === 'NotAllowedError') {
-        setCameraError('Camera permission denied. Please allow camera access.');
-      } else if (err.name === 'NotFoundError') {
-        setCameraError('No camera found on this device.');
-      } else {
-        setCameraError('Could not access camera: ' + err.message);
-      }
-    }
-  }, []);
+  const handleOpen = () => { setIsOpen(true); setStep('upload'); resetState(); };
+  const handleClose = () => { setIsOpen(false); resetState(); };
 
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    setCameraReady(false);
-  }, []);
-
-  const handleOpen = () => {
-    setIsOpen(true);
-    startCamera();
+  const resetState = () => {
+    setUserPhoto(null);
+    setProcessedShoe(null);
+    setResultImage(null);
+    setStep('upload');
+    setShoeX(50);
+    setShoeY(80);
+    setShoeScale(30);
+    setShoeOpacity(90);
   };
 
-  const handleClose = () => {
-    stopCamera();
-    setIsOpen(false);
-    setCameraError('');
-  };
+  const processShoeBackground = useCallback((src: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const result = removeBackground(img, 230);
+          resolve(result);
+        } catch {
+          resolve(src);
+        }
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    });
+  }, []);
 
-  useEffect(() => {
-    return () => { stopCamera(); };
-  }, [stopCamera]);
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProcessing(true);
+    toast({ title: '🔄 Processing...', description: 'Removing shoe background and preparing try-on' });
 
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const photoDataUrl = ev.target?.result as string;
+      setUserPhoto(photoDataUrl);
 
-    ctx.drawImage(video, 0, 0);
+      const shoeNoBg = await processShoeBackground(productImage);
+      setProcessedShoe(shoeNoBg);
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const overlayW = (overlaySize / 100) * canvas.width;
-      const overlayH = (overlayW / img.naturalWidth) * img.naturalHeight;
-      const x = ((overlayPos.x - overlaySize / 2) / 100) * canvas.width;
-      const y = ((overlayPos.y - 10) / 100) * canvas.height;
-      ctx.globalAlpha = overlayOpacity;
-      ctx.drawImage(img, x, y, overlayW, overlayH);
-      ctx.globalAlpha = 1;
-
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `stopy-tryon-${Date.now()}.jpg`;
-      a.click();
-      toast({ title: '📸 Photo saved!' });
+      setProcessing(false);
+      setStep('adjust');
+      toast({ title: '✅ Ready!', description: 'Drag the sliders to position the shoe on your feet.' });
     };
-    img.src = productImage;
+    reader.readAsDataURL(file);
+  };
+
+  const generateResult = async () => {
+    if (!userPhoto || !processedShoe) return;
+    setCompositing(true);
+    try {
+      const result = await compositeImages(userPhoto, processedShoe, shoeX, shoeY, shoeScale, shoeOpacity);
+      setResultImage(result);
+      setStep('result');
+    } catch (e: any) {
+      toast({ title: 'Processing failed', description: e.message, variant: 'destructive' });
+    }
+    setCompositing(false);
+  };
+
+  const downloadResult = () => {
+    if (!resultImage) return;
+    const a = document.createElement('a');
+    a.href = resultImage;
+    a.download = `stopy-tryon-${productName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+    a.click();
+    toast({ title: '📸 Photo saved!', description: 'Your try-on photo has been downloaded.' });
   };
 
   return (
@@ -107,126 +175,152 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
         onClick={handleOpen}
         className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5 text-xs"
       >
-        <Camera className="h-3.5 w-3.5" /> Virtual Try-On (AR)
+        <Camera className="h-3.5 w-3.5" /> Virtual Try-On
       </Button>
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed inset-0 z-50 bg-black/95 flex flex-col"
           >
-            {/* Header */}
-            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
               <div>
-                <p className="text-white font-bold text-sm">Virtual Try-On</p>
-                <p className="text-white/70 text-xs">{productName}</p>
+                <p className="text-white font-bold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> AI Virtual Try-On
+                </p>
+                <p className="text-white/60 text-xs">{productName}</p>
               </div>
-              <button onClick={handleClose} className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white">
-                <X className="h-5 w-5" />
+              <button onClick={handleClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20">
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Camera feed */}
-            <video
-              ref={videoRef}
-              className="absolute inset-0 w-full h-full object-cover"
-              muted
-              playsInline
-              autoPlay
-            />
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-            {/* Hidden canvas for capture */}
-            <canvas ref={canvasRef} className="hidden" />
-
-            {/* Error state */}
-            {cameraError && (
-              <div className="absolute inset-0 flex items-center justify-center p-8">
-                <div className="bg-black/80 rounded-2xl p-6 text-center space-y-4 max-w-sm">
-                  <Camera className="h-12 w-12 text-white/40 mx-auto" />
-                  <p className="text-white text-sm">{cameraError}</p>
-                  <Button onClick={startCamera} variant="outline" className="text-white border-white/30">
-                    <RotateCcw className="h-4 w-4 mr-2" /> Try Again
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Product overlay */}
-            {cameraReady && !cameraError && (
-              <div
-                className="absolute pointer-events-none"
-                style={{
-                  left: `${overlayPos.x}%`,
-                  top: `${overlayPos.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  width: `${overlaySize}%`,
-                  opacity: overlayOpacity,
-                }}
-              >
-                <img
-                  src={productImage}
-                  alt={productName}
-                  className="w-full object-contain drop-shadow-2xl"
-                  style={{ filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.5))' }}
-                />
-              </div>
-            )}
-
-            {/* AR Badge */}
-            {cameraReady && (
-              <div className="absolute top-16 right-4 flex items-center gap-1.5 bg-primary/90 text-white text-xs px-2.5 py-1.5 rounded-full">
-                <Sparkles className="h-3 w-3 animate-pulse" /> AR Active
-              </div>
-            )}
-
-            {/* Controls */}
-            {cameraReady && !cameraError && (
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-white text-xs w-16">Size</span>
-                    <input
-                      type="range" min={20} max={90} value={overlaySize}
-                      onChange={e => setOverlaySize(Number(e.target.value))}
-                      className="flex-1 accent-primary"
-                    />
-                    <span className="text-white text-xs w-8">{overlaySize}%</span>
+              {step === 'upload' && (
+                <div className="space-y-4">
+                  <div className="bg-white/5 rounded-xl p-4 space-y-2 text-sm text-white/70">
+                    <p className="text-white font-medium">How it works:</p>
+                    <p>1. Upload a full-body or foot-focused photo</p>
+                    <p>2. AI removes the shoe background automatically</p>
+                    <p>3. Position the shoe on your feet with sliders</p>
+                    <p>4. Generate your realistic try-on photo</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-white text-xs w-16">Opacity</span>
-                    <input
-                      type="range" min={30} max={100} value={overlayOpacity * 100}
-                      onChange={e => setOverlayOpacity(Number(e.target.value) / 100)}
-                      className="flex-1 accent-primary"
-                    />
-                    <span className="text-white text-xs w-8">{Math.round(overlayOpacity * 100)}%</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-white text-xs w-16">Position Y</span>
-                    <input
-                      type="range" min={10} max={90} value={overlayPos.y}
-                      onChange={e => setOverlayPos(p => ({ ...p, y: Number(e.target.value) }))}
-                      className="flex-1 accent-primary"
-                    />
-                  </div>
-                </div>
 
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={capturePhoto}
-                    className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg"
-                  >
-                    <div className="w-12 h-12 rounded-full border-4 border-gray-300 flex items-center justify-center">
-                      <Download className="h-5 w-5 text-gray-700" />
+                  <div className="flex gap-3">
+                    <div className="w-24 h-24 rounded-xl overflow-hidden bg-white/10 border border-white/20 flex-shrink-0">
+                      <img src={productImage} alt={productName} className="w-full h-full object-contain" />
                     </div>
+                    <div>
+                      <p className="text-white/80 text-sm font-medium">{productName}</p>
+                      <p className="text-white/50 text-xs mt-1">Background will be removed automatically</p>
+                    </div>
+                  </div>
+
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                  />
+
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={processing}
+                    className="w-full border-2 border-dashed border-white/30 rounded-xl p-8 flex flex-col items-center gap-3 text-white/70 hover:border-primary/60 hover:text-white/90 transition-all disabled:opacity-50"
+                  >
+                    {processing ? (
+                      <><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="text-sm">Processing shoe image...</p></>
+                    ) : (
+                      <><Upload className="h-8 w-8" /><p className="text-sm font-medium">Upload Your Photo</p><p className="text-xs opacity-60">Full body or foot-focused works best</p><p className="text-xs opacity-40">JPG, PNG supported</p></>
+                    )}
                   </button>
                 </div>
-                <p className="text-white/60 text-xs text-center">Tap the button to save your photo</p>
-              </div>
-            )}
+              )}
+
+              {step === 'adjust' && userPhoto && processedShoe && (
+                <div className="space-y-4">
+                  <div className="relative bg-black rounded-xl overflow-hidden" ref={previewRef}>
+                    <img src={userPhoto} alt="Your photo" className="w-full object-contain max-h-[50vh]" />
+                    <div
+                      className="absolute pointer-events-none"
+                      style={{
+                        left: `${shoeX}%`,
+                        top: `${shoeY}%`,
+                        transform: 'translate(-50%, -50%)',
+                        width: `${shoeScale}%`,
+                        opacity: shoeOpacity / 100,
+                        filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
+                      }}
+                    >
+                      <img src={processedShoe} alt={productName} className="w-full object-contain" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 bg-white/5 rounded-xl p-4">
+                    <p className="text-white/80 text-xs font-semibold uppercase tracking-wide">Adjust Shoe Position</p>
+
+                    {[
+                      { label: 'Position X', value: shoeX, min: 10, max: 90, onChange: setShoeX, icon: <Move className="h-3 w-3" /> },
+                      { label: 'Position Y', value: shoeY, min: 10, max: 100, onChange: setShoeY, icon: <Move className="h-3 w-3 rotate-90" /> },
+                      { label: 'Size', value: shoeScale, min: 10, max: 80, onChange: setShoeScale, icon: <ZoomIn className="h-3 w-3" /> },
+                      { label: 'Blend', value: shoeOpacity, min: 40, max: 100, onChange: setShoeOpacity, icon: <Sparkles className="h-3 w-3" /> },
+                    ].map(ctrl => (
+                      <div key={ctrl.label} className="flex items-center gap-3">
+                        <div className="text-white/50">{ctrl.icon}</div>
+                        <span className="text-white/70 text-xs w-20">{ctrl.label}</span>
+                        <input
+                          type="range" min={ctrl.min} max={ctrl.max} value={ctrl.value}
+                          onChange={e => ctrl.onChange(Number(e.target.value))}
+                          className="flex-1 accent-primary"
+                        />
+                        <span className="text-white/50 text-xs w-8 text-right">{ctrl.value}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button variant="ghost" onClick={() => { setStep('upload'); setUserPhoto(null); }}
+                      className="text-white/60 hover:text-white gap-2">
+                      <RotateCcw className="h-4 w-4" />New Photo
+                    </Button>
+                    <Button onClick={generateResult} disabled={compositing}
+                      className="flex-1 bg-primary hover:bg-primary/90 text-white gap-2">
+                      {compositing ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Sparkles className="h-4 w-4" />Generate Try-On Photo</>}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {step === 'result' && resultImage && (
+                <div className="space-y-4">
+                  <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-3 text-green-300 text-sm text-center font-medium">
+                    ✅ Your try-on photo is ready!
+                  </div>
+                  <div className="rounded-xl overflow-hidden">
+                    <img src={resultImage} alt="Try-on result" className="w-full object-contain rounded-xl" />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="ghost" onClick={() => setStep('adjust')}
+                      className="text-white/60 hover:text-white gap-2">
+                      <RotateCcw className="h-4 w-4" />Re-adjust
+                    </Button>
+                    <Button onClick={downloadResult}
+                      className="flex-1 bg-primary hover:bg-primary/90 text-white gap-2">
+                      <Download className="h-4 w-4" />Save Photo
+                    </Button>
+                  </div>
+                  <button onClick={() => { setStep('upload'); resetState(); }}
+                    className="w-full text-white/40 hover:text-white/70 text-xs py-2 transition-colors">
+                    Start over with a different photo
+                  </button>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
