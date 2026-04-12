@@ -66,6 +66,7 @@ import AdminAiBannerCreator from "./pages/admin/AdminAiBannerCreator";
 import AdminAiBulkCreator from "./pages/admin/AdminAiBulkCreator";
 import AdminAiGlobalManager from "./pages/admin/AdminAiGlobalManager";
 import AdminStaff from "./pages/admin/AdminStaff";
+import AdminStaffPerformance from "./pages/admin/AdminStaffPerformance";
 import AdminAiFraudDetector from "./pages/admin/AdminAiFraudDetector";
 import AdminAiSalesPredictor from "./pages/admin/AdminAiSalesPredictor";
 import AdminAiMarketingHub from "./pages/admin/AdminAiMarketingHub";
@@ -149,6 +150,7 @@ const App = () => (
                 <Route path="today-orders" element={<AdminTodayOrders />} />
                 <Route path="customers" element={<AdminCustomers />} />
                 <Route path="staff" element={<AdminStaff />} />
+                <Route path="staff-performance" element={<AdminStaffPerformance />} />
                 <Route path="banners" element={<AdminBanners />} />
                 <Route path="promos" element={<AdminPromos />} />
                 <Route path="reviews" element={<AdminReviews />} />

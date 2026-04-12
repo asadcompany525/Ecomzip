@@ -7,12 +7,13 @@ import {
   BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard,
   TrendingUp, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe,
   ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command, Mail, Heart, Search,
-  Clock, Lock
+  Clock, Lock, Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = 'sscck@gmail.com';
 
@@ -21,7 +22,6 @@ const ROLES_KEY = 'staff_roles_v3';
 const loadPerms = (): Record<string, string[]> => { try { return JSON.parse(localStorage.getItem(PERMS_KEY) || '{}'); } catch { return {}; } };
 const loadRoles = (): Record<string, string> => { try { return JSON.parse(localStorage.getItem(ROLES_KEY) || '{}'); } catch { return {}; } };
 
-// Maps each sidebar path to a required permission key
 const PATH_TO_PERM: Record<string, string> = {
   '/admin': 'page_dashboard',
   '/admin/orders': 'page_orders',
@@ -46,43 +46,44 @@ const sidebarGroups = [
   {
     label: 'Core',
     items: [
-      { icon: LayoutDashboard, label: 'Dashboard',       path: '/admin',              adminOnly: false },
-      { icon: Package,         label: 'Products',        path: '/admin/products',     adminOnly: false },
-      { icon: Layers,          label: 'Categories',      path: '/admin/categories',   adminOnly: false },
-      { icon: ShoppingCart,    label: 'Orders',          path: '/admin/orders',       adminOnly: false },
-      { icon: TrendingUp,      label: 'Today Orders',    path: '/admin/today-orders', adminOnly: false },
-      { icon: CreditCard,      label: 'Payments',        path: '/admin/payments',     adminOnly: true },
-      { icon: Wallet,          label: 'Payment Methods', path: '/admin/payment-methods', adminOnly: true },
-      { icon: Users,           label: 'Customers',       path: '/admin/customers',    adminOnly: false },
-      { icon: UserCog,         label: 'Staff Management',path: '/admin/staff',        adminOnly: true },
+      { icon: LayoutDashboard, label: 'Dashboard',        path: '/admin',                 adminOnly: false },
+      { icon: Package,         label: 'Products',         path: '/admin/products',        adminOnly: false },
+      { icon: Layers,          label: 'Categories',       path: '/admin/categories',      adminOnly: false },
+      { icon: ShoppingCart,    label: 'Orders',           path: '/admin/orders',          adminOnly: false },
+      { icon: TrendingUp,      label: 'Today Orders',     path: '/admin/today-orders',    adminOnly: false },
+      { icon: CreditCard,      label: 'Payments',         path: '/admin/payments',        adminOnly: true  },
+      { icon: Wallet,          label: 'Payment Methods',  path: '/admin/payment-methods', adminOnly: true  },
+      { icon: Users,           label: 'Customers',        path: '/admin/customers',       adminOnly: false },
+      { icon: UserCog,         label: 'Staff Management', path: '/admin/staff',           adminOnly: true  },
+      { icon: Activity,        label: 'Staff Performance',path: '/admin/staff-performance',adminOnly: true },
     ],
   },
   {
     label: 'Marketing',
     items: [
-      { icon: Image,           label: 'Banners',         path: '/admin/banners',       adminOnly: false },
-      { icon: Ticket,          label: 'Promo Codes',     path: '/admin/promos',        adminOnly: false },
-      { icon: Mail,            label: 'Newsletter',      path: '/admin/newsletter',    adminOnly: false },
+      { icon: Image,           label: 'Banners',          path: '/admin/banners',         adminOnly: false },
+      { icon: Ticket,          label: 'Promo Codes',      path: '/admin/promos',          adminOnly: false },
+      { icon: Mail,            label: 'Newsletter',       path: '/admin/newsletter',      adminOnly: false },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { icon: TrendingUp,      label: 'AI Trend Predictor',     path: '/admin/trend-predictor',      adminOnly: true },
-      { icon: Clock,           label: 'Dynamic Pricing',        path: '/admin/pricing-engine',       adminOnly: true },
-      { icon: Heart,           label: 'Loyalty Heatmap',        path: '/admin/loyalty-heatmap',      adminOnly: true },
-      { icon: Search,          label: 'Search Logs',            path: '/admin/search-logs',          adminOnly: true },
-      { icon: Command,         label: 'AI Global Manager',      path: '/admin/ai-global-manager',    adminOnly: true },
-      { icon: Bot,             label: 'AI Helper',              path: '/admin/ai-helper',            adminOnly: true },
-      { icon: Shield,          label: 'AI Fraud Detector',      path: '/admin/ai-fraud-detector',    adminOnly: true },
-      { icon: TrendingUp,      label: 'AI Sales Predictor',     path: '/admin/ai-sales-predictor',   adminOnly: true },
-      { icon: Megaphone,       label: 'AI Marketing Hub',       path: '/admin/ai-marketing-hub',     adminOnly: true },
-      { icon: ThumbsUp,        label: 'AI Feedback Analyzer',   path: '/admin/ai-feedback-analyzer', adminOnly: true },
-      { icon: DollarSign,      label: 'AI Price Intelligence',  path: '/admin/ai-price-intelligence',adminOnly: true },
-      { icon: Sparkles,        label: 'AI Discounts',           path: '/admin/ai-discounts',         adminOnly: true },
-      { icon: Globe,           label: 'AI Site Manager',        path: '/admin/ai-site-manager',      adminOnly: true },
-      { icon: ImagePlus,       label: 'AI Banner Creator',      path: '/admin/ai-banner-creator',    adminOnly: true },
-      { icon: Sparkles,        label: 'AI Bulk Creator',        path: '/admin/ai-bulk-creator',      adminOnly: true },
+      { icon: TrendingUp,      label: 'AI Trend Predictor',     path: '/admin/trend-predictor',       adminOnly: true },
+      { icon: Clock,           label: 'Dynamic Pricing',        path: '/admin/pricing-engine',        adminOnly: true },
+      { icon: Heart,           label: 'Loyalty Heatmap',        path: '/admin/loyalty-heatmap',       adminOnly: true },
+      { icon: Search,          label: 'Search Logs',            path: '/admin/search-logs',           adminOnly: true },
+      { icon: Command,         label: 'AI Global Manager',      path: '/admin/ai-global-manager',     adminOnly: true },
+      { icon: Bot,             label: 'AI Helper',              path: '/admin/ai-helper',             adminOnly: true },
+      { icon: Shield,          label: 'AI Fraud Detector',      path: '/admin/ai-fraud-detector',     adminOnly: true },
+      { icon: TrendingUp,      label: 'AI Sales Predictor',     path: '/admin/ai-sales-predictor',    adminOnly: true },
+      { icon: Megaphone,       label: 'AI Marketing Hub',       path: '/admin/ai-marketing-hub',      adminOnly: true },
+      { icon: ThumbsUp,        label: 'AI Feedback Analyzer',   path: '/admin/ai-feedback-analyzer',  adminOnly: true },
+      { icon: DollarSign,      label: 'AI Price Intelligence',  path: '/admin/ai-price-intelligence', adminOnly: true },
+      { icon: Sparkles,        label: 'AI Discounts',           path: '/admin/ai-discounts',          adminOnly: true },
+      { icon: Globe,           label: 'AI Site Manager',        path: '/admin/ai-site-manager',       adminOnly: true },
+      { icon: ImagePlus,       label: 'AI Banner Creator',      path: '/admin/ai-banner-creator',     adminOnly: true },
+      { icon: Sparkles,        label: 'AI Bulk Creator',        path: '/admin/ai-bulk-creator',       adminOnly: true },
     ],
   },
   {
@@ -94,12 +95,12 @@ const sidebarGroups = [
       { icon: BarChart3,       label: 'Reports',            path: '/admin/reports',           adminOnly: false },
       { icon: PieChart,        label: 'Product Analytics',  path: '/admin/product-analytics', adminOnly: false },
       { icon: ClipboardList,   label: 'Order Checklist',    path: '/admin/order-checklist',   adminOnly: false },
-      { icon: Bell,            label: 'Stock Alerts',       path: '/admin/stock-alerts',      adminOnly: true },
-      { icon: MapPin,          label: 'City Manager',       path: '/admin/city-manager',      adminOnly: true },
-      { icon: PackageSearch,   label: 'Inventory Insights', path: '/admin/inventory',         adminOnly: true },
+      { icon: Bell,            label: 'Stock Alerts',       path: '/admin/stock-alerts',      adminOnly: true  },
+      { icon: MapPin,          label: 'City Manager',       path: '/admin/city-manager',      adminOnly: true  },
+      { icon: PackageSearch,   label: 'Inventory Insights', path: '/admin/inventory',         adminOnly: true  },
       { icon: Tag,             label: 'Delivery',           path: '/admin/delivery',          adminOnly: false },
       { icon: FileText,        label: 'Activity Log',       path: '/admin/activity',          adminOnly: false },
-      { icon: Settings,        label: 'Settings',           path: '/admin/settings',          adminOnly: true },
+      { icon: Settings,        label: 'Settings',           path: '/admin/settings',          adminOnly: true  },
     ],
   },
 ];
@@ -125,14 +126,12 @@ const AdminLayout = () => {
   const [secretShake, setSecretShake] = useState(false);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attendanceId = useRef<string | null>(null);
-  const [brandName] = useState('Admin');
-  const [brandLogo] = useState('/favicon.ico');
 
-  // Staff permissions & role label
   const [staffPermissions, setStaffPermissions] = useState<string[] | null>(null);
   const [staffRoleLabel, setStaffRoleLabel] = useState('Staff');
 
-  // Load staff permissions from localStorage when user is a staff member
+  const brandName = isMainAdmin ? 'Stopy Admin' : 'Stopy Staff';
+
   useEffect(() => {
     if (!isStaff || !user?.id) return;
     supabase
@@ -153,7 +152,6 @@ const AdminLayout = () => {
       });
   }, [isStaff, user?.id]);
 
-  // Record attendance login
   useEffect(() => {
     if (!user?.id) return;
     supabase.from('staff_attendance').insert({ user_id: user.id, login_at: new Date().toISOString() })
@@ -203,72 +201,96 @@ const AdminLayout = () => {
     }
   };
 
-  // Determine if a sidebar item should be visible to current user
-  const isItemVisible = (item: any): boolean => {
-    if (isMainAdmin) return true;
-    if (item.adminOnly) return false;
-    if (!isStaff) return true;
+  const isItemDisabled = (item: any): boolean => {
+    if (isMainAdmin) return false;
+    if (!isStaff) return false;
+    if (item.adminOnly) return true;
     const perm = PATH_TO_PERM[item.path];
-    if (!perm) return false;
-    if (staffPermissions === null) return false;
-    return staffPermissions.includes(perm);
+    if (perm && staffPermissions !== null && !staffPermissions.includes(perm)) return true;
+    return false;
   };
 
-  // Check if current path is accessible to staff
   const canAccessCurrentPath = (): boolean => {
     if (isMainAdmin) return true;
     if (!isStaff) return true;
     const perm = PATH_TO_PERM[location.pathname];
-    if (!perm) return false;
-    if (staffPermissions === null) return true; // still loading
+    if (!perm) {
+      const item = allItems.find(i => i.path === location.pathname);
+      if (item?.adminOnly) return false;
+      return true;
+    }
+    if (staffPermissions === null) return true;
     return staffPermissions.includes(perm);
   };
 
   const currentLabel = allItems.find(i => i.path === location.pathname)?.label || 'Admin Panel';
   const hasAccess = canAccessCurrentPath();
 
-  // Identity label for header
   const identityLabel = isMainAdmin
     ? 'Logged in as: Admin'
     : isStaff
     ? `Logged in as: ${staffRoleLabel}`
     : '';
 
+  const handleDisabledClick = () => {
+    toast({
+      title: 'Access Denied',
+      description: 'You do not have permission to view this page.',
+      variant: 'destructive',
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background flex">
       <aside className={`fixed inset-y-0 left-0 z-50 w-56 bg-card border-r transform transition-transform md:relative md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between px-3 py-3 border-b">
           <button onClick={handleLogoClick} className="flex items-center gap-2 select-none focus:outline-none" title="Click 5x for secret access">
-            <img src={brandLogo} alt="AS" className="h-7 w-7 rounded" onError={e => { (e.target as HTMLImageElement).src = '/favicon.ico'; }} />
+            <img src="/favicon.ico" alt="AS" className="h-7 w-7 rounded" onError={e => { (e.target as HTMLImageElement).src = '/favicon.ico'; }} />
             <span className="font-bold text-sm truncate">{brandName}</span>
           </button>
           <button className="md:hidden" onClick={() => setSidebarOpen(false)}><X className="h-4 w-4" /></button>
         </div>
         <nav className="px-2 py-2 overflow-y-auto h-[calc(100vh-112px)]">
-          {sidebarGroups.map(group => {
-            const visibleItems = group.items.filter(item => isItemVisible(item));
-            if (visibleItems.length === 0) return null;
-            return (
-              <div key={group.label} className="mb-2">
-                <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest px-2 py-1">{group.label}</p>
-                {visibleItems.map((item: any) => (
+          {sidebarGroups.map(group => (
+            <div key={group.label} className="mb-2">
+              <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest px-2 py-1">{group.label}</p>
+              {group.items.map((item: any) => {
+                const disabled = isItemDisabled(item);
+                const isActive = location.pathname === item.path;
+                const baseClass = `flex items-center gap-2 px-2 py-1.5 rounded-md text-[11px] font-medium transition-colors mb-0.5 w-full text-left`;
+                const activeClass = 'bg-primary text-primary-foreground';
+                const normalClass = 'hover:bg-accent text-muted-foreground hover:text-foreground';
+                const disabledClass = 'opacity-40 cursor-not-allowed text-muted-foreground';
+
+                if (disabled) {
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={handleDisabledClick}
+                      className={`${baseClass} ${disabledClass}`}
+                      title="No permission"
+                    >
+                      <item.icon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                      <Lock className="h-2.5 w-2.5 ml-auto shrink-0 opacity-60" />
+                    </button>
+                  );
+                }
+
+                return (
                   <Link
                     key={item.path}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11px] font-medium transition-colors mb-0.5 ${
-                      location.pathname === item.path
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-accent text-muted-foreground hover:text-foreground'
-                    }`}
+                    className={`${baseClass} ${isActive ? activeClass : normalClass}`}
                   >
                     <item.icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{item.label}</span>
                   </Link>
-                ))}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="absolute bottom-0 left-0 right-0 px-2 py-2 border-t bg-card">
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground text-xs h-8" onClick={handleLogout}>
@@ -308,7 +330,6 @@ const AdminLayout = () => {
         </main>
       </div>
 
-      {/* Secret Developer Portal Modal */}
       <Dialog open={showSecretModal} onOpenChange={open => { if (!open) { setShowSecretModal(false); setSecretError(''); setSecretInput(''); } }}>
         <DialogContent className="max-w-xs p-0 overflow-hidden border-2 border-primary/20 shadow-2xl">
           <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/70 px-6 pt-6 pb-5 text-center">

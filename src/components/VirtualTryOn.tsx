@@ -230,6 +230,7 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
   const frameCountRef    = useRef(0);
   const detectingRef     = useRef(false);
   const streamRef        = useRef<MediaStream | null>(null);
+  const dragRef          = useRef<{ active: boolean; lastX: number; lastY: number }>({ active: false, lastX: 0, lastY: 0 });
 
   // Pre-load shoe image (background removed)
   useEffect(() => {
@@ -420,6 +421,43 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
       setStep('adjust');
     };
     reader.readAsDataURL(file);
+  };
+
+  // ── Canvas Drag Handlers for Photo Mode ──────────────────────────────────
+  const getCanvasPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0]?.clientX ?? 0 : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0]?.clientY ?? 0 : e.clientY;
+    const pctX = ((clientX - rect.left) / rect.width) * 100;
+    const pctY = ((clientY - rect.top)  / rect.height) * 100;
+    return { pctX, pctY };
+  };
+
+  const handleCanvasDragStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (step !== 'adjust') return;
+    e.preventDefault();
+    const canvas = photoCanvasRef.current;
+    if (!canvas) return;
+    const { pctX, pctY } = getCanvasPos(e, canvas);
+    dragRef.current = { active: true, lastX: pctX, lastY: pctY };
+  };
+
+  const handleCanvasDragMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!dragRef.current.active || step !== 'adjust') return;
+    e.preventDefault();
+    const canvas = photoCanvasRef.current;
+    if (!canvas) return;
+    const { pctX, pctY } = getCanvasPos(e, canvas);
+    const dx = pctX - dragRef.current.lastX;
+    const dy = pctY - dragRef.current.lastY;
+    dragRef.current.lastX = pctX;
+    dragRef.current.lastY = pctY;
+    setShoeX(x => Math.min(95, Math.max(5, x + dx)));
+    setShoeY(y => Math.min(100, Math.max(5, y + dy)));
+  };
+
+  const handleCanvasDragEnd = () => {
+    dragRef.current.active = false;
   };
 
   const generateResult = async () => {
@@ -676,7 +714,22 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
                         }
                       </div>
                       <div className="relative rounded-xl overflow-hidden bg-black">
-                        <canvas ref={photoCanvasRef} className="w-full rounded-xl block" style={{ maxHeight: '52vh', objectFit: 'contain' }} />
+                        <canvas
+                          ref={photoCanvasRef}
+                          className="w-full rounded-xl block touch-none select-none"
+                          style={{ maxHeight: '52vh', objectFit: 'contain', cursor: 'grab' }}
+                          onMouseDown={handleCanvasDragStart}
+                          onMouseMove={handleCanvasDragMove}
+                          onMouseUp={handleCanvasDragEnd}
+                          onMouseLeave={handleCanvasDragEnd}
+                          onTouchStart={handleCanvasDragStart}
+                          onTouchMove={handleCanvasDragMove}
+                          onTouchEnd={handleCanvasDragEnd}
+                        />
+                        <div className="absolute top-2 left-2 bg-black/50 rounded-md px-2 py-1 pointer-events-none flex items-center gap-1">
+                          <Move className="h-3 w-3 text-white/60" />
+                          <span className="text-white/60 text-[10px]">Drag to move shoe</span>
+                        </div>
                         <div className="absolute bottom-2.5 right-2.5 bg-black/40 rounded-md px-2 py-0.5 pointer-events-none">
                           <span className="text-white/75 text-xs font-bold">Stopy</span>
                         </div>
