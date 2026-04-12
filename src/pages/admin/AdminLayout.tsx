@@ -13,19 +13,21 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 
+const ADMIN_EMAIL = 'sscck@gmail.com';
+
 const sidebarGroups = [
   {
     label: 'Core',
     items: [
-      { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
-      { icon: Package, label: 'Products', path: '/admin/products' },
-      { icon: Layers, label: 'Categories', path: '/admin/categories' },
-      { icon: ShoppingCart, label: 'Orders', path: '/admin/orders' },
-      { icon: TrendingUp, label: 'Today Orders', path: '/admin/today-orders' },
-      { icon: CreditCard, label: 'Payments', path: '/admin/payments' },
-      { icon: Wallet, label: 'Payment Methods', path: '/admin/payment-methods' },
-      { icon: Users, label: 'Customers', path: '/admin/customers' },
-      { icon: UserCog, label: 'Staff Management', path: '/admin/staff' },
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/admin', adminOnly: false },
+      { icon: Package, label: 'Products', path: '/admin/products', adminOnly: false },
+      { icon: Layers, label: 'Categories', path: '/admin/categories', adminOnly: false },
+      { icon: ShoppingCart, label: 'Orders', path: '/admin/orders', adminOnly: false },
+      { icon: TrendingUp, label: 'Today Orders', path: '/admin/today-orders', adminOnly: false },
+      { icon: CreditCard, label: 'Payments', path: '/admin/payments', adminOnly: false },
+      { icon: Wallet, label: 'Payment Methods', path: '/admin/payment-methods', adminOnly: false },
+      { icon: Users, label: 'Customers', path: '/admin/customers', adminOnly: false },
+      { icon: UserCog, label: 'Staff Management', path: '/admin/staff', adminOnly: true },
     ],
   },
   {
@@ -69,8 +71,8 @@ const sidebarGroups = [
       { icon: MapPin, label: 'City Manager', path: '/admin/city-manager' },
       { icon: PackageSearch, label: 'Inventory Insights', path: '/admin/inventory' },
       { icon: Tag, label: 'Delivery', path: '/admin/delivery' },
-      { icon: FileText, label: 'Activity Log', path: '/admin/activity' },
-      { icon: Settings, label: 'Settings', path: '/admin/settings' },
+      { icon: FileText, label: 'Activity Log', path: '/admin/activity', adminOnly: false },
+      { icon: Settings, label: 'Settings', path: '/admin/settings', adminOnly: true },
     ],
   },
 ];
@@ -79,7 +81,8 @@ const allItems = sidebarGroups.flatMap(g => g.items);
 const SECRET_PASSWORD = 'Asad_Dev_99';
 
 const AdminLayout = () => {
-  const { signOut, user } = useAuth();
+  const { signOut, user, isAdmin } = useAuth();
+  const isMainAdmin = isAdmin || user?.email === ADMIN_EMAIL;
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -156,26 +159,30 @@ const AdminLayout = () => {
           <button className="md:hidden" onClick={() => setSidebarOpen(false)}><X className="h-4 w-4" /></button>
         </div>
         <nav className="px-2 py-2 overflow-y-auto h-[calc(100vh-112px)]">
-          {sidebarGroups.map(group => (
-            <div key={group.label} className="mb-2">
-              <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest px-2 py-1">{group.label}</p>
-              {group.items.map(item => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11px] font-medium transition-colors mb-0.5 ${
-                    location.pathname === item.path
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-accent text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <item.icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              ))}
-            </div>
-          ))}
+          {sidebarGroups.map(group => {
+            const visibleItems = group.items.filter((item: any) => !item.adminOnly || isMainAdmin);
+            if (visibleItems.length === 0) return null;
+            return (
+              <div key={group.label} className="mb-2">
+                <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest px-2 py-1">{group.label}</p>
+                {visibleItems.map((item: any) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[11px] font-medium transition-colors mb-0.5 ${
+                      location.pathname === item.path
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <item.icon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="absolute bottom-0 left-0 right-0 px-2 py-2 border-t bg-card">
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground text-xs h-8" onClick={handleLogout}>
