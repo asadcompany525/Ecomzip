@@ -8,6 +8,7 @@ import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { lovable } from '@/integrations/lovable/index';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -16,6 +17,7 @@ type ForgotStep = 'email' | 'otp' | 'reset';
 const Login = () => {
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  const { brandName, faviconUrl } = useStoreSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -265,7 +267,7 @@ const Login = () => {
         <div className="max-w-md mx-auto">
           <div className="bg-card rounded-2xl border p-8 shadow-sm">
             <div className="text-center mb-8">
-              <img src="/favicon.ico" alt="Stopy Shoes" className="h-12 w-12 mx-auto mb-3" />
+              <img src={faviconUrl || '/favicon.ico'} alt={brandName || 'Store'} className="h-12 w-12 mx-auto mb-3" />
               <h1 className="text-2xl font-bold">Welcome Back</h1>
               <p className="text-muted-foreground text-sm mt-1">Login to your account</p>
             </div>

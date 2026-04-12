@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Sparkles, Printer, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const AdminFormGenerator = () => {
+  const { brandName } = useStoreSettings();
   const [prompt, setPrompt] = useState('');
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,7 @@ stock per size, total sell price per size, etc. Be as detailed as possible.
         body: {
           type: 'admin-form',
           messages: [
-            { role: 'system', content: `You are a helpful admin assistant for a shoes & bags store "Stopy Shoes". The user wants to generate a report/form/list. You have FULL access to ALL store data including product codes, variants (size/stock per color per product), order items (which size/color sold), returns, categories. Use the provided data to create the output. Format as a clean HTML table or list that can be printed. Always include headers, subtotals and grand totals where applicable. Show SIZE-LEVEL and COLOR-LEVEL detail when asked. You can answer ANY question about any product, size, color, stock, sales, dates, discounts, flash sales, etc. Data:\n${context}` },
+            { role: 'system', content: `You are a helpful admin assistant for a shoes & bags store "${brandName || 'our store'}". The user wants to generate a report/form/list. You have FULL access to ALL store data including product codes, variants (size/stock per color per product), order items (which size/color sold), returns, categories. Use the provided data to create the output. Format as a clean HTML table or list that can be printed. Always include headers, subtotals and grand totals where applicable. Show SIZE-LEVEL and COLOR-LEVEL detail when asked. You can answer ANY question about any product, size, color, stock, sales, dates, discounts, flash sales, etc. Data:\n${context}` },
             { role: 'user', content: prompt },
           ],
         },

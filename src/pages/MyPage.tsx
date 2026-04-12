@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/layout/Header';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 import BottomNav from '@/components/layout/BottomNav';
 
@@ -18,6 +19,7 @@ const menuItems = [
 ];
 
 const MyPage = () => {
+  const { brandName } = useStoreSettings();
   const { user, isAdmin, isStaff, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
@@ -51,7 +53,7 @@ const MyPage = () => {
             <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
               <User className="h-10 w-10 text-muted-foreground" />
             </div>
-            <h2 className="text-lg font-semibold mb-1">Welcome to Stopy Shoes</h2>
+            <h2 className="text-lg font-semibold mb-1">Welcome to {brandName || 'Our Store'}</h2>
             <p className="text-sm text-muted-foreground mb-4">Login to access your orders, wishlist and more</p>
             <div className="flex gap-3 justify-center">
               <Link to="/login"><Button>Login</Button></Link>

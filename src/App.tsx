@@ -83,14 +83,23 @@ const queryClient = new QueryClient();
 
 const SiteBrandingLoader = () => {
   useEffect(() => {
-    supabase.from('site_settings').select('value').eq('key', 'site_branding').maybeSingle().then(({ data }) => {
-      if (!data?.value) return;
-      const v = data.value as any;
-      if (v.title) document.title = v.title;
-      if (v.favicon) {
+    supabase.from('site_settings').select('key, value').in('key', ['site_branding', 'logo', 'site_title']).then(({ data }) => {
+      if (!data) return;
+      const map: Record<string, any> = {};
+      data.forEach(row => { map[row.key] = row.value; });
+
+      // Determine title: site_title > logo.name > site_branding.title
+      const title = (typeof map.site_title === 'string' && map.site_title)
+        || (map.logo?.name)
+        || (map.site_branding?.title);
+      if (title) document.title = title;
+
+      // Determine favicon: logo.url > site_branding.favicon
+      const favicon = (map.logo?.url) || (map.site_branding?.favicon);
+      if (favicon) {
         let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
         if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-        link.href = v.favicon;
+        link.href = favicon;
       }
     });
   }, []);

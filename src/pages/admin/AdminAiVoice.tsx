@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Mic, MicOff, Loader2, Volume2, Command, History, Trash2, Navigation } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const EXAMPLE_COMMANDS = [
   { urdu: 'Aaj ki orders dikhao', english: 'Show today\'s orders' },
@@ -49,6 +50,7 @@ const NAVIGATION_MAP: Record<string, string> = {
 };
 
 export default function AdminAiVoice() {
+  const { brandName } = useStoreSettings();
   const navigate = useNavigate();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');

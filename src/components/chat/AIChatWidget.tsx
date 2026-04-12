@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 interface ChatMsg {
   id?: string;
@@ -14,10 +15,15 @@ interface ChatMsg {
   senderType?: string;
 }
 
-const WELCOME_MSG: ChatMsg = { role: 'assistant', content: 'Assalam o Alaikum! 👋 Stopy Shoes میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!' };
-const GUEST_HISTORY_KEY = 'stopy_guest_chat_history';
+const GUEST_HISTORY_KEY = 'store_guest_chat_history';
+
+const makeWelcomeMsg = (brandLabel: string): ChatMsg => ({
+  role: 'assistant',
+  content: `Assalam o Alaikum! 👋 ${brandLabel} میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!`
+});
 
 const AIChatWidget = () => {
+  const { brandName } = useStoreSettings();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>(() => {
     // Restore guest history from localStorage on load
@@ -28,7 +34,7 @@ const AIChatWidget = () => {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return [WELCOME_MSG];
+    return [makeWelcomeMsg('Our Store')];
   });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -165,7 +171,7 @@ const AIChatWidget = () => {
             <div className="bg-primary text-primary-foreground p-4 flex items-center gap-3">
               <MessageCircle className="h-6 w-6" />
               <div className="flex-1">
-                <p className="font-bold text-sm">Stopy Support Chat</p>
+                <p className="font-bold text-sm">{brandName ? `${brandName} Support` : 'Support Chat'}</p>
                 <p className="text-xs opacity-80">ہماری ٹیم آن لائن ہے</p>
               </div>
               <button onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>

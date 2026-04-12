@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sparkles, Loader2, Image, Plus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const AdminAiBannerCreator = () => {
+  const { brandName } = useStoreSettings();
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [bannerTitle, setBannerTitle] = useState('');
@@ -39,7 +41,7 @@ Categories: ${JSON.stringify(categories.map(c => c.name))}`;
         body: {
           type: 'admin-helper',
           messages: [
-            { role: 'system', content: `You are creating a promotional banner for Stopy Shoes store. Based on the user's description, generate banner text and auto-fill the link.
+            { role: 'system', content: `You are creating a promotional banner for ${brandName || 'our'} store. Based on the user's description, generate banner text and auto-fill the link.
 ${context}
 
 Return JSON in <ACTION_JSON> tags:

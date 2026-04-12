@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, ThumbsUp, ThumbsDown, Loader2, Star, RefreshCw, Sparkles, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 interface Analysis {
   overallSentiment: 'positive' | 'mixed' | 'negative';
@@ -18,6 +19,7 @@ interface Analysis {
 }
 
 export default function AdminAiFeedbackAnalyzer() {
+  const { brandName } = useStoreSettings();
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState('all');
   const [reviews, setReviews] = useState<any[]>([]);
@@ -52,7 +54,7 @@ export default function AdminAiFeedbackAnalyzer() {
           type: 'feedback-analyzer',
           messages: [{
             role: 'user',
-            content: `You are a customer feedback analyst for Stopy Shoes Pakistan.
+            content: `You are a customer feedback analyst for ${brandName || 'our store'} Pakistan.
 Analyze these ${reviews.length} customer reviews and provide insights:
 
 ${reviewText}

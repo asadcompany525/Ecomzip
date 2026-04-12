@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Loader2, RefreshCw, Package, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 interface Prediction {
   productId: string;
@@ -18,6 +19,7 @@ interface Prediction {
 }
 
 export default function AdminAiSalesPredictor() {
+  const { brandName } = useStoreSettings();
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);

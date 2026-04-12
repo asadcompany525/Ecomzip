@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Shield, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 export default function AdminAiClaimValidator() {
+  const { brandName } = useStoreSettings();
   const [returns, setReturns] = useState<any[]>([]);
   const [selectedReturn, setSelectedReturn] = useState<any>(null);
   const [loading, setLoading] = useState(false);

@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Megaphone, Copy, Check, Loader2, RefreshCw, Instagram, Facebook, Search, Sparkles } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 interface GeneratedContent {
   instagram: string;
@@ -19,6 +20,7 @@ interface GeneratedContent {
 }
 
 export default function AdminAiMarketingHub() {
+  const { brandName } = useStoreSettings();
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [customPrompt, setCustomPrompt] = useState('');
@@ -54,7 +56,7 @@ export default function AdminAiMarketingHub() {
           type: 'marketing-hub',
           messages: [{
             role: 'user',
-            content: `You are a viral marketing expert for Stopy Shoes Pakistan — Pakistan's #1 shoe & bag store.
+            content: `You are a viral marketing expert for ${brandName || 'our store'} Pakistan — Pakistan's #1 shoe & bag store.
 
 Context: ${context}
 Tone: ${tone}

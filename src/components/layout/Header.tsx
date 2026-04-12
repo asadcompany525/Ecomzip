@@ -58,7 +58,7 @@ const Header = () => {
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
-  const [logoData, setLogoData] = useState({ url: '/favicon.ico', name: 'Stopy Shoes', size: 'h-10 w-10' });
+  const [logoData, setLogoData] = useState({ url: '/favicon.ico', name: '', size: 'h-10 w-10' });
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('searchHistory') || '[]'); } catch { return []; }
   });
@@ -214,7 +214,7 @@ const Header = () => {
               </button>
               <button onClick={handleLogoClick} className="flex-1 flex items-center justify-center gap-2 min-w-0 bg-transparent border-0">
                 <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-9 w-9 object-contain" loading="lazy" />
-                <span className="font-bold text-sm truncate hidden xs:inline">{logoData.name || 'Stopy Shoes'}</span>
+                <span className="font-bold text-sm truncate hidden xs:inline">{logoData.name || 'Store'}</span>
               </button>
               <div className="flex items-center gap-1 shrink-0">
                 <button
@@ -284,7 +284,7 @@ const Header = () => {
               </button>
               <button onClick={handleLogoClick} className="flex-1 flex items-center justify-center gap-1.5 bg-transparent border-0">
                 <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
-                <span className="font-semibold text-sm">{logoData.name || 'Stopy Shoes'}</span>
+                <span className="font-semibold text-sm">{logoData.name || 'Store'}</span>
               </button>
               <Link to="/cart" className="relative flex items-center justify-center h-8 w-8 rounded-lg hover:bg-accent">
                 <ShoppingCart className="h-4 w-4" />
@@ -372,7 +372,7 @@ const Header = () => {
                   {/* Logo on non-home desktop */}
                   <button onClick={handleLogoClick} className="flex items-center gap-2 bg-transparent border-0 cursor-pointer select-none mr-2 shrink-0">
                     <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
-                    <span className="font-bold text-sm hidden lg:inline">{logoData.name || 'Stopy Shoes'}</span>
+                    <span className="font-bold text-sm hidden lg:inline">{logoData.name || 'Store'}</span>
                   </button>
 
                   {/* Breadcrumb */}
@@ -445,8 +445,8 @@ const Header = () => {
             >
               <div className="flex items-center justify-between p-4 border-b">
                 <button onClick={handleLogoClick} className="flex items-center gap-2 bg-transparent border-0">
-                  <img src={logoData.url || '/favicon.ico'} alt="Stopy Shoes" className="h-9 w-9" loading="lazy" />
-                  <span className="font-bold text-lg">Stopy Shoes</span>
+                  <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-9 w-9" loading="lazy" />
+                  <span className="font-bold text-lg">{logoData.name || 'My Store'}</span>
                 </button>
                 <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded hover:bg-accent">
                   <X className="h-5 w-5" />

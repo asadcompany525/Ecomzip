@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 interface StopyLoaderProps {
   size?: 'sm' | 'md' | 'lg';
@@ -6,13 +7,13 @@ interface StopyLoaderProps {
 }
 
 const StopyLoader = ({ size = 'md', fullScreen = false }: StopyLoaderProps) => {
+  const { brandName, faviconUrl } = useStoreSettings();
   const dims = { sm: 40, md: 64, lg: 96 };
   const d = dims[size];
   const fontSize = { sm: 'text-sm', md: 'text-base', lg: 'text-xl' };
 
   const content = (
     <div className="flex flex-col items-center justify-center gap-4">
-      {/* Pulse Logo */}
       <div className="relative">
         <motion.div
           className="absolute inset-0 rounded-full bg-primary/20"
@@ -31,15 +32,14 @@ const StopyLoader = ({ size = 'md', fullScreen = false }: StopyLoaderProps) => {
           transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
         >
           <img
-            src="/favicon.ico"
-            alt="Stopy"
+            src={faviconUrl || '/favicon.ico'}
+            alt={brandName}
             className="object-contain"
             style={{ width: d * 0.6, height: d * 0.6 }}
           />
         </motion.div>
       </div>
 
-      {/* Brand text */}
       {size !== 'sm' && (
         <div className="text-center space-y-1">
           <motion.p
@@ -47,7 +47,7 @@ const StopyLoader = ({ size = 'md', fullScreen = false }: StopyLoaderProps) => {
             animate={{ opacity: [0.6, 1, 0.6] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
           >
-            STOPY SHOES
+            {(brandName || 'LOADING').toUpperCase()}
           </motion.p>
           <motion.div className="flex justify-center gap-1">
             {[0, 1, 2].map(i => (

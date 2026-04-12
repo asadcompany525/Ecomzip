@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Shield, AlertTriangle, CheckCircle, XCircle, Search, RefreshCw, Ban, Phone, MapPin, Loader2, Siren, Bot, Fingerprint } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const DEFAULT_BLACKLIST = [
   '03000000000','03111111111','03222222222','03333333333',
@@ -76,6 +77,7 @@ interface FraudCheck {
 }
 
 export default function AdminAiFraudDetector() {
+  const { brandName } = useStoreSettings();
   const [orders, setOrders] = useState<any[]>([]);
   const [checks, setChecks] = useState<FraudCheck[]>([]);
   const [loading, setLoading] = useState(false);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,23 +7,27 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Upload } from 'lucide-react';
+import { invalidateStoreSettingsCache } from '@/hooks/useStoreSettings';
 
 const AdminSettings = () => {
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
   const [social, setSocial] = useState({ facebook: '', instagram: '', tiktok: '' });
-  const [logo, setLogo] = useState({ url: '/favicon.ico', name: 'Stopy Shoes', size: 'h-8 w-8' });
+  const [logo, setLogo] = useState({ url: '/favicon.ico', name: '', size: 'h-8 w-8' });
+  const [siteTitle, setSiteTitle] = useState('');
   const [helpPage, setHelpPage] = useState({ title: 'Help & Support', content: '', phone: '', email: '', whatsapp: '' });
   const [returnPolicy, setReturnPolicy] = useState({ title: 'Return Policy', content: '', days: 7 });
   const [faqPage, setFaqPage] = useState({ title: 'FAQs', items: '[]' });
   const [adminCreds, setAdminCreds] = useState({ email: '', password: '' });
   const [resetting, setResetting] = useState(false);
   const [resetConfirm, setResetConfirm] = useState('');
+  const [faviconUploading, setFaviconUploading] = useState(false);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
   const [receipt, setReceipt] = useState<any>({ 
-    shop_name: 'STOPY SHOES', tagline: "Pakistan's #1 Shoes & Bags Store",
-    contact_line: 'support@stopyshoes.pk | +92 300 1234567',
-    footer_line: 'Thank you for shopping with Stopy Shoes!',
-    website: 'www.stopyshoes.pk',
+    shop_name: '', tagline: "Pakistan's #1 Shoes & Bags Store",
+    contact_line: '',
+    footer_line: '',
+    website: '',
     links: [] as { label: string; url: string }[],
   });
 
@@ -38,6 +42,7 @@ const AdminSettings = () => {
         if (s.key === 'return_policy') setReturnPolicy(s.value);
         if (s.key === 'faq_page') setFaqPage(s.value);
         if (s.key === 'receipt') setReceipt(s.value);
+        if (s.key === 'site_title') setSiteTitle(String(s.value || ''));
       });
     };
     load();
@@ -50,7 +55,33 @@ const AdminSettings = () => {
     } else {
       await supabase.from('site_settings').insert({ key, value });
     }
+    invalidateStoreSettingsCache();
     toast({ title: `${key} settings saved!` });
+  };
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFaviconUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'ico';
+      const path = `favicon/favicon-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
+      const newUrl = urlData.publicUrl;
+      setLogo(p => ({ ...p, url: newUrl }));
+      toast({ title: 'Favicon uploaded!', description: 'Click Save Branding to apply.' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    }
+    setFaviconUploading(false);
+  };
+
+  const saveBranding = async () => {
+    await save('logo', logo);
+    await save('site_title', siteTitle || logo.name);
+    toast({ title: 'Branding saved!', description: 'Brand name, favicon and site title updated.' });
   };
 
   const productionReset = async () => {
@@ -91,9 +122,9 @@ const AdminSettings = () => {
   return (
     <div className="max-w-3xl">
       <h1 className="text-2xl font-bold mb-6">Site Settings</h1>
-      <Tabs defaultValue="general" className="w-full">
+      <Tabs defaultValue="branding" className="w-full">
         <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
-          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="receipt">Receipt</TabsTrigger>
@@ -102,22 +133,81 @@ const AdminSettings = () => {
           <TabsTrigger value="reset" className="text-destructive">Production Reset</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-4">
+        <TabsContent value="branding" className="space-y-4">
           <Card>
-            <CardHeader><CardTitle>Logo & Branding</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div><Label>Site Name</Label><Input value={logo.name} onChange={e => setLogo(p => ({ ...p, name: e.target.value }))} /></div>
-              <div><Label>Logo URL</Label><Input value={logo.url} onChange={e => setLogo(p => ({ ...p, url: e.target.value }))} /></div>
-              <div><Label>Logo Size</Label><Input value={logo.size} onChange={e => setLogo(p => ({ ...p, size: e.target.value }))} placeholder="h-10 w-10" /></div>
-              {logo.url && <img src={logo.url} alt="Preview" className="h-16 w-16 object-contain border rounded" />}
-              <Button onClick={() => save('logo', logo)}>Save Logo</Button>
+            <CardHeader><CardTitle>Brand Name & Identity</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Brand Name</Label>
+                <Input
+                  value={logo.name}
+                  onChange={e => setLogo(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Enter your brand/store name"
+                />
+                <p className="text-xs text-muted-foreground mt-1">This name appears in the header, footer, admin sidebar and everywhere branding is shown.</p>
+              </div>
+
+              <div>
+                <Label>Site Title (browser tab)</Label>
+                <Input
+                  value={siteTitle}
+                  onChange={e => setSiteTitle(e.target.value)}
+                  placeholder="e.g. My Store - Best Shoes Online"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Shown in browser tab. Defaults to Brand Name if left empty.</p>
+              </div>
+
+              <div>
+                <Label>Favicon / Logo Icon</Label>
+                <div className="flex items-center gap-3 mt-2">
+                  {logo.url && (
+                    <img src={logo.url} alt="Favicon Preview" className="h-10 w-10 object-contain border rounded p-1 bg-muted" />
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => faviconInputRef.current?.click()}
+                      disabled={faviconUploading}
+                    >
+                      {faviconUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {faviconUploading ? 'Uploading…' : 'Upload Favicon / Icon'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">Supports .ico, .png, .svg, .jpg — recommended 64×64px</p>
+                  </div>
+                </div>
+                <input
+                  ref={faviconInputRef}
+                  type="file"
+                  accept=".ico,.png,.svg,.jpg,.jpeg,.webp"
+                  className="hidden"
+                  onChange={handleFaviconUpload}
+                />
+                <div className="mt-2">
+                  <Label>Or paste a URL directly</Label>
+                  <Input
+                    value={logo.url}
+                    onChange={e => setLogo(p => ({ ...p, url: e.target.value }))}
+                    placeholder="/favicon.ico or https://..."
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Logo Display Size (CSS class)</Label>
+                <Input value={logo.size} onChange={e => setLogo(p => ({ ...p, size: e.target.value }))} placeholder="h-10 w-10" />
+              </div>
+
+              <Button onClick={saveBranding} className="w-full">Save Branding</Button>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="contact" className="space-y-4">
           <Card>
-            <CardHeader><CardTitle>Contact Info (Contact Us page بھی یہاں سے آتی ہے)</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Contact Info</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div><Label>Phone</Label><Input value={contact.phone} onChange={e => setContact(p => ({ ...p, phone: e.target.value }))} /></div>
               <div><Label>Email</Label><Input value={contact.email} onChange={e => setContact(p => ({ ...p, email: e.target.value }))} /></div>
@@ -144,13 +234,12 @@ const AdminSettings = () => {
           <Card>
             <CardHeader><CardTitle>🧾 Receipt / Shipping Slip</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div><Label>Shop Name</Label><Input value={receipt.shop_name} onChange={e => setReceipt(p => ({ ...p, shop_name: e.target.value }))} /></div>
-              <div><Label>Tagline</Label><Input value={receipt.tagline} onChange={e => setReceipt(p => ({ ...p, tagline: e.target.value }))} /></div>
-              <div><Label>Contact Line</Label><Input value={receipt.contact_line} onChange={e => setReceipt(p => ({ ...p, contact_line: e.target.value }))} /></div>
-              <div><Label>Footer Line</Label><Input value={receipt.footer_line} onChange={e => setReceipt(p => ({ ...p, footer_line: e.target.value }))} /></div>
+              <div><Label>Shop Name</Label><Input value={receipt.shop_name} onChange={e => setReceipt((p: any) => ({ ...p, shop_name: e.target.value }))} /></div>
+              <div><Label>Tagline</Label><Input value={receipt.tagline} onChange={e => setReceipt((p: any) => ({ ...p, tagline: e.target.value }))} /></div>
+              <div><Label>Contact Line</Label><Input value={receipt.contact_line} onChange={e => setReceipt((p: any) => ({ ...p, contact_line: e.target.value }))} /></div>
+              <div><Label>Footer Line</Label><Input value={receipt.footer_line} onChange={e => setReceipt((p: any) => ({ ...p, footer_line: e.target.value }))} /></div>
               <div><Label>Website</Label><Input value={receipt.website} onChange={e => setReceipt((p: any) => ({ ...p, website: e.target.value }))} /></div>
               
-              {/* Links */}
               <div>
                 <Label>Footer Links (unlimited)</Label>
                 {(receipt.links || []).map((link: any, i: number) => (
@@ -175,7 +264,7 @@ const AdminSettings = () => {
               </div>
 
               <div className="bg-muted/50 p-4 rounded-lg text-center text-sm border">
-                <img src="/favicon.ico" alt="Logo" className="h-8 w-8 mx-auto mb-1" />
+                <img src={logo.url || '/favicon.ico'} alt="Logo" className="h-8 w-8 mx-auto mb-1" />
                 <p className="font-bold text-base">{receipt.shop_name}</p>
                 <p className="text-xs text-muted-foreground">{receipt.tagline}</p>
                 <p className="text-xs text-muted-foreground">{receipt.contact_line}</p>
@@ -219,7 +308,7 @@ const AdminSettings = () => {
           <Card>
             <CardHeader><CardTitle>Admin Login Credentials</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">ایڈمن لاگ ان ای میل اور پاس ورڈ تبدیل کریں</p>
+              <p className="text-sm text-muted-foreground">Change admin login email and password</p>
               <div><Label>New Email</Label><Input type="email" value={adminCreds.email} onChange={e => setAdminCreds(p => ({ ...p, email: e.target.value }))} /></div>
               <div><Label>New Password</Label><Input type="password" value={adminCreds.password} onChange={e => setAdminCreds(p => ({ ...p, password: e.target.value }))} /></div>
               <Button onClick={updateAdminPassword} variant="destructive">Update Admin Credentials</Button>

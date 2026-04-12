@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, Image, Tag, Settings, LogOut, Menu, X,
   BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard,
@@ -130,7 +131,9 @@ const AdminLayout = () => {
   const [staffPermissions, setStaffPermissions] = useState<string[] | null>(null);
   const [staffRoleLabel, setStaffRoleLabel] = useState('Staff');
 
-  const brandName = isMainAdmin ? 'Stopy Admin' : 'Stopy Staff';
+  const siteConfig = useStoreSettings();
+  const baseBrand = siteConfig.brandName || 'Admin';
+  const brandName = isMainAdmin ? `${baseBrand} Admin` : `${baseBrand} Staff`;
 
   useEffect(() => {
     if (!isStaff || !user?.id) return;
@@ -245,7 +248,7 @@ const AdminLayout = () => {
       <aside className={`fixed inset-y-0 left-0 z-50 w-56 bg-card border-r transform transition-transform md:relative md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between px-3 py-3 border-b">
           <button onClick={handleLogoClick} className="flex items-center gap-2 select-none focus:outline-none" title="Click 5x for secret access">
-            <img src="/favicon.ico" alt="AS" className="h-7 w-7 rounded" onError={e => { (e.target as HTMLImageElement).src = '/favicon.ico'; }} />
+            <img src={siteConfig.faviconUrl || '/favicon.ico'} alt={baseBrand} className="h-7 w-7 rounded" onError={e => { (e.target as HTMLImageElement).src = '/favicon.ico'; }} />
             <span className="font-bold text-sm truncate">{brandName}</span>
           </button>
           <button className="md:hidden" onClick={() => setSidebarOpen(false)}><X className="h-4 w-4" /></button>

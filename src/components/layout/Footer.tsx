@@ -8,7 +8,7 @@ const Footer = () => {
   const storeSettings = useStoreSettings();
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
   const [social, setSocial] = useState({ facebook: '', instagram: '', tiktok: '' });
-  const [logo, setLogo] = useState({ url: '/favicon.ico', name: 'Stopy Shoes' });
+  const [logo, setLogo] = useState({ url: '/favicon.ico', name: 'Our Store' });
 
   useEffect(() => {
     const load = async () => {

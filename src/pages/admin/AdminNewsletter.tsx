@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 interface EmailLog {
   id: string;
@@ -20,11 +21,12 @@ interface EmailLog {
 }
 
 export default function AdminNewsletter() {
+  const { brandName } = useStoreSettings();
   const [subject, setSubject] = useState('');
   const [htmlBody, setHtmlBody] = useState(`<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #fff;">
   <div style="background: linear-gradient(135deg, #f97316, #ea580c); padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
     <h1 style="color: white; margin: 0; font-size: 28px;">🛍️ Special Offer!</h1>
-    <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">From Stopy Shoes Pakistan</p>
+    <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">From Our Store Pakistan</p>
   </div>
   <div style="padding: 24px; background: #fff;">
     <p style="font-size: 16px; color: #333;">Dear Valued Customer,</p>
@@ -35,7 +37,7 @@ export default function AdminNewsletter() {
     <p style="color: #555;">Thank you for being our valued customer!</p>
   </div>
   <div style="background: #f9f9f9; padding: 16px; text-align: center; border-radius: 0 0 12px 12px;">
-    <p style="color: #888; font-size: 12px; margin: 0;">© 2025 Stopy Shoes. All rights reserved.</p>
+    <p style="color: #888; font-size: 12px; margin: 0;">© 2025 Our Store. All rights reserved.</p>
   </div>
 </div>`);
   const [sending, setIsSending] = useState(false);
@@ -50,6 +52,15 @@ export default function AdminNewsletter() {
     loadRecipientCount();
     loadLogs();
   }, []);
+
+  useEffect(() => {
+    if (brandName) {
+      setHtmlBody(prev =>
+        prev.replace('From Our Store Pakistan', `From ${brandName} Pakistan`)
+            .replace('© 2025 Our Store. All rights reserved.', `© 2025 ${brandName}. All rights reserved.`)
+      );
+    }
+  }, [brandName]);
 
   const loadRecipientCount = async () => {
     const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).not('email', 'is', null);
@@ -79,7 +90,7 @@ export default function AdminNewsletter() {
           type: 'admin-assistant',
           messages: [{
             role: 'user',
-            content: `You are an expert email marketing copywriter for Stopy Shoes, a Pakistani shoes & bags e-commerce store.
+            content: `You are an expert email marketing copywriter for ${brandName || 'our store'}, a Pakistani shoes & bags e-commerce store.
 
 Generate a professional HTML email newsletter based on this prompt: "${aiPrompt}"
 

@@ -7,10 +7,12 @@ import { Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const { adminLogin, signIn } = useAuth();
+  const { brandName } = useStoreSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,7 +72,7 @@ const AdminLogin = () => {
               <ShieldCheck className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-2xl font-bold">Panel Login</h1>
-            <p className="text-muted-foreground text-sm mt-1">Stopy Shoes Management</p>
+            <p className="text-muted-foreground text-sm mt-1">{brandName || 'Store'} Management</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

@@ -6,12 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sparkles, Loader2, Send, Save, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const CHAT_STORAGE_KEY = 'ai_site_manager_history';
 
 interface ChatMsg { role: string; content: string; ts?: number; }
 
 const AdminAiSiteManager = () => {
+  const { brandName } = useStoreSettings();
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,7 +50,7 @@ const AdminAiSiteManager = () => {
   };
 
   const quickActions = [
-    'Change store name to "Stopy Shoes"',
+    'Change store name',
     'Update delivery fee to Rs. 250',
     'Set free delivery minimum to Rs. 3000',
     'Update contact phone number',
@@ -75,7 +77,7 @@ const AdminAiSiteManager = () => {
         body: {
           type: 'admin-helper',
           messages: [
-            { role: 'system', content: `You are a website settings manager for "Stopy Shoes" store. You can update any site setting.
+            { role: 'system', content: `You are a website settings manager for "${brandName || 'our'}" store. You can update any site setting.
 Current settings: ${settingsStr}
 
 When admin asks to change a setting, return action JSON wrapped in <ACTION_JSON>...</ACTION_JSON> tags:

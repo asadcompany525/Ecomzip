@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Upload, Loader2, Check, X, Plus, Save, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const SIZE_PRESETS = {
   'Kids (16-25)': Array.from({ length: 10 }, (_, i) => String(i + 16)),
@@ -30,6 +31,7 @@ interface BatchItem {
 }
 
 export default function AdminAiBulkCreator() {
+  const { brandName } = useStoreSettings();
   const [items, setItems] = useState<BatchItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
@@ -83,7 +85,7 @@ export default function AdminAiBulkCreator() {
           imageUrl: uploadedUrl,
           messages: [{
             role: 'user',
-            content: `You are a Pakistani e-commerce product expert for "Stopy Shoes".
+            content: `You are a Pakistani e-commerce product expert for "${brandName || 'our store'}".
 Analyze this product image and generate complete product details.
 Image: ${uploadedUrl}
 

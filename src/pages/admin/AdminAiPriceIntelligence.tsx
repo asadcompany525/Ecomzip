@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DollarSign, TrendingUp, TrendingDown, Loader2, Sparkles, ArrowUp, ArrowDown, Minus, Search } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 interface PriceAnalysis {
   currentPrice: number;
@@ -23,6 +24,7 @@ interface PriceAnalysis {
 }
 
 export default function AdminAiPriceIntelligence() {
+  const { brandName } = useStoreSettings();
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [marketData, setMarketData] = useState('');
@@ -48,7 +50,7 @@ export default function AdminAiPriceIntelligence() {
           type: 'price-intelligence',
           messages: [{
             role: 'user',
-            content: `You are a pricing analyst for Stopy Shoes Pakistan.
+            content: `You are a pricing analyst for ${brandName || 'our store'} Pakistan.
 
 Product: ${selectedProd.title}
 Current Price: Rs.${selectedProd.price}
@@ -101,7 +103,7 @@ Return ONLY valid JSON.`
           type: 'price-intelligence-bulk',
           messages: [{
             role: 'user',
-            content: `You are a pricing AI for Stopy Shoes Pakistan.
+            content: `You are a pricing AI for ${brandName || 'our store'} Pakistan.
 Analyze these products and suggest price adjustments based on Pakistan e-commerce market trends:
 
 ${JSON.stringify(slice.map(p => ({ id: p.id, title: p.title, price: p.price, sold: p.sold, stock: p.stock, gender: p.gender })), null, 2)}
@@ -219,7 +221,7 @@ Return ONLY valid JSON array.`
                       </div>
                     ))}
                     <div className="flex items-center justify-between text-sm py-1 bg-primary/5 rounded px-2">
-                      <span className="font-medium">Stopy Shoes (Current)</span>
+                      <span className="font-medium">{brandName || 'Store'} (Current)</span>
                       <span className="font-bold text-primary">Rs.{analysis.currentPrice?.toLocaleString()}</span>
                     </div>
                   </div>

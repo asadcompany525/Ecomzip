@@ -8,6 +8,7 @@ import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { toast } from '@/hooks/use-toast';
 
 type Step = 'form' | 'otp' | 'done';
@@ -15,6 +16,7 @@ type Step = 'form' | 'otp' | 'done';
 const Signup = () => {
   const navigate = useNavigate();
   const { signUp } = useAuth();
+  const { brandName, faviconUrl } = useStoreSettings();
 
   const [step, setStep] = useState<Step>('form');
   const [name, setName] = useState('');
@@ -157,7 +159,7 @@ const Signup = () => {
       } catch {}
 
       setStep('done');
-      toast({ title: '✅ Account verified and created!', description: 'Welcome to Stopy Shoes!' });
+      toast({ title: '✅ Account verified and created!', description: `Welcome to ${brandName || 'our store'}!` });
       setTimeout(() => navigate('/'), 1500);
     } catch (e: any) {
       toast({ title: 'Verification error', description: e.message, variant: 'destructive' });
@@ -172,12 +174,12 @@ const Signup = () => {
         <div className="max-w-md mx-auto">
           <div className="bg-card rounded-2xl border p-8 shadow-sm">
             <div className="text-center mb-8">
-              <img src="/favicon.ico" alt="Stopy Shoes" className="h-12 w-12 mx-auto mb-3" />
+              <img src={faviconUrl || '/favicon.ico'} alt={brandName || 'Store'} className="h-12 w-12 mx-auto mb-3" />
               <h1 className="text-2xl font-bold">
                 {step === 'form' ? 'Create Account' : step === 'otp' ? 'Verify Email' : 'All Done!'}
               </h1>
               <p className="text-muted-foreground text-sm mt-1">
-                {step === 'form' ? 'Join Stopy Shoes today' :
+                {step === 'form' ? `Join ${brandName || 'us'} today` :
                  step === 'otp' ? `We sent a 4-digit code to ${email}` :
                  'Your account is ready'}
               </p>

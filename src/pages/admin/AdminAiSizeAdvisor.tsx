@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Ruler, Loader2, Upload, CheckCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const SIZE_CHARTS = {
   'Men': { '38': { uk: '5', eu: '38', cm: '24' }, '39': { uk: '6', eu: '39', cm: '24.5' }, '40': { uk: '6.5', eu: '40', cm: '25' }, '41': { uk: '7', eu: '41', cm: '25.5' }, '42': { uk: '8', eu: '42', cm: '26.5' }, '43': { uk: '9', eu: '43', cm: '27.5' }, '44': { uk: '10', eu: '44', cm: '28.5' }, '45': { uk: '11', eu: '45', cm: '29.5' } },
@@ -15,6 +16,7 @@ const SIZE_CHARTS = {
 };
 
 export default function AdminAiSizeAdvisor() {
+  const { brandName } = useStoreSettings();
   const [gender, setGender] = useState('Men');
   const [footLength, setFootLength] = useState('');
   const [footWidth, setFootWidth] = useState('');
@@ -62,7 +64,7 @@ export default function AdminAiSizeAdvisor() {
           imageUrl,
           messages: [{
             role: 'user',
-            content: `You are a shoe size expert for Stopy Shoes Pakistan.
+            content: `You are a shoe size expert for ${brandName || 'our store'} Pakistan.
 
 CUSTOMER INPUT:
 - Gender: ${gender}

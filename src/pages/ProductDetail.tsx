@@ -39,6 +39,7 @@ const ProductDetail = () => {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [dbProduct, setDbProduct] = useState<any>(null);
+  const [categoryName, setCategoryName] = useState('');
   const [variants, setVariants] = useState<any[]>([]);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [popularProducts, setPopularProducts] = useState<Product[]>([]);
@@ -112,6 +113,8 @@ const ProductDetail = () => {
       if (p.category_id) {
         const { data: rel } = await supabase.from('products').select('*').eq('category_id', p.category_id).neq('id', id).eq('is_active', true).limit(4);
         setRelatedProducts((rel || []).map(mapDbProduct));
+        const { data: cat } = await supabase.from('categories').select('name').eq('id', p.category_id).maybeSingle();
+        if (cat?.name) setCategoryName(cat.name);
       }
 
       const { data: pop } = await supabase.from('products').select('*').eq('is_active', true).neq('id', id).order('sold', { ascending: false }).limit(8);
@@ -523,7 +526,7 @@ Return ONLY this JSON (no extra text):
               <Button variant="outline" size="icon" className="h-11 w-11" onClick={handleShare}><Share2 className="h-5 w-5" /></Button>
             </div>
             <div className="mb-4">
-              <VirtualTryOn productImage={product.image} productName={product.name} />
+              <VirtualTryOn productImage={product.image} productName={product.name} productCategory={categoryName} />
             </div>
 
             {/* Policies inline */}

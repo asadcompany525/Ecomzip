@@ -7,10 +7,22 @@ import {
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from '@/hooks/use-toast';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
+
+export type TryOnCategory = 'shoes' | 'clothing' | 'bags' | 'generic';
 
 interface VirtualTryOnProps {
   productImage: string;
   productName: string;
+  productCategory?: string;
+}
+
+function detectCategoryType(productName: string, productCategory: string | undefined): TryOnCategory {
+  const combined = `${productName} ${productCategory || ''}`.toLowerCase();
+  if (/bag|purse|wallet|tote|backpack|handbag|clutch|satchel/.test(combined)) return 'bags';
+  if (/shirt|dress|pant|kurta|coat|jacket|jeans|cloth|wear|top|trouser|shalwar|kameez|hoodie|sweater|suit/.test(combined)) return 'clothing';
+  if (/shoe|sandal|slipper|boot|loafer|sneaker|chappal|khussa|heel|moccasin|pump/.test(combined)) return 'shoes';
+  return 'generic';
 }
 
 // ── Global detector singleton ─────────────────────────────────────────────────
@@ -73,11 +85,11 @@ function removeBackground(img: HTMLImageElement, threshold = 235): string {
   return canvas.toDataURL('image/png');
 }
 
-function drawWatermark(ctx: CanvasRenderingContext2D, W: number, H: number) {
+function drawWatermark(ctx: CanvasRenderingContext2D, W: number, H: number, brandLabel = 'Try-On') {
   const fontSize = Math.max(13, Math.round(W * 0.022));
   ctx.save();
   ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  const text = 'Stopy';
+  const text = brandLabel;
   const tw = ctx.measureText(text).width;
   const pad = Math.round(fontSize * 0.5);
   const bx = W - tw - pad * 2 - 12;
@@ -90,6 +102,91 @@ function drawWatermark(ctx: CanvasRenderingContext2D, W: number, H: number) {
   ctx.globalAlpha = 1;
   ctx.fillStyle = '#ffffff';
   ctx.fillText(text, bx + pad, by + fontSize + pad * 0.4);
+  ctx.restore();
+}
+
+// Draw clothing item overlay at torso (shoulders to hips)
+function drawClothingAtTorso(
+  ctx: CanvasRenderingContext2D,
+  kps: any[],
+  canvasW: number, canvasH: number,
+  cameraIsMirrored: boolean,
+  clothingImg: HTMLImageElement,
+  scaleMult: number,
+  opacity = 0.88
+) {
+  const CONF = 0.25;
+  const lShoulder = kps[5], rShoulder = kps[6];
+  const lHip = kps[11], rHip = kps[12];
+  if (!lShoulder || !rShoulder || (lShoulder.score ?? 0) < CONF || (rShoulder.score ?? 0) < CONF) return;
+  const toX = (x: number) => cameraIsMirrored ? canvasW - x : x;
+  const lsx = toX(lShoulder.x), rsx = toX(rShoulder.x);
+  const lsy = lShoulder.y, rsy = rShoulder.y;
+  const hasHips = lHip && rHip && (lHip.score ?? 0) > CONF && (rHip.score ?? 0) > CONF;
+  const lhx = hasHips ? toX(lHip.x) : lsx;
+  const lhy = hasHips ? lHip.y : lsy + canvasH * 0.35;
+  const rhx = hasHips ? toX(rHip.x) : rsx;
+  const rhy = hasHips ? rHip.y : rsy + canvasH * 0.35;
+
+  const shoulderW = Math.abs(rsx - lsx);
+  const torsoH = Math.abs(((lhy + rhy) / 2) - ((lsy + rsy) / 2));
+  if (shoulderW < 10 || torsoH < 10) return;
+
+  const clothingW = shoulderW * 1.3 * scaleMult;
+  const clothingH = clothingW * (clothingImg.naturalHeight / clothingImg.naturalWidth);
+  const centerX = (lsx + rsx) / 2;
+  const topY = Math.min(lsy, rsy) - clothingH * 0.05;
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 14;
+  ctx.drawImage(clothingImg, centerX - clothingW / 2, topY, clothingW, clothingH);
+  ctx.restore();
+}
+
+// Draw bag item overlay at wrist/shoulder
+function drawBagAtShoulder(
+  ctx: CanvasRenderingContext2D,
+  kps: any[],
+  canvasW: number, canvasH: number,
+  cameraIsMirrored: boolean,
+  bagImg: HTMLImageElement,
+  scaleMult: number,
+  opacity = 0.9
+) {
+  const CONF = 0.25;
+  const toX = (x: number) => cameraIsMirrored ? canvasW - x : x;
+  const lWrist = kps[9], rWrist = kps[10];
+  const lElbow = kps[7], rElbow = kps[8];
+  const lShoulder = kps[5];
+
+  const anchor = (lWrist && (lWrist.score ?? 0) > CONF)
+    ? lWrist
+    : (rWrist && (rWrist.score ?? 0) > CONF)
+    ? rWrist
+    : (lShoulder && (lShoulder.score ?? 0) > CONF)
+    ? lShoulder
+    : null;
+  if (!anchor) return;
+
+  const refLen = (() => {
+    if (lShoulder && lElbow && (lShoulder.score ?? 0) > CONF && (lElbow.score ?? 0) > CONF) {
+      return Math.sqrt((toX(lShoulder.x) - toX(lElbow.x)) ** 2 + (lShoulder.y - lElbow.y) ** 2) * 1.5;
+    }
+    return canvasW * 0.18;
+  })();
+
+  const bagW = refLen * scaleMult;
+  const bagH = bagW * (bagImg.naturalHeight / bagImg.naturalWidth);
+  const ax = toX(anchor.x);
+  const ay = anchor.y;
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 16;
+  ctx.drawImage(bagImg, ax - bagW * 0.5, ay - bagH * 0.1, bagW, bagH);
   ctx.restore();
 }
 
@@ -171,7 +268,8 @@ async function detectFoot(userImgEl: HTMLImageElement, shoeAspectRatio: number):
 
 async function renderPhotoCanvas(
   canvas: HTMLCanvasElement, userSrc: string, shoeSrc: string,
-  shoeX: number, shoeY: number, shoeW: number, opacity: number, mirrored: boolean
+  shoeX: number, shoeY: number, shoeW: number, opacity: number, mirrored: boolean,
+  brandLabel = 'Try-On'
 ) {
   const userImg = await loadImg(userSrc);
   const shoeImg = await loadImg(shoeSrc);
@@ -187,11 +285,13 @@ async function renderPhotoCanvas(
   if (mirrored) { ctx.translate(sx + sw, sy); ctx.scale(-1, 1); ctx.drawImage(shoeImg, 0, 0, sw, sh); }
   else { ctx.drawImage(shoeImg, sx, sy, sw, sh); }
   ctx.restore();
-  drawWatermark(ctx, W, H);
+  drawWatermark(ctx, W, H, brandLabel);
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function VirtualTryOn({ productImage, productName }: VirtualTryOnProps) {
+export default function VirtualTryOn({ productImage, productName, productCategory }: VirtualTryOnProps) {
+  const { brandName } = useStoreSettings();
+  const categoryType = detectCategoryType(productName, productCategory);
   const [isOpen,        setIsOpen]        = useState(false);
   const [activeTab,     setActiveTab]     = useState<'camera' | 'photo'>('camera');
 
@@ -246,7 +346,7 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
   // Re-render photo preview canvas on slider change
   useEffect(() => {
     if (step !== 'adjust' || !userPhoto || !processedShoe || !photoCanvasRef.current) return;
-    renderPhotoCanvas(photoCanvasRef.current, userPhoto, processedShoe, shoeX, shoeY, shoeW, opacity, mirrored)
+    renderPhotoCanvas(photoCanvasRef.current, userPhoto, processedShoe, shoeX, shoeY, shoeW, opacity, mirrored, brandName || 'Try-On')
       .catch(console.warn);
   }, [step, userPhoto, processedShoe, shoeX, shoeY, shoeW, opacity, mirrored]);
 
@@ -293,19 +393,24 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
     frameCountRef.current++;
     if (frameCountRef.current % 4 === 0) { runDetection(video); }
 
-    // Draw shoe overlays from latest pose
+    // Draw product overlays from latest pose based on category
     if (poseRef.current && shoeImgRef.current) {
       const kps = poseRef.current.keypoints;
       const mult = scaleAdj / 100;
-      // Left ankle (15) + left knee (13) — standard shoe orientation
-      drawShoeAtAnkle(ctx, kps[15], kps[13], W, H, useFront, false, shoeImgRef.current, mult);
-      // Right ankle (16) + right knee (14) — mirrored shoe
-      drawShoeAtAnkle(ctx, kps[16], kps[14], W, H, useFront, true,  shoeImgRef.current, mult);
+      if (categoryType === 'clothing') {
+        drawClothingAtTorso(ctx, kps, W, H, useFront, shoeImgRef.current, mult);
+      } else if (categoryType === 'bags') {
+        drawBagAtShoulder(ctx, kps, W, H, useFront, shoeImgRef.current, mult);
+      } else {
+        // shoes and generic — use ankle-based placement
+        drawShoeAtAnkle(ctx, kps[15], kps[13], W, H, useFront, false, shoeImgRef.current, mult);
+        drawShoeAtAnkle(ctx, kps[16], kps[14], W, H, useFront, true,  shoeImgRef.current, mult);
+      }
     }
 
-    drawWatermark(ctx, W, H);
+    drawWatermark(ctx, W, H, brandName || 'Try-On');
     rafRef.current = requestAnimationFrame(arLoop);
-  }, [useFront, scaleAdj, runDetection]);
+  }, [useFront, scaleAdj, runDetection, categoryType, brandName]);
 
   const startCamera = useCallback(async () => {
     setCameraError(null);
@@ -355,10 +460,11 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
     const dataUrl = arCanvasRef.current.toDataURL('image/jpeg', 0.93);
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `stopy-ar-${productName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+    const brand = (brandName || 'tryon').replace(/\s+/g, '-').toLowerCase();
+    a.download = `${brand}-ar-${productName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
     a.click();
     toast({ title: '📸 AR snapshot saved!' });
-  }, [productName]);
+  }, [productName, brandName]);
 
   // Toggle front/back camera
   const switchCamera = useCallback(() => {
@@ -465,7 +571,7 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
     setCompositing(true);
     try {
       const canvas = document.createElement('canvas');
-      await renderPhotoCanvas(canvas, userPhoto, processedShoe, shoeX, shoeY, shoeW, opacity, mirrored);
+      await renderPhotoCanvas(canvas, userPhoto, processedShoe, shoeX, shoeY, shoeW, opacity, mirrored, brandName || 'Try-On');
       setResultImage(canvas.toDataURL('image/jpeg', 0.93));
       setStep('result');
     } catch (err: any) {
@@ -478,7 +584,8 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
     if (!resultImage) return;
     const a = document.createElement('a');
     a.href = resultImage;
-    a.download = `stopy-tryon-${productName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+    const brand = (brandName || 'tryon').replace(/\s+/g, '-').toLowerCase();
+    a.download = `${brand}-tryon-${productName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
     a.click();
     toast({ title: '📸 Saved!' });
   };
@@ -576,12 +683,19 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
                     {/* Active overlays */}
                     {cameraActive && (
                       <>
-                        {/* Feet status badge */}
+                        {/* Body-part status badge */}
                         <div className={`absolute top-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${
                           feetCount > 0 ? 'bg-green-500/80 text-white' : 'bg-black/60 text-white/60'
                         }`}>
                           <div className={`w-1.5 h-1.5 rounded-full ${feetCount > 0 ? 'bg-white animate-pulse' : 'bg-white/30'}`} />
-                          {feetCount > 0 ? `${feetCount} foot detected` : 'No feet detected'}
+                          {feetCount > 0
+                            ? categoryType === 'clothing' ? 'Torso detected'
+                              : categoryType === 'bags' ? 'Hand/shoulder detected'
+                              : `${feetCount} foot detected`
+                            : categoryType === 'clothing' ? 'No torso detected'
+                              : categoryType === 'bags' ? 'No hand detected'
+                              : 'No feet detected'
+                          }
                         </div>
                         {/* Controls overlay */}
                         <div className="absolute top-2 right-2 flex gap-1.5">
@@ -607,10 +721,22 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
                   {/* Tips */}
                   {!cameraActive && !cameraLoading && (
                     <div className="bg-white/5 rounded-xl p-3 space-y-1.5 text-xs text-white/55">
-                      <p className="text-white/80 font-medium text-sm">Snapchat-Style AR Tips</p>
-                      <p>• Use back camera for pointing at your feet</p>
-                      <p>• Stand in good lighting for best detection</p>
-                      <p>• Shoes auto-attach and follow your foot movement</p>
+                      <p className="text-white/80 font-medium text-sm">AR Try-On Tips</p>
+                      {categoryType === 'clothing' && <>
+                        <p>• Point camera at your torso / chest area</p>
+                        <p>• Stand in good lighting, face the camera</p>
+                        <p>• Clothing auto-aligns to your shoulders</p>
+                      </>}
+                      {categoryType === 'bags' && <>
+                        <p>• Point camera at your arm or shoulder</p>
+                        <p>• Keep your hand/wrist visible in frame</p>
+                        <p>• Bag auto-attaches to wrist or shoulder</p>
+                      </>}
+                      {(categoryType === 'shoes' || categoryType === 'generic') && <>
+                        <p>• Use back camera and point at your feet</p>
+                        <p>• Stand in good lighting for best detection</p>
+                        <p>• Shoes auto-attach and follow foot movement</p>
+                      </>}
                       <p>• Tap <span className="text-white/80">📸</span> button to save your AR photo</p>
                     </div>
                   )}
@@ -618,7 +744,9 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
                   {/* Scale slider */}
                   {cameraActive && (
                     <div className="bg-white/5 rounded-xl p-3 space-y-2">
-                      <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Shoe Size</p>
+                      <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">
+                        {categoryType === 'clothing' ? 'Clothing Size' : categoryType === 'bags' ? 'Bag Size' : 'Item Size'}
+                      </p>
                       <div className="flex items-center gap-3">
                         <ZoomIn className="h-3.5 w-3.5 text-white/40" />
                         <input
@@ -657,9 +785,21 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
                     <div className="space-y-4">
                       <div className="bg-white/5 rounded-xl p-3.5 space-y-1.5 text-xs text-white/55">
                         <p className="text-white/80 font-medium text-sm">How it works</p>
-                        <p>① Upload a full-body or foot photo</p>
-                        <p>② AI auto-detects foot position and aligns shoe</p>
-                        <p>③ Fine-tune with sliders, then download</p>
+                        {categoryType === 'clothing' && <>
+                          <p>① Upload a full-body or torso photo</p>
+                          <p>② AI detects shoulders and aligns clothing</p>
+                          <p>③ Fine-tune with sliders, then download</p>
+                        </>}
+                        {categoryType === 'bags' && <>
+                          <p>① Upload a photo showing your shoulder/arm</p>
+                          <p>② AI detects hand/shoulder and places bag</p>
+                          <p>③ Fine-tune with sliders, then download</p>
+                        </>}
+                        {(categoryType === 'shoes' || categoryType === 'generic') && <>
+                          <p>① Upload a full-body or foot photo</p>
+                          <p>② AI auto-detects foot position and aligns shoe</p>
+                          <p>③ Fine-tune with sliders, then download</p>
+                        </>}
                       </div>
                       <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3">
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 border border-white/15 flex-shrink-0">
@@ -696,7 +836,11 @@ export default function VirtualTryOn({ productImage, productName }: VirtualTryOn
                         </div>
                         <Loader2 className="h-16 w-16 animate-spin text-primary/40 absolute inset-0" />
                       </div>
-                      <p className="text-white/70 text-sm">Analysing foot landmarks…</p>
+                      <p className="text-white/70 text-sm">
+                        {categoryType === 'clothing' ? 'Analysing torso landmarks…'
+                          : categoryType === 'bags' ? 'Analysing hand/shoulder landmarks…'
+                          : 'Analysing foot landmarks…'}
+                      </p>
                     </div>
                   )}
 
