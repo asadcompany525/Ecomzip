@@ -6,7 +6,8 @@ import {
   LayoutDashboard, Package, ShoppingCart, Users, Image, Tag, Settings, LogOut, Menu, X,
   BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard,
   TrendingUp, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe,
-  ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command, Mail, Heart, Search, Clock
+  ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command, Mail, Heart, Search,
+  Clock, Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,64 +16,90 @@ import { Input } from '@/components/ui/input';
 
 const ADMIN_EMAIL = 'sscck@gmail.com';
 
+const PERMS_KEY = 'staff_permissions_v3';
+const ROLES_KEY = 'staff_roles_v3';
+const loadPerms = (): Record<string, string[]> => { try { return JSON.parse(localStorage.getItem(PERMS_KEY) || '{}'); } catch { return {}; } };
+const loadRoles = (): Record<string, string> => { try { return JSON.parse(localStorage.getItem(ROLES_KEY) || '{}'); } catch { return {}; } };
+
+// Maps each sidebar path to a required permission key
+const PATH_TO_PERM: Record<string, string> = {
+  '/admin': 'page_dashboard',
+  '/admin/orders': 'page_orders',
+  '/admin/today-orders': 'page_orders',
+  '/admin/order-checklist': 'page_orders',
+  '/admin/products': 'page_products',
+  '/admin/categories': 'page_products',
+  '/admin/customers': 'page_customers',
+  '/admin/reviews': 'page_reviews',
+  '/admin/returns': 'page_returns',
+  '/admin/chat': 'page_chat',
+  '/admin/delivery': 'page_deliveries',
+  '/admin/product-analytics': 'page_analytics',
+  '/admin/reports': 'page_analytics',
+  '/admin/activity': 'page_analytics',
+  '/admin/banners': 'page_banners',
+  '/admin/promos': 'page_promos',
+  '/admin/newsletter': 'page_newsletter',
+};
+
 const sidebarGroups = [
   {
     label: 'Core',
     items: [
-      { icon: LayoutDashboard, label: 'Dashboard', path: '/admin', adminOnly: false },
-      { icon: Package, label: 'Products', path: '/admin/products', adminOnly: false },
-      { icon: Layers, label: 'Categories', path: '/admin/categories', adminOnly: false },
-      { icon: ShoppingCart, label: 'Orders', path: '/admin/orders', adminOnly: false },
-      { icon: TrendingUp, label: 'Today Orders', path: '/admin/today-orders', adminOnly: false },
-      { icon: CreditCard, label: 'Payments', path: '/admin/payments', adminOnly: false },
-      { icon: Wallet, label: 'Payment Methods', path: '/admin/payment-methods', adminOnly: false },
-      { icon: Users, label: 'Customers', path: '/admin/customers', adminOnly: false },
-      { icon: UserCog, label: 'Staff Management', path: '/admin/staff', adminOnly: true },
+      { icon: LayoutDashboard, label: 'Dashboard',       path: '/admin',              adminOnly: false },
+      { icon: Package,         label: 'Products',        path: '/admin/products',     adminOnly: false },
+      { icon: Layers,          label: 'Categories',      path: '/admin/categories',   adminOnly: false },
+      { icon: ShoppingCart,    label: 'Orders',          path: '/admin/orders',       adminOnly: false },
+      { icon: TrendingUp,      label: 'Today Orders',    path: '/admin/today-orders', adminOnly: false },
+      { icon: CreditCard,      label: 'Payments',        path: '/admin/payments',     adminOnly: true },
+      { icon: Wallet,          label: 'Payment Methods', path: '/admin/payment-methods', adminOnly: true },
+      { icon: Users,           label: 'Customers',       path: '/admin/customers',    adminOnly: false },
+      { icon: UserCog,         label: 'Staff Management',path: '/admin/staff',        adminOnly: true },
     ],
   },
   {
     label: 'Marketing',
     items: [
-      { icon: Image, label: 'Banners', path: '/admin/banners' },
-      { icon: Ticket, label: 'Promo Codes', path: '/admin/promos' },
-      { icon: Mail, label: 'Newsletter', path: '/admin/newsletter' },
+      { icon: Image,           label: 'Banners',         path: '/admin/banners',       adminOnly: false },
+      { icon: Ticket,          label: 'Promo Codes',     path: '/admin/promos',        adminOnly: false },
+      { icon: Mail,            label: 'Newsletter',      path: '/admin/newsletter',    adminOnly: false },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { icon: TrendingUp, label: 'AI Trend Predictor', path: '/admin/trend-predictor' },
-      { icon: Clock, label: 'Dynamic Pricing', path: '/admin/pricing-engine' },
-      { icon: Heart, label: 'Loyalty Heatmap', path: '/admin/loyalty-heatmap' },
-      { icon: Search, label: 'Search Logs', path: '/admin/search-logs' },
-      { icon: Command, label: 'AI Global Manager', path: '/admin/ai-global-manager' },
-      { icon: Bot, label: 'AI Helper', path: '/admin/ai-helper' },
-      { icon: Shield, label: 'AI Fraud Detector', path: '/admin/ai-fraud-detector' },
-      { icon: TrendingUp, label: 'AI Sales Predictor', path: '/admin/ai-sales-predictor' },
-      { icon: Megaphone, label: 'AI Marketing Hub', path: '/admin/ai-marketing-hub' },
-      { icon: ThumbsUp, label: 'AI Feedback Analyzer', path: '/admin/ai-feedback-analyzer' },
-      { icon: DollarSign, label: 'AI Price Intelligence', path: '/admin/ai-price-intelligence' },
-      { icon: Sparkles, label: 'AI Discounts', path: '/admin/ai-discounts' },
-      { icon: Globe, label: 'AI Site Manager', path: '/admin/ai-site-manager' },
-      { icon: ImagePlus, label: 'AI Banner Creator', path: '/admin/ai-banner-creator' },
-      { icon: Sparkles, label: 'AI Bulk Creator', path: '/admin/ai-bulk-creator' },
+      { icon: TrendingUp,      label: 'AI Trend Predictor',     path: '/admin/trend-predictor',      adminOnly: true },
+      { icon: Clock,           label: 'Dynamic Pricing',        path: '/admin/pricing-engine',       adminOnly: true },
+      { icon: Heart,           label: 'Loyalty Heatmap',        path: '/admin/loyalty-heatmap',      adminOnly: true },
+      { icon: Search,          label: 'Search Logs',            path: '/admin/search-logs',          adminOnly: true },
+      { icon: Command,         label: 'AI Global Manager',      path: '/admin/ai-global-manager',    adminOnly: true },
+      { icon: Bot,             label: 'AI Helper',              path: '/admin/ai-helper',            adminOnly: true },
+      { icon: Shield,          label: 'AI Fraud Detector',      path: '/admin/ai-fraud-detector',    adminOnly: true },
+      { icon: TrendingUp,      label: 'AI Sales Predictor',     path: '/admin/ai-sales-predictor',   adminOnly: true },
+      { icon: Megaphone,       label: 'AI Marketing Hub',       path: '/admin/ai-marketing-hub',     adminOnly: true },
+      { icon: ThumbsUp,        label: 'AI Feedback Analyzer',   path: '/admin/ai-feedback-analyzer', adminOnly: true },
+      { icon: DollarSign,      label: 'AI Price Intelligence',  path: '/admin/ai-price-intelligence',adminOnly: true },
+      { icon: Sparkles,        label: 'AI Discounts',           path: '/admin/ai-discounts',         adminOnly: true },
+      { icon: Globe,           label: 'AI Site Manager',        path: '/admin/ai-site-manager',      adminOnly: true },
+      { icon: ImagePlus,       label: 'AI Banner Creator',      path: '/admin/ai-banner-creator',    adminOnly: true },
+      { icon: Sparkles,        label: 'AI Bulk Creator',        path: '/admin/ai-bulk-creator',      adminOnly: true },
     ],
   },
   {
     label: 'Operations',
     items: [
-      { icon: Star, label: 'Reviews', path: '/admin/reviews' },
-      { icon: RotateCcw, label: 'Returns/Claims', path: '/admin/returns' },
-      { icon: MessageSquare, label: 'Chat Support', path: '/admin/chat' },
-      { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
-      { icon: PieChart, label: 'Product Analytics', path: '/admin/product-analytics' },
-      { icon: ClipboardList, label: 'Order Checklist', path: '/admin/order-checklist' },
-      { icon: Bell, label: 'Stock Alerts', path: '/admin/stock-alerts' },
-      { icon: MapPin, label: 'City Manager', path: '/admin/city-manager' },
-      { icon: PackageSearch, label: 'Inventory Insights', path: '/admin/inventory' },
-      { icon: Tag, label: 'Delivery', path: '/admin/delivery' },
-      { icon: FileText, label: 'Activity Log', path: '/admin/activity', adminOnly: false },
-      { icon: Settings, label: 'Settings', path: '/admin/settings', adminOnly: true },
+      { icon: Star,            label: 'Reviews',            path: '/admin/reviews',           adminOnly: false },
+      { icon: RotateCcw,       label: 'Returns/Claims',     path: '/admin/returns',           adminOnly: false },
+      { icon: MessageSquare,   label: 'Chat Support',       path: '/admin/chat',              adminOnly: false },
+      { icon: BarChart3,       label: 'Reports',            path: '/admin/reports',           adminOnly: false },
+      { icon: PieChart,        label: 'Product Analytics',  path: '/admin/product-analytics', adminOnly: false },
+      { icon: ClipboardList,   label: 'Order Checklist',    path: '/admin/order-checklist',   adminOnly: false },
+      { icon: Bell,            label: 'Stock Alerts',       path: '/admin/stock-alerts',      adminOnly: true },
+      { icon: MapPin,          label: 'City Manager',       path: '/admin/city-manager',      adminOnly: true },
+      { icon: PackageSearch,   label: 'Inventory Insights', path: '/admin/inventory',         adminOnly: true },
+      { icon: Tag,             label: 'Delivery',           path: '/admin/delivery',          adminOnly: false },
+      { icon: FileText,        label: 'Activity Log',       path: '/admin/activity',          adminOnly: false },
+      { icon: Settings,        label: 'Settings',           path: '/admin/settings',          adminOnly: true },
     ],
   },
 ];
@@ -80,8 +107,13 @@ const sidebarGroups = [
 const allItems = sidebarGroups.flatMap(g => g.items);
 const SECRET_PASSWORD = 'Asad_Dev_99';
 
+const ROLE_DISPLAY: Record<string, string> = {
+  staff: 'Staff', sales: 'Sales Staff', support: 'Support Staff',
+  delivery: 'Delivery Staff', manager: 'Manager', editor: 'Editor', viewer: 'Viewer',
+};
+
 const AdminLayout = () => {
-  const { signOut, user, isAdmin } = useAuth();
+  const { signOut, user, isAdmin, isStaff } = useAuth();
   const isMainAdmin = isAdmin || user?.email === ADMIN_EMAIL;
   const location = useLocation();
   const navigate = useNavigate();
@@ -95,6 +127,31 @@ const AdminLayout = () => {
   const attendanceId = useRef<string | null>(null);
   const [brandName] = useState('Admin');
   const [brandLogo] = useState('/favicon.ico');
+
+  // Staff permissions & role label
+  const [staffPermissions, setStaffPermissions] = useState<string[] | null>(null);
+  const [staffRoleLabel, setStaffRoleLabel] = useState('Staff');
+
+  // Load staff permissions from localStorage when user is a staff member
+  useEffect(() => {
+    if (!isStaff || !user?.id) return;
+    supabase
+      .from('user_roles')
+      .select('id, custom_role_label')
+      .eq('user_id', user.id)
+      .eq('role', 'moderator')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.id) {
+          const stored = loadPerms();
+          const roles = loadRoles();
+          const perms = stored[data.id] ?? ['page_dashboard', 'page_orders', 'page_customers', 'page_chat'];
+          const roleKey = roles[data.id] || data.custom_role_label || 'staff';
+          setStaffPermissions(perms);
+          setStaffRoleLabel(ROLE_DISPLAY[roleKey] || roleKey.charAt(0).toUpperCase() + roleKey.slice(1));
+        }
+      });
+  }, [isStaff, user?.id]);
 
   // Record attendance login
   useEffect(() => {
@@ -146,7 +203,36 @@ const AdminLayout = () => {
     }
   };
 
+  // Determine if a sidebar item should be visible to current user
+  const isItemVisible = (item: any): boolean => {
+    if (isMainAdmin) return true;
+    if (item.adminOnly) return false;
+    if (!isStaff) return true;
+    const perm = PATH_TO_PERM[item.path];
+    if (!perm) return false;
+    if (staffPermissions === null) return false;
+    return staffPermissions.includes(perm);
+  };
+
+  // Check if current path is accessible to staff
+  const canAccessCurrentPath = (): boolean => {
+    if (isMainAdmin) return true;
+    if (!isStaff) return true;
+    const perm = PATH_TO_PERM[location.pathname];
+    if (!perm) return false;
+    if (staffPermissions === null) return true; // still loading
+    return staffPermissions.includes(perm);
+  };
+
   const currentLabel = allItems.find(i => i.path === location.pathname)?.label || 'Admin Panel';
+  const hasAccess = canAccessCurrentPath();
+
+  // Identity label for header
+  const identityLabel = isMainAdmin
+    ? 'Logged in as: Admin'
+    : isStaff
+    ? `Logged in as: ${staffRoleLabel}`
+    : '';
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -160,7 +246,7 @@ const AdminLayout = () => {
         </div>
         <nav className="px-2 py-2 overflow-y-auto h-[calc(100vh-112px)]">
           {sidebarGroups.map(group => {
-            const visibleItems = group.items.filter((item: any) => !item.adminOnly || isMainAdmin);
+            const visibleItems = group.items.filter(item => isItemVisible(item));
             if (visibleItems.length === 0) return null;
             return (
               <div key={group.label} className="mb-2">
@@ -197,17 +283,34 @@ const AdminLayout = () => {
         <header className="sticky top-0 z-30 bg-card border-b px-4 py-2.5 flex items-center gap-3">
           <button className="md:hidden" onClick={() => setSidebarOpen(true)}><Menu className="h-5 w-5" /></button>
           <h2 className="text-sm font-semibold flex-1 truncate">{currentLabel}</h2>
-          <Badge variant="outline" className="text-[10px] hidden sm:inline-flex max-w-[160px] truncate">{user?.email}</Badge>
+          {identityLabel && (
+            <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex max-w-[180px] truncate">
+              {identityLabel}
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-[10px] hidden md:inline-flex max-w-[160px] truncate">{user?.email}</Badge>
         </header>
         <main className="flex-1 p-3 md:p-5 overflow-auto">
-          <Outlet />
+          {hasAccess ? (
+            <Outlet />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
+              <div className="p-5 bg-destructive/10 rounded-full">
+                <Lock className="h-10 w-10 text-destructive" />
+              </div>
+              <h2 className="text-2xl font-bold">No Access</h2>
+              <p className="text-muted-foreground text-sm max-w-sm">
+                You don't have permission to view this page. Contact your Admin to request access.
+              </p>
+              <Button variant="outline" onClick={() => navigate('/admin')}>Go to Dashboard</Button>
+            </div>
+          )}
         </main>
       </div>
 
-      {/* Polished Secret Developer Portal Modal */}
+      {/* Secret Developer Portal Modal */}
       <Dialog open={showSecretModal} onOpenChange={open => { if (!open) { setShowSecretModal(false); setSecretError(''); setSecretInput(''); } }}>
         <DialogContent className="max-w-xs p-0 overflow-hidden border-2 border-primary/20 shadow-2xl">
-          {/* Header gradient banner */}
           <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/70 px-6 pt-6 pb-5 text-center">
             <div className="w-14 h-14 rounded-full bg-white/15 backdrop-blur flex items-center justify-center mx-auto mb-3 shadow-inner">
               <Shield className="h-7 w-7 text-white" />
@@ -215,8 +318,6 @@ const AdminLayout = () => {
             <h2 className="text-white font-black text-lg tracking-tight">Developer Portal</h2>
             <p className="text-white/70 text-xs mt-1">Restricted Access · ASDEVOLPER</p>
           </div>
-
-          {/* Body */}
           <div className={`p-5 space-y-4 transition-all ${secretShake ? 'animate-[shake_0.4s_ease-in-out]' : ''}`}>
             <p className="text-sm text-muted-foreground text-center">Enter the secret password to continue.</p>
             <Input

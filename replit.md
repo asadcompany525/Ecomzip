@@ -2,6 +2,27 @@
 
 A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bags store — Pakistan's #1 Shoes & Bags Store.
 
+## Role-Based Access Control (RBAC)
+
+- **Regular Users**: Never see any dashboard or admin links. Pure e-commerce experience.
+- **Staff (moderator role)**: See "Enter Panel" button in My Page. Access only permitted pages inside the dashboard. Blocked pages show "No Access" screen. Header shows "Logged in as: [Role]".
+- **Admin (sscck@gmail.com)**: Full access to all admin pages, staff management, AI tools, settings.
+
+### Staff Permissions
+- Permissions stored in `localStorage` key `staff_permissions_v3` (indexed by user_roles.id)
+- Role labels stored in `localStorage` key `staff_roles_v3`
+- Default permissions per role defined in `AdminStaff.tsx:DEFAULT_PERMS`
+- Path-to-permission map in `AdminLayout.tsx:PATH_TO_PERM`
+
+### Session Logging
+- `staff_attendance` table records login_at/logout_at for every panel session
+- AdminLayout auto-records login on mount and logout on window close
+- AdminStaff "Attendance Logs" tab shows last 20 sessions per staff member
+
+### Chat Watch
+- AdminChat has a "Chat Watch" bar (admin only) to filter conversations by staff member
+- chat_messages.sender_id is populated when staff/admin sends a reply
+
 ## Architecture
 
 - **Frontend**: React 18, TypeScript, Vite (port 5000)

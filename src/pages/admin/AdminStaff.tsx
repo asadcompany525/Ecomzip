@@ -10,8 +10,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Users, UserPlus, Trash2, RefreshCw, Search, Loader2, ChevronDown, ChevronUp,
-  Shield, BarChart2, Eye, EyeOff, Copy, CheckCircle, Lock, AlertTriangle
+  Shield, BarChart2, Eye, EyeOff, Copy, CheckCircle, Lock, AlertTriangle, Clock,
+  MessageSquare, Calendar
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = 'sscck@gmail.com';
@@ -84,20 +86,24 @@ interface Credentials { name: string; username: string; email: string; password:
 
 export default function AdminStaff() {
   const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const isMainAdmin = isAdmin || user?.email === ADMIN_EMAIL;
 
-  const [staff,       setStaff]       = useState<StaffMember[]>([]);
-  const [loading,     setLoading]     = useState(false);
-  const [showForm,    setShowForm]    = useState(false);
-  const [adding,      setAdding]      = useState(false);
-  const [search,      setSearch]      = useState('');
-  const [expandedId,  setExpandedId]  = useState<string | null>(null);
-  const [staffPerms,  setStaffPerms]  = useState<Record<string, string[]>>(loadPerms());
-  const [deleteTarget,setDeleteTarget]= useState<StaffMember | null>(null);
-  const [deleting,    setDeleting]    = useState(false);
-  const [credentials, setCredentials] = useState<Credentials | null>(null);
-  const [showPass,    setShowPass]    = useState(false);
-  const [copied,      setCopied]      = useState(false);
+  const [staff,         setStaff]         = useState<StaffMember[]>([]);
+  const [loading,       setLoading]       = useState(false);
+  const [showForm,      setShowForm]      = useState(false);
+  const [adding,        setAdding]        = useState(false);
+  const [search,        setSearch]        = useState('');
+  const [expandedId,    setExpandedId]    = useState<string | null>(null);
+  const [expandedTab,   setExpandedTab]   = useState<Record<string, 'access' | 'attendance'>>({});
+  const [staffPerms,    setStaffPerms]    = useState<Record<string, string[]>>(loadPerms());
+  const [deleteTarget,  setDeleteTarget]  = useState<StaffMember | null>(null);
+  const [deleting,      setDeleting]      = useState(false);
+  const [credentials,   setCredentials]   = useState<Credentials | null>(null);
+  const [showPass,      setShowPass]      = useState(false);
+  const [copied,        setCopied]        = useState(false);
+  const [attendanceLogs,setAttendanceLogs]= useState<Record<string, any[]>>({});
+  const [loadingLogs,   setLoadingLogs]   = useState<string | null>(null);
 
   // Form fields
   const [fName,     setFName]     = useState('');
@@ -108,6 +114,18 @@ export default function AdminStaff() {
   const [fShowPass, setFShowPass] = useState(false);
 
   useEffect(() => { if (isMainAdmin) fetchStaff(); }, [isMainAdmin]);
+
+  const fetchAttendance = async (userId: string, staffId: string) => {
+    setLoadingLogs(staffId);
+    const { data } = await supabase
+      .from('staff_attendance')
+      .select('*')
+      .eq('user_id', userId)
+      .order('login_at', { ascending: false })
+      .limit(20);
+    setAttendanceLogs(prev => ({ ...prev, [staffId]: data || [] }));
+    setLoadingLogs(null);
+  };
 
   const fetchStaff = async () => {
     setLoading(true);
@@ -419,8 +437,14 @@ export default function AdminStaff() {
 
                     <Badge variant="outline" className="text-xs hidden sm:inline-flex">{currentPerms.length}/{PAGE_PERMISSIONS.length} pages</Badge>
 
-                    <Button variant="ghost" size="sm" className={`text-xs gap-1 ${isExpanded ? 'bg-primary/10 text-primary' : ''}`} onClick={() => setExpandedId(isExpanded ? null : s.id)}>
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />} Access
+                    <Button variant="ghost" size="sm" className={`text-xs gap-1 ${isExpanded ? 'bg-primary/10 text-primary' : ''}`} onClick={() => {
+                      const newExpanded = isExpanded ? null : s.id;
+                      setExpandedId(newExpanded);
+                      if (newExpanded && !expandedTab[s.id]) {
+                        setExpandedTab(prev => ({ ...prev, [s.id]: 'access' }));
+                      }
+                    }}>
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />} Manage
                     </Button>
 
                     <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(s)} title="Soft delete (deactivate)">
@@ -430,7 +454,38 @@ export default function AdminStaff() {
 
                   {isExpanded && (
                     <div className="bg-muted/20 border-t px-4 pb-5 pt-4">
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">Page Access Control</p>
+                      {/* Tabs */}
+                      <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1 w-fit">
+                        {(['access', 'attendance'] as const).map(tab => (
+                          <button
+                            key={tab}
+                            onClick={() => {
+                              setExpandedTab(prev => ({ ...prev, [s.id]: tab }));
+                              if (tab === 'attendance' && !attendanceLogs[s.id]) {
+                                fetchAttendance(s.user_id, s.id);
+                              }
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                              (expandedTab[s.id] || 'access') === tab
+                                ? 'bg-card shadow-sm text-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            {tab === 'access' ? <><Shield className="h-3 w-3" />Access Control</> : <><Clock className="h-3 w-3" />Attendance Logs</>}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => navigate(`/admin/chat`)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                          title="View this staff member's chats"
+                        >
+                          <MessageSquare className="h-3 w-3" />Chat Watch
+                        </button>
+                      </div>
+
+                      {/* Access Control tab */}
+                      {(expandedTab[s.id] || 'access') === 'access' && (
+                      <>
                       <div className="space-y-4">
                         {GROUPS.map(group => {
                           const gPerms = PAGE_PERMISSIONS.filter(p => p.group === group);
@@ -467,7 +522,7 @@ export default function AdminStaff() {
                         <Button size="sm" variant="outline" className="text-destructive border-destructive/30" onClick={() => {
                           const np = { ...staffPerms, [s.id]: [] }; setStaffPerms(np); savePerms(np);
                           setStaff(prev => prev.map(m => m.id === s.id ? { ...m, permissions: [] } : m));
-                          toast({ title: 'All access revoked' });
+                          toast({ title: 'All pages revoked' });
                         }}>Revoke All</Button>
                         <Button size="sm" variant="outline" onClick={() => {
                           const d = DEFAULT_PERMS[s.role] || DEFAULT_PERMS.staff;
@@ -476,6 +531,72 @@ export default function AdminStaff() {
                           toast({ title: 'Reset to default' });
                         }}>Reset Default</Button>
                       </div>
+                      </>
+                      )}
+
+                      {/* Attendance Logs tab */}
+                      {(expandedTab[s.id] || 'access') === 'attendance' && (
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Session Logs (last 20)</p>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => fetchAttendance(s.user_id, s.id)} disabled={loadingLogs === s.id}>
+                              <RefreshCw className={`h-3 w-3 mr-1 ${loadingLogs === s.id ? 'animate-spin' : ''}`} />Refresh
+                            </Button>
+                          </div>
+                          {loadingLogs === s.id ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : !attendanceLogs[s.id] ? (
+                            <div className="text-center py-8 text-muted-foreground text-sm">
+                              <Calendar className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                              <p>Click Refresh to load attendance logs</p>
+                            </div>
+                          ) : attendanceLogs[s.id].length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground text-sm">
+                              <Calendar className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                              <p>No sessions recorded yet</p>
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border overflow-hidden">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-muted/50">
+                                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground">#</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Login</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Logout</th>
+                                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Duration</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  {attendanceLogs[s.id].map((log: any, i: number) => (
+                                    <tr key={log.id} className="hover:bg-muted/20 transition-colors">
+                                      <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
+                                      <td className="px-3 py-2">
+                                        <p>{new Date(log.login_at).toLocaleDateString()}</p>
+                                        <p className="text-muted-foreground">{new Date(log.login_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {log.logout_at ? (
+                                          <>
+                                            <p>{new Date(log.logout_at).toLocaleDateString()}</p>
+                                            <p className="text-muted-foreground">{new Date(log.logout_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                          </>
+                                        ) : <span className="text-green-600 font-medium">Active now</span>}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {log.duration_minutes != null
+                                          ? <span className="font-medium">{log.duration_minutes < 60 ? `${log.duration_minutes}m` : `${Math.floor(log.duration_minutes / 60)}h ${log.duration_minutes % 60}m`}</span>
+                                          : <span className="text-muted-foreground">—</span>}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -97,9 +97,9 @@ const SiteBrandingLoader = () => {
 };
 
 const AdminGuard = ({ children }: { children: React.ReactNode }) => {
-  const { isAdmin, loading } = useAuth();
+  const { isAdmin, isStaff, loading } = useAuth();
   if (loading) return <StopyLoader fullScreen />;
-  if (!isAdmin) return <Navigate to="/admin/login" replace />;
+  if (!isAdmin && !isStaff) return <Navigate to="/admin/login" replace />;
   return <>{children}</>;
 };
 

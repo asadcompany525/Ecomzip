@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { User, ShoppingBag, Heart, MapPin, Settings, LogOut, ChevronRight, Package, RotateCcw, Star } from 'lucide-react';
+import { User, ShoppingBag, Heart, MapPin, Settings, LogOut, ChevronRight, Package, RotateCcw, Star, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
@@ -18,7 +18,7 @@ const menuItems = [
 ];
 
 const MyPage = () => {
-  const { user, isAdmin, signOut, loading: authLoading } = useAuth();
+  const { user, isAdmin, isStaff, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [stats, setStats] = useState({ orders: 0, pending: 0 });
@@ -38,6 +38,7 @@ const MyPage = () => {
   };
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || 'User';
+  const canAccessPanel = isAdmin || isStaff;
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -71,7 +72,14 @@ const MyPage = () => {
                   <span><strong>{stats.pending}</strong> Active</span>
                 </div>
               </div>
-              {isAdmin && <Link to="/admin"><Button size="sm" variant="outline">Admin Panel</Button></Link>}
+              {canAccessPanel && (
+                <Link to="/admin">
+                  <Button size="sm" variant="outline" className="gap-1.5">
+                    <Shield className="h-3.5 w-3.5" />
+                    Enter Panel
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         )}
