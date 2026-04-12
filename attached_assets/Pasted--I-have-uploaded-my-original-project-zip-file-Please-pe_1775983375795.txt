@@ -1,0 +1,61 @@
+"I have uploaded my original project zip file. Please perform the following steps carefully:
+
+
+
+Extract all files from the zip into the current directory.
+
+Install all dependencies by running npm install (or the relevant command for this project).
+
+Set up the environment: Look at the code and identify the necessary environment variables (like Supabase URL/Key).
+
+Run the project: Start the development server and make sure the website is visible in the preview.
+
+Note: Just get the project into a running state as it was before. Once the website is live, I will give you the next instructions to fix specific bugs."
+
+"This is the final logic for the Dashboard access. Please implement it strictly:
+
+1. Role-Based Visibility (No Users Allowed):
+
+
+
+User Side: Regular customers/users must never see the 'Dashboard' button or any role-related labels. For them, the site remains a simple e-commerce store.
+
+Staff/Admin Side: Only users with the role 'admin' or 'staff' should see the 'Enter Panel' button in their profile or header.
+
+2. Unified Dashboard with Page-Level Access:
+
+
+
+Create a single Dashboard. Use the profiles.role to decide what to show inside:
+
+Admin (sscck@gmail.com): Full access to everything (Staff Management, All Reports, Inventory, Settings).
+
+Staff: Access only to specific pages assigned to them (e.g., Sales, Orders). If they try to open an Admin-only page, show a 'No Access' screen.
+
+Identity: In the header of the panel, show the dynamic role (e.g., 'Logged in as: Sales Staff').
+
+3. Staff Performance & Monitoring:
+
+
+
+Attendance & Logs: Record login_time and logout_time for staff in a session_logs table.
+
+Chat Watch: The Admin must be able to see the chat history of staff members with customers.
+
+4. AI Try-On (The 'Snapchat' Fix):
+
+
+
+Implement the Image Upload method. When a user uploads a photo, the AI/Canvas must fit the shoe accurately on the feet.
+
+Ensure the background of the Try-On window is dark/semi-transparent so text is readable.
+
+5. Security & Soft Delete:
+
+
+
+No Permanent Deletion: Use is_deleted = true for removing staff or customers.
+
+Privacy: Staff cannot see the Admin or other staff members. Only the Admin can see the full list.
+
+Execute this now and make sure the Dashboard button is hidden for regular users."  
