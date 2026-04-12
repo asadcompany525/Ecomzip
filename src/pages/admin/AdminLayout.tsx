@@ -136,7 +136,7 @@ const AdminLayout = () => {
     if (!isStaff || !user?.id) return;
     supabase
       .from('user_roles')
-      .select('id, custom_role_label')
+      .select('id')
       .eq('user_id', user.id)
       .eq('role', 'moderator')
       .maybeSingle()
@@ -145,7 +145,7 @@ const AdminLayout = () => {
           const stored = loadPerms();
           const roles = loadRoles();
           const perms = stored[data.id] ?? ['page_dashboard', 'page_orders', 'page_customers', 'page_chat'];
-          const roleKey = roles[data.id] || data.custom_role_label || 'staff';
+          const roleKey = roles[data.id] || 'staff';
           setStaffPermissions(perms);
           setStaffRoleLabel(ROLE_DISPLAY[roleKey] || roleKey.charAt(0).toUpperCase() + roleKey.slice(1));
         }
