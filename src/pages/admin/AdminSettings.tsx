@@ -32,6 +32,14 @@ const AdminSettings = () => {
     links: [] as { label: string; url: string }[],
   });
 
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase.from('site_settings').select('*');
@@ -67,16 +75,36 @@ const AdminSettings = () => {
     if (!file) return;
     setFaviconUploading(true);
     try {
+      await ensureAdminSession();
       const ext = file.name.split('.').pop() || 'ico';
       const path = `favicon/favicon-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
+      let bucket = 'logos';
+      let upload = await supabase.storage.from(bucket).upload(path, file, { upsert: true, contentType: file.type });
+
+      if (upload.error?.message?.toLowerCase().includes('bucket not found')) {
+        bucket = 'products';
+        upload = await supabase.storage.from(bucket).upload(path, file, { upsert: true, contentType: file.type });
+      }
+
+      if (upload.error) {
+        const base64 = await fileToBase64(file);
+        setLogo(p => ({ ...p, url: base64 }));
+        toast({ title: 'Favicon ready', description: 'Storage upload was blocked, so the icon was embedded. Click Save Branding to apply.' });
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
       const newUrl = urlData.publicUrl;
       setLogo(p => ({ ...p, url: newUrl }));
       toast({ title: 'Favicon uploaded!', description: 'Click Save Branding to apply.' });
     } catch (err: any) {
-      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+      try {
+        const base64 = await fileToBase64(file);
+        setLogo(p => ({ ...p, url: base64 }));
+        toast({ title: 'Favicon ready', description: 'Upload was blocked, so the icon was embedded. Click Save Branding to apply.' });
+      } catch {
+        toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+      }
     }
     setFaviconUploading(false);
   };

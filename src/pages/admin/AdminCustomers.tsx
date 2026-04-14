@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
+import { ensureAdminSession } from '@/lib/adminSession';
 
 const ADMIN_EMAIL = 'sscck@gmail.com';
+const DEACTIVATED_CUSTOMERS_KEY = 'deactivated_customers';
 
 const AdminCustomers = () => {
   const { user } = useAuth();
@@ -38,14 +40,19 @@ const AdminCustomers = () => {
     // Exclude admin email explicitly
     query = query.neq('email', ADMIN_EMAIL);
 
-    const { data, error } = await query;
+    const [{ data, error }, hiddenRes] = await Promise.all([
+      query,
+      supabase.from('site_settings').select('value').eq('key', DEACTIVATED_CUSTOMERS_KEY).maybeSingle(),
+    ]);
     if (error) { toast({ title: 'Failed to load customers', description: error.message, variant: 'destructive' }); return; }
+    const hiddenCustomerIds = Array.isArray(hiddenRes.data?.value) ? hiddenRes.data.value : [];
 
     const filtered = (data || []).filter((p: any) => {
       // Exclude admin / staff user_ids
       if (excludedIds.includes(p.user_id)) return false;
       // Exclude soft-deleted
       if (p.is_deleted === true) return false;
+      if (hiddenCustomerIds.includes(p.id) || hiddenCustomerIds.includes(p.user_id)) return false;
       return true;
     });
 
@@ -71,6 +78,7 @@ const AdminCustomers = () => {
     setDeleting(true);
     setDeleteError('');
     try {
+      await ensureAdminSession();
       // Soft delete: set is_deleted = true (never permanently removes data)
       const { error } = await supabase
         .from('profiles')
@@ -78,13 +86,24 @@ const AdminCustomers = () => {
         .eq('id', deleteTarget.id);
 
       if (error) {
-        // If column doesn't exist yet (migration not applied), fall back to a graceful message
+        // If column doesn't exist yet (migration not applied), fall back to persistent settings-based hiding
         if (error.code === 'PGRST204' || error.message?.includes('is_deleted')) {
-          setDeleteError('Database migration required. Please apply the migration SQL from supabase/migrations/ to enable soft delete.');
-          setDeleting(false);
-          return;
+          const { data: existing, error: loadHiddenError } = await supabase
+            .from('site_settings')
+            .select('value')
+            .eq('key', DEACTIVATED_CUSTOMERS_KEY)
+            .maybeSingle();
+          if (loadHiddenError) throw loadHiddenError;
+
+          const hiddenIds = Array.isArray(existing?.value) ? existing.value : [];
+          const nextHiddenIds = [...new Set([...hiddenIds, deleteTarget.id, deleteTarget.user_id].filter(Boolean))];
+          const { error: saveHiddenError } = await supabase
+            .from('site_settings')
+            .upsert({ key: DEACTIVATED_CUSTOMERS_KEY, value: nextHiddenIds }, { onConflict: 'key' });
+          if (saveHiddenError) throw saveHiddenError;
+        } else {
+          throw error;
         }
-        throw error;
       }
 
       setProfiles(prev => prev.filter(p => p.id !== deleteTarget.id));

@@ -241,6 +241,8 @@ ON CONFLICT (id) DO UPDATE SET public = true;
 - Product/category reads now surface Supabase errors in the UI instead of failing silently.
 - Missing `Sneakers` category was created in Supabase and linked to the migrated sneaker product so the home page renders both category and product data.
 - Root dependencies were reinstalled and the Start application workflow is running on port 5000.
+- Admin favicon upload now falls back to the existing `products` storage bucket or embedded base64 if the `logos` bucket is missing/blocked.
+- Admin customer deactivation now falls back to a persistent `site_settings.deactivated_customers` list when the `profiles.is_deleted` migration has not been applied.
 
 ### 1. Storage — Logos Bucket
 - AS Logo and site logo now upload to `logos` storage bucket
