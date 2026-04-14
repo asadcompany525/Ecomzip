@@ -17,9 +17,19 @@ SET statement_timeout = '0';
 -- =============================================
 -- 1. ROLES SYSTEM
 -- =============================================
-CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'app_role'
+  ) THEN
+    CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
+  END IF;
+END $$;
 
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   role app_role NOT NULL DEFAULT 'user',
@@ -35,13 +45,15 @@ AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role)
 $$;
 
+DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
 CREATE POLICY "Users can view own roles" ON public.user_roles FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
 CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 2. PROFILES
 -- =============================================
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
   full_name TEXT,
@@ -54,9 +66,13 @@ CREATE TABLE public.profiles (
 );
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 CREATE POLICY "Admins can view all profiles" ON public.profiles FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
 -- Auto-create profile on signup
@@ -71,6 +87,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
@@ -78,7 +95,7 @@ CREATE TRIGGER on_auth_user_created
 -- =============================================
 -- 3. CATEGORIES (3-level hierarchy)
 -- =============================================
-CREATE TABLE public.categories (
+CREATE TABLE IF NOT EXISTS public.categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
@@ -91,13 +108,15 @@ CREATE TABLE public.categories (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view active categories" ON public.categories;
 CREATE POLICY "Anyone can view active categories" ON public.categories FOR SELECT USING (is_active = true);
+DROP POLICY IF EXISTS "Admins can manage categories" ON public.categories;
 CREATE POLICY "Admins can manage categories" ON public.categories FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 4. PRODUCTS
 -- =============================================
-CREATE TABLE public.products (
+CREATE TABLE IF NOT EXISTS public.products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   description TEXT,
@@ -130,17 +149,19 @@ CREATE TABLE public.products (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view active products" ON public.products;
 CREATE POLICY "Anyone can view active products" ON public.products FOR SELECT USING (is_active = true);
+DROP POLICY IF EXISTS "Admins can manage products" ON public.products;
 CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
-CREATE INDEX idx_products_category ON public.products(category_id);
-CREATE INDEX idx_products_gender ON public.products(gender);
-CREATE INDEX idx_products_flash_sale ON public.products(is_flash_sale) WHERE is_flash_sale = true;
+CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_gender ON public.products(gender);
+CREATE INDEX IF NOT EXISTS idx_products_flash_sale ON public.products(is_flash_sale) WHERE is_flash_sale = true;
 
 -- =============================================
 -- 5. PRODUCT VARIANTS (size+color specific gallery & stock)
 -- =============================================
-CREATE TABLE public.product_variants (
+CREATE TABLE IF NOT EXISTS public.product_variants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
   size TEXT,
@@ -154,13 +175,15 @@ CREATE TABLE public.product_variants (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.product_variants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view variants" ON public.product_variants;
 CREATE POLICY "Anyone can view variants" ON public.product_variants FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can manage variants" ON public.product_variants;
 CREATE POLICY "Admins can manage variants" ON public.product_variants FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 6. ADDRESSES
 -- =============================================
-CREATE TABLE public.addresses (
+CREATE TABLE IF NOT EXISTS public.addresses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   label TEXT DEFAULT 'Home',
@@ -176,17 +199,49 @@ CREATE TABLE public.addresses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.addresses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage own addresses" ON public.addresses;
 CREATE POLICY "Users can manage own addresses" ON public.addresses FOR ALL USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can view all addresses" ON public.addresses;
 CREATE POLICY "Admins can view all addresses" ON public.addresses FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 7. ORDERS
 -- =============================================
-CREATE TYPE public.order_status AS ENUM ('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'received', 'cancelled', 'returned');
-CREATE TYPE public.payment_method AS ENUM ('cod', 'bank_transfer', 'jazzcash', 'easypaisa', 'stripe', 'other');
-CREATE TYPE public.payment_status AS ENUM ('pending', 'paid', 'failed', 'refunded');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'order_status'
+  ) THEN
+    CREATE TYPE public.order_status AS ENUM ('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'received', 'cancelled', 'returned');
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'payment_method'
+  ) THEN
+    CREATE TYPE public.payment_method AS ENUM ('cod', 'bank_transfer', 'jazzcash', 'easypaisa', 'stripe', 'other');
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'payment_status'
+  ) THEN
+    CREATE TYPE public.payment_status AS ENUM ('pending', 'paid', 'failed', 'refunded');
+  END IF;
+END $$;
 
-CREATE TABLE public.orders (
+CREATE TABLE IF NOT EXISTS public.orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_number TEXT NOT NULL UNIQUE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -206,12 +261,15 @@ CREATE TABLE public.orders (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own orders" ON public.orders;
 CREATE POLICY "Users can view own orders" ON public.orders FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create orders" ON public.orders;
 CREATE POLICY "Users can create orders" ON public.orders FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage all orders" ON public.orders;
 CREATE POLICY "Admins can manage all orders" ON public.orders FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- Order Items
-CREATE TABLE public.order_items (
+CREATE TABLE IF NOT EXISTS public.order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE NOT NULL,
   product_id UUID REFERENCES public.products(id),
@@ -225,18 +283,21 @@ CREATE TABLE public.order_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own order items" ON public.order_items;
 CREATE POLICY "Users can view own order items" ON public.order_items FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.orders WHERE orders.id = order_items.order_id AND orders.user_id = auth.uid())
 );
+DROP POLICY IF EXISTS "Users can insert order items" ON public.order_items;
 CREATE POLICY "Users can insert order items" ON public.order_items FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM public.orders WHERE orders.id = order_items.order_id AND orders.user_id = auth.uid())
 );
+DROP POLICY IF EXISTS "Admins can manage order items" ON public.order_items;
 CREATE POLICY "Admins can manage order items" ON public.order_items FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 8. REVIEWS
 -- =============================================
-CREATE TABLE public.reviews (
+CREATE TABLE IF NOT EXISTS public.reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -247,14 +308,17 @@ CREATE TABLE public.reviews (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view approved reviews" ON public.reviews;
 CREATE POLICY "Anyone can view approved reviews" ON public.reviews FOR SELECT USING (is_approved = true);
+DROP POLICY IF EXISTS "Users can create reviews" ON public.reviews;
 CREATE POLICY "Users can create reviews" ON public.reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage reviews" ON public.reviews;
 CREATE POLICY "Admins can manage reviews" ON public.reviews FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 9. BANNERS
 -- =============================================
-CREATE TABLE public.banners (
+CREATE TABLE IF NOT EXISTS public.banners (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT,
   subtitle TEXT,
@@ -267,13 +331,15 @@ CREATE TABLE public.banners (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.banners ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view active banners" ON public.banners;
 CREATE POLICY "Anyone can view active banners" ON public.banners FOR SELECT USING (is_active = true);
+DROP POLICY IF EXISTS "Admins can manage banners" ON public.banners;
 CREATE POLICY "Admins can manage banners" ON public.banners FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 10. PROMO CODES
 -- =============================================
-CREATE TABLE public.promo_codes (
+CREATE TABLE IF NOT EXISTS public.promo_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   discount_type TEXT NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
@@ -286,15 +352,27 @@ CREATE TABLE public.promo_codes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.promo_codes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view active promos" ON public.promo_codes;
 CREATE POLICY "Anyone can view active promos" ON public.promo_codes FOR SELECT USING (is_active = true);
+DROP POLICY IF EXISTS "Admins can manage promos" ON public.promo_codes;
 CREATE POLICY "Admins can manage promos" ON public.promo_codes FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 11. RETURNS / CLAIMS
 -- =============================================
-CREATE TYPE public.return_status AS ENUM ('pending', 'approved', 'rejected', 'refunded');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'return_status'
+  ) THEN
+    CREATE TYPE public.return_status AS ENUM ('pending', 'approved', 'rejected', 'refunded');
+  END IF;
+END $$;
 
-CREATE TABLE public.returns (
+CREATE TABLE IF NOT EXISTS public.returns (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -308,14 +386,17 @@ CREATE TABLE public.returns (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.returns ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own returns" ON public.returns;
 CREATE POLICY "Users can view own returns" ON public.returns FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create returns" ON public.returns;
 CREATE POLICY "Users can create returns" ON public.returns FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage returns" ON public.returns;
 CREATE POLICY "Admins can manage returns" ON public.returns FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
 -- 12. CHAT / SUPPORT
 -- =============================================
-CREATE TABLE public.chat_conversations (
+CREATE TABLE IF NOT EXISTS public.chat_conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   subject TEXT,
@@ -325,11 +406,14 @@ CREATE TABLE public.chat_conversations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.chat_conversations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own chats" ON public.chat_conversations;
 CREATE POLICY "Users can view own chats" ON public.chat_conversations FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can create chats" ON public.chat_conversations;
 CREATE POLICY "Users can create chats" ON public.chat_conversations FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can manage chats" ON public.chat_conversations;
 CREATE POLICY "Admins can manage chats" ON public.chat_conversations FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
-CREATE TABLE public.chat_messages (
+CREATE TABLE IF NOT EXISTS public.chat_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID REFERENCES public.chat_conversations(id) ON DELETE CASCADE NOT NULL,
   sender_type TEXT NOT NULL CHECK (sender_type IN ('user', 'ai', 'admin')),
@@ -338,40 +422,57 @@ CREATE TABLE public.chat_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own chat messages" ON public.chat_messages;
 CREATE POLICY "Users can view own chat messages" ON public.chat_messages FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.chat_conversations WHERE chat_conversations.id = chat_messages.conversation_id AND chat_conversations.user_id = auth.uid())
 );
+DROP POLICY IF EXISTS "Users can send messages" ON public.chat_messages;
 CREATE POLICY "Users can send messages" ON public.chat_messages FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM public.chat_conversations WHERE chat_conversations.id = chat_messages.conversation_id AND chat_conversations.user_id = auth.uid())
 );
+DROP POLICY IF EXISTS "Admins can manage messages" ON public.chat_messages;
 CREATE POLICY "Admins can manage messages" ON public.chat_messages FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- Enable realtime for chat
-ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND NOT EXISTS (
+       SELECT 1
+       FROM pg_publication_tables
+       WHERE pubname = 'supabase_realtime'
+         AND schemaname = 'public'
+         AND tablename = 'chat_messages'
+     ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+  END IF;
+END $$;
 
 -- =============================================
 -- 13. SITE SETTINGS (footer info, delivery fees, etc.)
 -- =============================================
-CREATE TABLE public.site_settings (
+CREATE TABLE IF NOT EXISTS public.site_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   key TEXT NOT NULL UNIQUE,
   value JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can view settings" ON public.site_settings;
 CREATE POLICY "Anyone can view settings" ON public.site_settings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can manage settings" ON public.site_settings;
 CREATE POLICY "Admins can manage settings" ON public.site_settings FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- Insert default settings
 INSERT INTO public.site_settings (key, value) VALUES
   ('contact', '{"phone": "+92 300 1234567", "email": "info@stopyshoes.pk", "whatsapp": "+92 300 1234567", "address": "Lahore, Pakistan"}'::jsonb),
   ('delivery', '{"free_delivery_min": 0, "default_fee": 200, "express_fee": 400}'::jsonb),
-  ('social', '{"facebook": "https://facebook.com/stopyshoes", "instagram": "https://instagram.com/stopyshoes", "tiktok": ""}'::jsonb);
+  ('social', '{"facebook": "https://facebook.com/stopyshoes", "instagram": "https://instagram.com/stopyshoes", "tiktok": ""}'::jsonb) ON CONFLICT (key) DO NOTHING;
 
 -- =============================================
 -- 14. STOCK ALERTS
 -- =============================================
-CREATE TABLE public.stock_alerts (
+CREATE TABLE IF NOT EXISTS public.stock_alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
   variant_id UUID REFERENCES public.product_variants(id) ON DELETE CASCADE,
@@ -380,6 +481,7 @@ CREATE TABLE public.stock_alerts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.stock_alerts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins can manage stock alerts" ON public.stock_alerts;
 CREATE POLICY "Admins can manage stock alerts" ON public.stock_alerts FOR ALL USING (public.has_role(auth.uid(), 'admin'));
 
 -- =============================================
@@ -394,10 +496,15 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_products_updated_at ON public.products;
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_orders_updated_at ON public.orders;
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_returns_updated_at ON public.returns;
 CREATE TRIGGER update_returns_updated_at BEFORE UPDATE ON public.returns FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_conversations_updated_at ON public.chat_conversations;
 CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON public.chat_conversations FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- =============================================
@@ -413,6 +520,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS generate_order_number_trigger ON public.orders;
 CREATE TRIGGER generate_order_number_trigger
   BEFORE INSERT ON public.orders
   FOR EACH ROW EXECUTE FUNCTION public.generate_order_number();
@@ -420,35 +528,47 @@ CREATE TRIGGER generate_order_number_trigger
 -- =============================================
 -- 17. STORAGE BUCKETS
 -- =============================================
-INSERT INTO storage.buckets (id, name, public) VALUES ('products', 'products', true);
-INSERT INTO storage.buckets (id, name, public) VALUES ('banners', 'banners', true);
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
-INSERT INTO storage.buckets (id, name, public) VALUES ('returns', 'returns', true);
-INSERT INTO storage.buckets (id, name, public) VALUES ('chat', 'chat', true);
+INSERT INTO storage.buckets (id, name, public) VALUES ('products', 'products', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('banners', 'banners', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('returns', 'returns', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('chat', 'chat', true) ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies
+DROP POLICY IF EXISTS "Public read products" ON storage.objects;
 CREATE POLICY "Public read products" ON storage.objects FOR SELECT USING (bucket_id = 'products');
+DROP POLICY IF EXISTS "Admin upload products" ON storage.objects;
 CREATE POLICY "Admin upload products" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'products' AND public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admin delete products" ON storage.objects;
 CREATE POLICY "Admin delete products" ON storage.objects FOR DELETE USING (bucket_id = 'products' AND public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Public read banners" ON storage.objects;
 CREATE POLICY "Public read banners" ON storage.objects FOR SELECT USING (bucket_id = 'banners');
+DROP POLICY IF EXISTS "Admin upload banners" ON storage.objects;
 CREATE POLICY "Admin upload banners" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'banners' AND public.has_role(auth.uid(), 'admin'));
+DROP POLICY IF EXISTS "Admin delete banners" ON storage.objects;
 CREATE POLICY "Admin delete banners" ON storage.objects FOR DELETE USING (bucket_id = 'banners' AND public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Public read avatars" ON storage.objects;
 CREATE POLICY "Public read avatars" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+DROP POLICY IF EXISTS "Users upload own avatar" ON storage.objects;
 CREATE POLICY "Users upload own avatar" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 
+DROP POLICY IF EXISTS "Public read returns" ON storage.objects;
 CREATE POLICY "Public read returns" ON storage.objects FOR SELECT USING (bucket_id = 'returns');
+DROP POLICY IF EXISTS "Users upload returns" ON storage.objects;
 CREATE POLICY "Users upload returns" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'returns' AND auth.uid() IS NOT NULL);
 
+DROP POLICY IF EXISTS "Public read chat" ON storage.objects;
 CREATE POLICY "Public read chat" ON storage.objects FOR SELECT USING (bucket_id = 'chat');
+DROP POLICY IF EXISTS "Users upload chat" ON storage.objects;
 CREATE POLICY "Users upload chat" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'chat' AND auth.uid() IS NOT NULL);
 
 
 -- ── Migration: 20260401075521_2b410004-22e6-461d-a080-852652299933.sql ──
 
 -- Create payment_methods table for admin to manage payment accounts
-CREATE TABLE public.payment_methods (
+CREATE TABLE IF NOT EXISTS public.payment_methods (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   type text NOT NULL DEFAULT 'bank_transfer',
@@ -462,7 +582,9 @@ CREATE TABLE public.payment_methods (
 
 ALTER TABLE public.payment_methods ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view active payment methods" ON public.payment_methods;
 CREATE POLICY "Anyone can view active payment methods" ON public.payment_methods FOR SELECT TO public USING (is_active = true);
+DROP POLICY IF EXISTS "Admins can manage payment methods" ON public.payment_methods;
 CREATE POLICY "Admins can manage payment methods" ON public.payment_methods FOR ALL TO public USING (has_role(auth.uid(), 'admin'::app_role));
 
 -- Function to decrease stock when order is placed
@@ -485,13 +607,14 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trigger_decrease_stock ON public.order_items;
 CREATE TRIGGER trigger_decrease_stock
   AFTER INSERT ON public.order_items
   FOR EACH ROW
   EXECUTE FUNCTION public.decrease_stock_on_order();
 
 -- AI discount suggestions table
-CREATE TABLE public.ai_discount_suggestions (
+CREATE TABLE IF NOT EXISTS public.ai_discount_suggestions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id uuid REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
   suggested_discount numeric NOT NULL DEFAULT 10,
@@ -501,6 +624,7 @@ CREATE TABLE public.ai_discount_suggestions (
 );
 
 ALTER TABLE public.ai_discount_suggestions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins can manage ai suggestions" ON public.ai_discount_suggestions;
 CREATE POLICY "Admins can manage ai suggestions" ON public.ai_discount_suggestions FOR ALL TO public USING (has_role(auth.uid(), 'admin'::app_role));
 
 
@@ -518,14 +642,16 @@ CREATE TABLE IF NOT EXISTS public.chat_history (
 
 ALTER TABLE public.chat_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can manage chat history" ON public.chat_history;
 CREATE POLICY "Admins can manage chat history" ON public.chat_history
   FOR ALL TO public USING (has_role(auth.uid(), 'admin'::app_role));
 
+DROP POLICY IF EXISTS "Users can view own chat history" ON public.chat_history;
 CREATE POLICY "Users can view own chat history" ON public.chat_history
   FOR SELECT TO public USING (user_id = auth.uid());
 
-CREATE INDEX idx_chat_history_session_type ON public.chat_history(session_type);
-CREATE INDEX idx_chat_history_created_at ON public.chat_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_history_session_type ON public.chat_history(session_type);
+CREATE INDEX IF NOT EXISTS idx_chat_history_created_at ON public.chat_history(created_at DESC);
 
 
 -- ── Migration: 20260409100000_new_feature_tables.sql ──
@@ -542,9 +668,12 @@ CREATE TABLE IF NOT EXISTS public.search_logs (
 ALTER TABLE public.search_logs ENABLE ROW LEVEL SECURITY;
 
 -- Allow anon to insert (for public search logging)
+DROP POLICY IF EXISTS "Anyone can insert search logs" ON public.search_logs;
 CREATE POLICY "Anyone can insert search logs" ON public.search_logs FOR INSERT WITH CHECK (true);
 -- Only admins can view
+DROP POLICY IF EXISTS "Admins can view search logs" ON public.search_logs;
 CREATE POLICY "Admins can view search logs" ON public.search_logs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can delete search logs" ON public.search_logs;
 CREATE POLICY "Admins can delete search logs" ON public.search_logs FOR DELETE USING (true);
 
 -- Email Logs Table: tracks newsletter campaigns and open rates
@@ -559,6 +688,7 @@ CREATE TABLE IF NOT EXISTS public.email_logs (
 );
 
 ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins can manage email logs" ON public.email_logs;
 CREATE POLICY "Admins can manage email logs" ON public.email_logs USING (true) WITH CHECK (true);
 
 -- Add plain_password column to profiles (for admin reference only)
@@ -580,9 +710,13 @@ CREATE TABLE IF NOT EXISTS public.staff_attendance (
 );
 
 ALTER TABLE public.staff_attendance ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can insert own attendance" ON public.staff_attendance;
 CREATE POLICY "Users can insert own attendance" ON public.staff_attendance FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own attendance" ON public.staff_attendance;
 CREATE POLICY "Users can update own attendance" ON public.staff_attendance FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can view all attendance" ON public.staff_attendance;
 CREATE POLICY "Admins can view all attendance" ON public.staff_attendance FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can delete attendance" ON public.staff_attendance;
 CREATE POLICY "Admins can delete attendance" ON public.staff_attendance FOR DELETE USING (true);
 
 -- Custom roles: allow any text role in user_roles (already text, no constraint needed)
@@ -617,26 +751,22 @@ ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- RLS: Allow authenticated admin users to upload and delete in logos bucket
 DROP POLICY IF EXISTS "logos_admin_upload" ON storage.objects;
-CREATE POLICY "logos_admin_upload"
-  ON storage.objects FOR INSERT
+CREATE POLICY "logos_admin_upload" ON storage.objects FOR INSERT
   TO authenticated
   WITH CHECK (bucket_id = 'logos');
 
 DROP POLICY IF EXISTS "logos_admin_delete" ON storage.objects;
-CREATE POLICY "logos_admin_delete"
-  ON storage.objects FOR DELETE
+CREATE POLICY "logos_admin_delete" ON storage.objects FOR DELETE
   TO authenticated
   USING (bucket_id = 'logos');
 
 DROP POLICY IF EXISTS "logos_public_read" ON storage.objects;
-CREATE POLICY "logos_public_read"
-  ON storage.objects FOR SELECT
+CREATE POLICY "logos_public_read" ON storage.objects FOR SELECT
   TO public
   USING (bucket_id = 'logos');
 
 DROP POLICY IF EXISTS "logos_admin_update" ON storage.objects;
-CREATE POLICY "logos_admin_update"
-  ON storage.objects FOR UPDATE
+CREATE POLICY "logos_admin_update" ON storage.objects FOR UPDATE
   TO authenticated
   USING (bucket_id = 'logos');
 
@@ -722,18 +852,15 @@ ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
 -- Storage RLS for product-images
 DROP POLICY IF EXISTS "product_images_public_read" ON storage.objects;
-CREATE POLICY "product_images_public_read"
-  ON storage.objects FOR SELECT TO public USING (bucket_id = 'product-images');
+CREATE POLICY "product_images_public_read" ON storage.objects FOR SELECT TO public USING (bucket_id = 'product-images');
 
 DROP POLICY IF EXISTS "product_images_admin_all" ON storage.objects;
-CREATE POLICY "product_images_admin_all"
-  ON storage.objects FOR ALL TO authenticated
+CREATE POLICY "product_images_admin_all" ON storage.objects FOR ALL TO authenticated
   USING (bucket_id = 'product-images')
   WITH CHECK (bucket_id = 'product-images');
 
 DROP POLICY IF EXISTS "tryon_user_upload" ON storage.objects;
-CREATE POLICY "tryon_user_upload"
-  ON storage.objects FOR INSERT TO public
+CREATE POLICY "tryon_user_upload" ON storage.objects FOR INSERT TO public
   WITH CHECK (bucket_id = 'product-images' AND name LIKE 'tryon-user/%');
 
 
@@ -780,10 +907,10 @@ INSERT INTO public."product_variants" ("id", "product_id", "size", "color", "col
 -- banners: no data
 -- site_settings: 4 rows
 -- Disable triggers temporarily for clean insert
-INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('705da5da-9a81-44f4-a347-0a22ccc357c9', 'receipt', '{"links":[],"tagline":"Pakistan''s #1 Shoes & Bags Store","website":"www.stopyshoes.pk","shop_name":"SSCCK","footer_line":"Thank you for shopping with Stopy Shoes!","contact_line":"support@stopyshoes.pk | +92 300 1234567"}', '2026-04-12T10:46:27.302582+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('340e69b8-7122-4ec5-bd84-b2153a711b88', 'logo', '{"url":"","name":"MY PAge ","size":"h-8 w-8"}', '2026-04-12T10:46:40.650592+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('ee97bff7-63be-4a83-af2a-b529b761b057', 'site_title', 'My PAge ', '2026-04-12T15:40:44.912635+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('36d64b80-5bae-4a4f-a11b-213878386ba7', 'developer_page', '{"name":"Muhammad Asad Ali","email":"asdevolper@gmail.com","github":"","handle":"ASDEVOLPER","clients":"30+","tagline":"Full-Stack Web & Mobile Developer specializing in AI-powered e-commerce platforms, scalable cloud architectures, and intelligent automation systems.","linkedin":"","location":"Pakistan","projects":"50+","whatsapp":"+923001234567","asLogoUrl":"","copyright":"© 2024–2026 Muhammad Asad Ali · All Rights Reserved","instagram":"","experience":"5+ Yrs","customLinks":[{"url":"https://jdkbhfjsgbigr","title":"WEB"}],"origin_story":"This platform (Stopy Shoes — Universal AI Commerce Engine) was entirely designed, developed, and deployed by Muhammad Asad Ali (ASDEVOLPER). Including all AI modules, e-commerce logic, admin dashboard, and real-time integrations.","technologies":"20+","availabilityBadge":"Available for Projects"}', '2026-04-14T10:58:29.315565+00:00') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('705da5da-9a81-44f4-a347-0a22ccc357c9', 'receipt', '{"links":[],"tagline":"Pakistan''s #1 Shoes & Bags Store","website":"www.stopyshoes.pk","shop_name":"SSCCK","footer_line":"Thank you for shopping with Stopy Shoes!","contact_line":"support@stopyshoes.pk | +92 300 1234567"}', '2026-04-12T10:46:27.302582+00:00') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;
+INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('340e69b8-7122-4ec5-bd84-b2153a711b88', 'logo', '{"url":"","name":"MY PAge ","size":"h-8 w-8"}', '2026-04-12T10:46:40.650592+00:00') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;
+INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('ee97bff7-63be-4a83-af2a-b529b761b057', 'site_title', 'My PAge ', '2026-04-12T15:40:44.912635+00:00') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;
+INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('36d64b80-5bae-4a4f-a11b-213878386ba7', 'developer_page', '{"name":"Muhammad Asad Ali","email":"asdevolper@gmail.com","github":"","handle":"ASDEVOLPER","clients":"30+","tagline":"Full-Stack Web & Mobile Developer specializing in AI-powered e-commerce platforms, scalable cloud architectures, and intelligent automation systems.","linkedin":"","location":"Pakistan","projects":"50+","whatsapp":"+923001234567","asLogoUrl":"","copyright":"© 2024–2026 Muhammad Asad Ali · All Rights Reserved","instagram":"","experience":"5+ Yrs","customLinks":[{"url":"https://jdkbhfjsgbigr","title":"WEB"}],"origin_story":"This platform (Stopy Shoes — Universal AI Commerce Engine) was entirely designed, developed, and deployed by Muhammad Asad Ali (ASDEVOLPER). Including all AI modules, e-commerce logic, admin dashboard, and real-time integrations.","technologies":"20+","availabilityBadge":"Available for Projects"}', '2026-04-14T10:58:29.315565+00:00') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;
 
 -- payment_methods: no data
 -- notifications: no data

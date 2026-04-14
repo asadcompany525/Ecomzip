@@ -200,6 +200,8 @@ Use this for "stuck" products that fail normal delete due to FK constraints.
 
 Run this in Supabase Dashboard → SQL Editor to unlock full functionality:
 
+The combined migration file at `scripts/full-migration.sql` is designed to be safe on partially migrated databases: enum/table creation uses existence checks, policies/triggers are dropped before recreation, storage bucket inserts use conflict handling, and `site_settings` seed data upserts by key.
+
 ```sql
 -- Expand app_role enum for all staff roles
 DO $$ BEGIN
