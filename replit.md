@@ -203,6 +203,7 @@ Run this in Supabase Dashboard → SQL Editor to unlock full functionality:
 The combined migration file at `scripts/full-migration.sql` is designed to be safe on partially migrated databases: enum/table creation uses existence checks, policies/triggers are dropped before recreation, storage bucket inserts use conflict handling, and `site_settings` seed data upserts by key.
 The legacy `public.customers` cleanup step is guarded with `to_regclass('public.customers')` because the active app stores customers in `public.profiles`.
 Seed product data uses explicit `jsonb` casts and PostgreSQL `text[]` arrays so it can run cleanly in Supabase SQL Editor.
+The main admin email `sscck@gmail.com` is treated as admin in both frontend login checks and database role logic; the full migration also inserts an admin `user_roles` row for that auth user when present.
 
 ```sql
 -- Expand app_role enum for all staff roles

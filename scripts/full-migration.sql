@@ -42,7 +42,17 @@ CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
 RETURNS BOOLEAN
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
-  SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role)
+  SELECT
+    EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role)
+    OR (
+      _role = 'admin'::public.app_role
+      AND EXISTS (
+        SELECT 1
+        FROM auth.users
+        WHERE id = _user_id
+          AND lower(email) = 'sscck@gmail.com'
+      )
+    )
 $$;
 
 DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
@@ -83,6 +93,11 @@ BEGIN
   INSERT INTO public.profiles (user_id, full_name, email)
   VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', ''), NEW.email);
   INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'user');
+  IF lower(NEW.email) = 'sscck@gmail.com' THEN
+    INSERT INTO public.user_roles (user_id, role)
+    VALUES (NEW.id, 'admin'::public.app_role)
+    ON CONFLICT (user_id, role) DO NOTHING;
+  END IF;
   RETURN NEW;
 END;
 $$;
@@ -91,6 +106,28 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+DO $$
+DECLARE
+  admin_user_id uuid;
+  admin_email text := 'sscck@gmail.com';
+BEGIN
+  SELECT id INTO admin_user_id
+  FROM auth.users
+  WHERE lower(email) = admin_email
+  LIMIT 1;
+
+  IF admin_user_id IS NOT NULL THEN
+    INSERT INTO public.profiles (user_id, email, full_name)
+    VALUES (admin_user_id, admin_email, 'Admin')
+    ON CONFLICT (user_id) DO UPDATE
+      SET email = EXCLUDED.email;
+
+    INSERT INTO public.user_roles (user_id, role)
+    VALUES (admin_user_id, 'admin'::public.app_role)
+    ON CONFLICT (user_id, role) DO NOTHING;
+  END IF;
+END $$;
 
 -- =============================================
 -- 3. CATEGORIES (3-level hierarchy)

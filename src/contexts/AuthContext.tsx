@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
+const ADMIN_EMAIL = 'sscck@gmail.com';
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -27,6 +29,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const checkUserRole = async (userId: string) => {
+    const currentEmail = supabase.auth.getUser().then(({ data }) => data.user?.email?.toLowerCase());
+    if ((await currentEmail) === ADMIN_EMAIL) {
+      setIsAdmin(true);
+      setIsStaff(false);
+      setUserRole('admin');
+      return;
+    }
+
     const { data } = await supabase
       .from('user_roles')
       .select('role')

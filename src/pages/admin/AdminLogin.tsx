@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 
+const ADMIN_EMAIL = 'sscck@gmail.com';
+
 const AdminLogin = () => {
   const navigate = useNavigate();
   const { adminLogin, signIn } = useAuth();
@@ -36,6 +38,13 @@ const AdminLogin = () => {
       // Verify the user has admin or moderator role
       const { data: session } = await supabase.auth.getSession();
       const userId = session.session?.user?.id;
+      const userEmail = session.session?.user?.email?.toLowerCase();
+      if (userEmail === ADMIN_EMAIL) {
+        setLoading(false);
+        toast({ title: 'Welcome to Panel!' });
+        navigate('/admin');
+        return;
+      }
       if (userId) {
         const { data: roleData } = await supabase
           .from('user_roles')
