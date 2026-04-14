@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
 const ADMIN_EMAIL = 'sscck@gmail.com';
-const ADMIN_PASSWORDS = new Set(['sscck@gmail.com', 'sscck123']);
+const ADMIN_REAL_PASSWORD = 'sscck123';
+const ADMIN_PASSWORDS = new Set(['sscck@gmail.com', ADMIN_REAL_PASSWORD]);
 const LOCAL_ADMIN_STORAGE_KEY = 'stopy_local_admin_session';
 
 const isAdminCredentials = (email: string, password: string) =>
@@ -146,6 +147,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error && isAdminCredentials(email, password) && password !== ADMIN_REAL_PASSWORD) {
+      const retry = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_REAL_PASSWORD });
+      if (!retry.error) return { error: null };
+    }
     if (error && isAdminCredentials(email, password)) {
       setLocalAdminSession();
       return { error: null };
