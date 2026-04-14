@@ -45,6 +45,6 @@ run = ["sh", "-c", "bash -c printf \"%s\\n\\n%s\" \"$0\" \"$1\" Please use the \
 [userenv]
 
 [userenv.shared]
-VITE_SUPABASE_URL = "https://lhdxqwvgrbjywjiixioc.supabase.co"
-VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxoZHhxd3ZncmJqeXdqaWl4aW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MTgwMjEsImV4cCI6MjA4Njk5NDAyMX0.3STYOTkPhDAXGPRR-ZOktXNre_-s7cs1QftR2_2MaZY"
-VITE_SUPABASE_PROJECT_ID = "lhdxqwvgrbjywjiixioc"
+VITE_SUPABASE_URL = "https://nuwvnwjyzcmqytpkmiyg.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51d3Zud2p5emNtcXl0cGttaXlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTQ3MjMsImV4cCI6MjA5MTczMDcyM30.S_D6haENdGBBx8zitbeJ7fx3XpwZs4PS6TYJBjsYyaw"
+VITE_SUPABASE_PROJECT_ID = "nuwvnwjyzcmqytpkmiyg"
