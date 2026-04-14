@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
 import {
   Upload, X, Download, Sparkles, Loader2,
-  RotateCcw, ZoomIn, Move, Brain, CheckCircle, AlertTriangle, Camera
+  RotateCcw, Brain, CheckCircle, AlertTriangle, Camera,
+  Clock, Wand2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,6 +18,8 @@ interface VirtualTryOnProps {
   productCategory?: string;
 }
 
+type Step = 'upload' | 'uploading' | 'processing' | 'result' | 'error';
+
 function detectCategoryType(productName: string, productCategory: string | undefined): TryOnCategory {
   const combined = `${productName} ${productCategory || ''}`.toLowerCase();
   if (/bag|purse|wallet|tote|backpack|handbag|clutch|satchel/.test(combined)) return 'bags';
@@ -25,17 +28,7 @@ function detectCategoryType(productName: string, productCategory: string | undef
   return 'generic';
 }
 
-function loadImg(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-function compressImage(dataUrl: string, maxDim = 900, quality = 0.78): Promise<string> {
+function compressImage(dataUrl: string, maxDim = 1024, quality = 0.85): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -51,230 +44,150 @@ function compressImage(dataUrl: string, maxDim = 900, quality = 0.78): Promise<s
   });
 }
 
-function removeBackground(img: HTMLImageElement, threshold = 235): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(img, 0, 0);
-  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const d = data.data;
-  const corners = [0, (canvas.width - 1) * 4,
-    (canvas.height - 1) * canvas.width * 4,
-    ((canvas.height - 1) * canvas.width + canvas.width - 1) * 4];
-  let bgR = 0, bgG = 0, bgB = 0;
-  corners.forEach(i => { bgR += d[i]; bgG += d[i + 1]; bgB += d[i + 2]; });
-  bgR = Math.round(bgR / 4); bgG = Math.round(bgG / 4); bgB = Math.round(bgB / 4);
-  for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i + 1], b = d[i + 2];
-    if ((r > threshold && g > threshold && b > threshold) ||
-      (Math.abs(r - bgR) < 28 && Math.abs(g - bgG) < 28 && Math.abs(b - bgB) < 28)) {
-      d[i + 3] = 0;
-    }
-  }
-  ctx.putImageData(data, 0, 0);
-  return canvas.toDataURL('image/png');
+async function uploadToStorage(dataUrl: string): Promise<string> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  const fileName = `tryon-user/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await supabase.storage
+    .from('product-images')
+    .upload(fileName, blob, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+  const { data: { publicUrl } } = supabase.storage
+    .from('product-images')
+    .getPublicUrl(fileName);
+  return publicUrl;
 }
 
-function drawWatermark(ctx: CanvasRenderingContext2D, W: number, H: number, brandLabel = 'Try-On') {
-  const fontSize = Math.max(13, Math.round(W * 0.022));
-  ctx.save();
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  const text = brandLabel;
-  const tw = ctx.measureText(text).width;
-  const pad = Math.round(fontSize * 0.5);
-  const bx = W - tw - pad * 2 - 12;
-  const by = H - fontSize - pad * 2 - 12;
-  ctx.globalAlpha = 0.7;
-  ctx.fillStyle = 'rgba(20,20,20,0.5)';
-  if (ctx.roundRect) {
-    ctx.beginPath(); ctx.roundRect(bx, by, tw + pad * 2, fontSize + pad * 2, 6); ctx.fill();
-  } else { ctx.fillRect(bx, by, tw + pad * 2, fontSize + pad * 2); }
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(text, bx + pad, by + fontSize + pad * 0.4);
-  ctx.restore();
-}
-
-async function renderComposite(
-  canvas: HTMLCanvasElement,
-  userSrc: string,
-  productSrc: string,
-  x: number, y: number, w: number,
-  opacity: number,
-  mirrored: boolean,
-  angle: number,
-  brandLabel = 'Try-On'
-) {
-  const [userImg, productImg] = await Promise.all([loadImg(userSrc), loadImg(productSrc)]);
-  canvas.width = userImg.naturalWidth;
-  canvas.height = userImg.naturalHeight;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(userImg, 0, 0);
-
-  const W = canvas.width, H = canvas.height;
-  const pw = (w / 100) * W;
-  const ph = pw * (productImg.naturalHeight / productImg.naturalWidth);
-  const px = (x / 100) * W;
-  const py = (y / 100) * H;
-
-  ctx.save();
-  ctx.globalAlpha = opacity / 100;
-  ctx.translate(px, py);
-  if (angle !== 0) ctx.rotate((angle * Math.PI) / 180);
-  ctx.filter = 'drop-shadow(0px 8px 20px rgba(0,0,0,0.5))';
-  if (mirrored) {
-    ctx.scale(-1, 1);
-    ctx.drawImage(productImg, -pw / 2, -ph / 2, pw, ph);
-  } else {
-    ctx.drawImage(productImg, -pw / 2, -ph / 2, pw, ph);
-  }
-  ctx.restore();
-  drawWatermark(ctx, W, H, brandLabel);
-}
-
-interface AIPlacement {
-  detected: boolean;
-  x: number;
-  y: number;
-  width: number;
-  angle: number;
-  note: string;
-}
-
-async function analyzeWithAI(
-  userImageUrl: string,
-  productImageUrl: string,
-  categoryType: TryOnCategory
-): Promise<AIPlacement> {
+async function startVTON(userImageUrl: string, productImageUrl: string, categoryType: TryOnCategory) {
   const { data, error } = await supabase.functions.invoke('ai-assistant', {
-    body: {
-      type: 'virtual-tryon',
-      userImageUrl,
-      productImageUrl,
-      categoryType,
-    },
+    body: { type: 'virtual-tryon-start', userImageUrl, productImageUrl, categoryType },
   });
-  if (error) throw new Error(error.message || 'AI analysis failed');
-  return data as AIPlacement;
+  if (error) throw new Error(error.message || 'Failed to start AI generation');
+  if (data?.error) throw new Error(data.error);
+  return data as { predictionId: string; status: string };
 }
+
+async function pollVTON(predictionId: string) {
+  const { data, error } = await supabase.functions.invoke('ai-assistant', {
+    body: { type: 'virtual-tryon-poll', predictionId },
+  });
+  if (error) throw new Error(error.message);
+  return data as { status: string; outputUrl?: string; error?: string };
+}
+
+const CATEGORY_HINTS: Record<TryOnCategory, string> = {
+  shoes: 'full body or lower-body photo showing your feet',
+  bags: 'photo showing your upper body and shoulder/arm',
+  clothing: 'full body or torso photo facing the camera',
+  generic: 'clear full-body photo facing the camera',
+};
+
+const CATEGORY_LABELS: Record<TryOnCategory, string> = {
+  shoes: 'Shoes',
+  bags: 'Bag',
+  clothing: 'Clothing',
+  generic: 'Item',
+};
 
 export default function VirtualTryOn({ productImage, productName, productCategory }: VirtualTryOnProps) {
   const { brandName } = useStoreSettings();
   const categoryType = detectCategoryType(productName, productCategory);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [step, setStep] = useState<'upload' | 'analyzing' | 'adjust' | 'result'>('upload');
-
-  const [userPhoto, setUserPhoto] = useState<string | null>(null);
-  const [processedProduct, setProcessedProduct] = useState<string | null>(null);
-  const [aiDetected, setAiDetected] = useState(false);
-  const [aiNote, setAiNote] = useState('');
-
-  const [posX, setPosX] = useState(50);
-  const [posY, setPosY] = useState(75);
-  const [sizeW, setSizeW] = useState(28);
-  const [opacity, setOpacity] = useState(92);
-  const [mirrored, setMirrored] = useState(false);
-  const [angle, setAngle] = useState(0);
-  const [compositing, setCompositing] = useState(false);
+  const [step, setStep] = useState<Step>('upload');
+  const [userPhotoPreview, setUserPhotoPreview] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [elapsed, setElapsed] = useState(0);
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const dragRef = useRef<{ active: boolean; lastX: number; lastY: number }>({ active: false, lastX: 0, lastY: 0 });
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
+
+  const startTimer = () => {
+    setElapsed(0);
+    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+  };
+  const stopTimer = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  };
 
   const resetState = useCallback(() => {
-    setUserPhoto(null); setProcessedProduct(null); setResultImage(null);
-    setStep('upload'); setAiDetected(false); setAiNote('');
-    setPosX(50); setPosY(75); setSizeW(28); setOpacity(92);
-    setMirrored(false); setAngle(0);
+    cancelledRef.current = true;
+    stopTimer();
+    setStep('upload');
+    setUserPhotoPreview(null);
+    setResultImage(null);
+    setErrorMsg('');
+    setElapsed(0);
   }, []);
 
-  const handleOpen = () => { setIsOpen(true); resetState(); };
+  const handleOpen = () => { cancelledRef.current = false; setIsOpen(true); resetState(); };
   const handleClose = () => { setIsOpen(false); resetState(); };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setProcessing(true);
+    cancelledRef.current = false;
 
     const reader = new FileReader();
     reader.onload = async (ev) => {
+      const raw = ev.target?.result as string;
+
       try {
-        const raw = ev.target?.result as string;
-        const compressed = await compressImage(raw, 900, 0.78);
-        setUserPhoto(compressed);
+        const compressed = await compressImage(raw, 1024, 0.85);
+        setUserPhotoPreview(compressed);
 
-        let productSrc = productImage;
+        setStep('uploading');
+        toast({ title: '📤 Uploading photo…', description: 'Preparing your image for AI processing.' });
+
+        let userImageUrl: string;
         try {
-          const prodEl = await loadImg(productImage);
-          productSrc = removeBackground(prodEl, 230);
-        } catch { /* keep original */ }
-        setProcessedProduct(productSrc);
-
-        setProcessing(false);
-        setStep('analyzing');
-        toast({ title: '🧠 AI analysing…', description: 'Finding the best placement for your try-on.' });
-
-        try {
-          const placement = await analyzeWithAI(compressed, productImage, categoryType);
-          if (placement.detected) {
-            setPosX(Math.round(placement.x));
-            setPosY(Math.round(placement.y));
-            setSizeW(Math.round(placement.width));
-            setAngle(Math.round(placement.angle ?? 0));
-            setAiDetected(true);
-            setAiNote(placement.note || '');
-            toast({ title: '✅ AI positioned!', description: placement.note || 'Fine-tune with sliders if needed.' });
-          } else {
-            setAiDetected(false);
-            setAiNote(placement.note || '');
-            toast({ title: '📐 Manual mode', description: 'AI could not detect the body part — adjust with sliders.' });
-          }
-        } catch (aiErr: any) {
-          console.warn('[VirtualTryOn] AI error:', aiErr);
-          setAiDetected(false);
-          toast({ title: '📐 Manual mode', description: 'AI unavailable — position manually with sliders.' });
+          userImageUrl = await uploadToStorage(compressed);
+        } catch (uploadErr: any) {
+          throw new Error(`Could not upload your photo: ${uploadErr.message}`);
         }
 
-        setStep('adjust');
+        if (cancelledRef.current) return;
+
+        setStep('processing');
+        startTimer();
+        toast({ title: '🧠 AI Virtual Try-On started', description: 'This takes 30–60 seconds. Please wait…' });
+
+        const { predictionId } = await startVTON(userImageUrl, productImage, categoryType);
+
+        if (cancelledRef.current) return;
+
+        for (let i = 0; i < 30; i++) {
+          await new Promise(r => setTimeout(r, 3000));
+          if (cancelledRef.current) return;
+
+          const poll = await pollVTON(predictionId);
+
+          if (poll.status === 'succeeded' && poll.outputUrl) {
+            stopTimer();
+            setResultImage(poll.outputUrl);
+            setStep('result');
+            toast({ title: '✅ Try-On ready!', description: 'Your AI-generated try-on photo is ready.' });
+            return;
+          }
+
+          if (poll.status === 'failed') {
+            throw new Error(poll.error || 'AI generation failed');
+          }
+        }
+
+        throw new Error('AI timed out. Please try again with a clearer photo.');
 
       } catch (err: any) {
-        setProcessing(false);
-        toast({ title: 'Upload failed', description: err?.message, variant: 'destructive' });
+        if (cancelledRef.current) return;
+        stopTimer();
+        setErrorMsg(err.message || 'Something went wrong');
+        setStep('error');
+        toast({ title: 'Try-On failed', description: err.message, variant: 'destructive' });
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  const updateCanvas = useCallback(async () => {
-    if (!canvasRef.current || !userPhoto || !processedProduct) return;
-    try {
-      await renderComposite(canvasRef.current, userPhoto, processedProduct, posX, posY, sizeW, opacity, mirrored, angle, brandName || 'Try-On');
-    } catch (err) { console.warn('[VirtualTryOn] Canvas render error:', err); }
-  }, [userPhoto, processedProduct, posX, posY, sizeW, opacity, mirrored, angle, brandName]);
-
-  const prevAdjust = useRef('');
-  const adjustKey = `${posX},${posY},${sizeW},${opacity},${mirrored},${angle}`;
-  if (step === 'adjust' && adjustKey !== prevAdjust.current) {
-    prevAdjust.current = adjustKey;
-    updateCanvas();
-  }
-
-  const generateResult = async () => {
-    if (!userPhoto || !processedProduct) return;
-    setCompositing(true);
-    try {
-      const c = document.createElement('canvas');
-      await renderComposite(c, userPhoto, processedProduct, posX, posY, sizeW, opacity, mirrored, angle, brandName || 'Try-On');
-      setResultImage(c.toDataURL('image/jpeg', 0.93));
-      setStep('result');
-    } catch (err: any) {
-      toast({ title: 'Failed', description: err?.message, variant: 'destructive' });
-    }
-    setCompositing(false);
   };
 
   const downloadResult = () => {
@@ -282,57 +195,12 @@ export default function VirtualTryOn({ productImage, productName, productCategor
     const a = document.createElement('a');
     a.href = resultImage;
     const brand = (brandName || 'tryon').replace(/\s+/g, '-').toLowerCase();
-    a.download = `${brand}-tryon-${productName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+    a.download = `${brand}-ai-tryon-${productName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
     a.click();
     toast({ title: '📸 Saved!' });
   };
 
-  const getCanvasPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0]?.clientX ?? 0 : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0]?.clientY ?? 0 : e.clientY;
-    return {
-      pctX: ((clientX - rect.left) / rect.width) * 100,
-      pctY: ((clientY - rect.top) / rect.height) * 100,
-    };
-  };
-
-  const onDragStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (step !== 'adjust') return;
-    e.preventDefault();
-    if (!canvasRef.current) return;
-    const { pctX, pctY } = getCanvasPos(e, canvasRef.current);
-    dragRef.current = { active: true, lastX: pctX, lastY: pctY };
-  };
-
-  const onDragMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!dragRef.current.active || step !== 'adjust') return;
-    e.preventDefault();
-    if (!canvasRef.current) return;
-    const { pctX, pctY } = getCanvasPos(e, canvasRef.current);
-    const dx = pctX - dragRef.current.lastX;
-    const dy = pctY - dragRef.current.lastY;
-    dragRef.current.lastX = pctX;
-    dragRef.current.lastY = pctY;
-    setPosX(x => Math.min(95, Math.max(5, x + dx)));
-    setPosY(y => Math.min(100, Math.max(5, y + dy)));
-  };
-
-  const onDragEnd = () => { dragRef.current.active = false; };
-
-  const sliders = [
-    { label: 'X Position', value: posX,   min: 5,  max: 95,  set: setPosX,    icon: <Move className="h-3 w-3" /> },
-    { label: 'Y Position', value: posY,   min: 5,  max: 100, set: setPosY,    icon: <Move className="h-3 w-3 rotate-90" /> },
-    { label: 'Size',       value: sizeW,  min: 8,  max: 65,  set: setSizeW,   icon: <ZoomIn className="h-3 w-3" /> },
-    { label: 'Blend',      value: opacity,min: 40, max: 100, set: setOpacity, icon: <Sparkles className="h-3 w-3" /> },
-    { label: 'Angle',      value: angle,  min: -45,max: 45,  set: setAngle,   icon: <RotateCcw className="h-3 w-3" /> },
-  ];
-
-  const categoryHint = categoryType === 'bags'
-    ? 'shoulder, arm or wrist visible'
-    : categoryType === 'clothing'
-    ? 'full body or torso visible'
-    : 'full body or feet visible';
+  const progressPct = Math.min(95, Math.round((elapsed / 60) * 100));
 
   return (
     <>
@@ -342,7 +210,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
         onClick={handleOpen}
         className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5 text-xs"
       >
-        <Camera className="h-3.5 w-3.5" /> Virtual Try-On
+        <Camera className="h-3.5 w-3.5" /> AI Try-On
       </Button>
 
       <AnimatePresence>
@@ -352,20 +220,19 @@ export default function VirtualTryOn({ productImage, productName, productCategor
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col"
-            style={{ background: 'rgba(0,0,0,0.88)' }}
+            style={{ background: 'rgba(0,0,0,0.92)' }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0" style={{ background: 'rgba(0,0,0,0.6)' }}>
+            <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0"
+              style={{ background: 'rgba(0,0,0,0.6)' }}>
               <div>
                 <p className="text-white font-bold flex items-center gap-2 text-sm">
-                  <Sparkles className="h-4 w-4 text-primary" /> AI Virtual Try-On
+                  <Wand2 className="h-4 w-4 text-primary" /> AI Virtual Try-On
                 </p>
                 <p className="text-white/50 text-xs mt-0.5">{productName}</p>
               </div>
-              <button
-                onClick={handleClose}
-                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20"
-              >
+              <button onClick={handleClose}
+                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -373,183 +240,164 @@ export default function VirtualTryOn({ productImage, productName, productCategor
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-              {/* ── Upload step ── */}
+              {/* ── Upload ── */}
               {step === 'upload' && (
                 <div className="space-y-4">
-                  {/* How it works */}
-                  <div className="bg-white/5 rounded-xl p-3.5 space-y-1.5 text-xs text-white/55">
-                    <p className="text-white/80 font-medium text-sm flex items-center gap-1.5">
+                  <div className="bg-white/5 rounded-xl p-4 space-y-2.5 text-sm">
+                    <p className="text-white font-semibold flex items-center gap-2">
                       <Brain className="h-4 w-4 text-primary" /> How AI Try-On works
                     </p>
-                    <p>① Upload a photo with your {categoryHint}</p>
-                    <p>② AI detects your body and positions the product</p>
-                    <p>③ Fine-tune with sliders, then download your photo</p>
+                    <p className="text-white/50 text-xs">
+                      Advanced AI inpainting detects your body, removes any existing item in that area,
+                      and realistically fits the product onto you — adjusting for lighting, pose and texture.
+                    </p>
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      {['Upload your photo', 'AI detects & masks the body area', 'Product is seamlessly fitted on you', 'Download your AI try-on result'].map((s, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-white/60">
+                          <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">{i + 1}</span>
+                          {s}
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Product preview */}
                   <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3">
                     <div className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 border border-white/15 flex-shrink-0">
                       <img src={productImage} alt={productName} className="w-full h-full object-contain" />
                     </div>
                     <div>
                       <p className="text-white text-sm font-medium">{productName}</p>
-                      <p className="text-white/40 text-xs mt-0.5 capitalize">{categoryType} try-on</p>
+                      <p className="text-primary text-xs mt-0.5 font-medium">{CATEGORY_LABELS[categoryType]} Try-On</p>
                     </div>
                   </div>
 
-                  {/* Upload button */}
                   <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                   <button
                     onClick={() => inputRef.current?.click()}
-                    disabled={processing}
-                    className="w-full border-2 border-dashed border-white/20 rounded-xl p-10 flex flex-col items-center gap-3 text-white/60 hover:border-primary/60 hover:text-white/90 transition-all disabled:opacity-50"
+                    className="w-full border-2 border-dashed border-white/20 rounded-xl p-10 flex flex-col items-center gap-3 text-white/60 hover:border-primary/60 hover:text-white/90 transition-all"
                   >
-                    {processing
-                      ? <><Loader2 className="h-9 w-9 animate-spin text-primary" /><p className="text-sm">Processing image…</p></>
-                      : <>
-                        <Upload className="h-9 w-9" />
-                        <p className="text-sm font-semibold">Upload Your Photo</p>
-                        <p className="text-xs opacity-50 text-center">Make sure your {categoryHint}</p>
-                      </>
-                    }
+                    <Upload className="h-10 w-10" />
+                    <div className="text-center">
+                      <p className="text-sm font-semibold">Upload Your Photo</p>
+                      <p className="text-xs opacity-50 mt-1">Best results: {CATEGORY_HINTS[categoryType]}</p>
+                    </div>
                   </button>
                 </div>
               )}
 
-              {/* ── Analyzing step ── */}
-              {step === 'analyzing' && (
-                <div className="flex flex-col items-center justify-center gap-5 py-16">
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center">
-                      <Brain className="h-10 w-10 text-primary" />
-                    </div>
-                    <Loader2 className="h-20 w-20 animate-spin text-primary/30 absolute inset-0" />
-                  </div>
-                  <div className="text-center space-y-1">
-                    <p className="text-white font-medium">AI analysing your photo…</p>
-                    <p className="text-white/40 text-sm">
-                      {categoryType === 'bags' ? 'Detecting shoulder / hand position'
-                        : categoryType === 'clothing' ? 'Detecting torso / shoulder position'
-                        : 'Detecting feet / ankle position'}
-                    </p>
+              {/* ── Uploading ── */}
+              {step === 'uploading' && (
+                <div className="space-y-5">
+                  {userPhotoPreview && (
+                    <img src={userPhotoPreview} alt="Your photo" className="w-full rounded-xl object-cover max-h-56 opacity-60" />
+                  )}
+                  <div className="flex flex-col items-center gap-4 py-8">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <p className="text-white font-medium">Uploading photo…</p>
+                    <p className="text-white/40 text-sm text-center">Preparing your image for AI processing</p>
                   </div>
                 </div>
               )}
 
-              {/* ── Adjust step ── */}
-              {step === 'adjust' && userPhoto && processedProduct && (
-                <div className="space-y-4">
-                  {/* AI status badge */}
-                  <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                    aiDetected
-                      ? 'bg-green-500/15 border border-green-500/25 text-green-300'
-                      : 'bg-amber-500/15 border border-amber-500/25 text-amber-300'
-                  }`}>
-                    {aiDetected
-                      ? <><CheckCircle className="h-4 w-4 flex-shrink-0" /><span>{aiNote || 'AI positioned the product — fine-tune with sliders'}</span></>
-                      : <><AlertTriangle className="h-4 w-4 flex-shrink-0" /><span>{aiNote || 'Adjust manually with sliders below'}</span></>
-                    }
-                  </div>
-
-                  {/* Canvas */}
-                  <div className="relative rounded-xl overflow-hidden bg-black">
-                    <canvas
-                      ref={canvasRef}
-                      className="w-full rounded-xl block touch-none select-none"
-                      style={{ maxHeight: '52vh', objectFit: 'contain', cursor: 'grab' }}
-                      onMouseDown={onDragStart}
-                      onMouseMove={onDragMove}
-                      onMouseUp={onDragEnd}
-                      onMouseLeave={onDragEnd}
-                      onTouchStart={onDragStart}
-                      onTouchMove={onDragMove}
-                      onTouchEnd={onDragEnd}
-                    />
-                    <div className="absolute top-2 left-2 bg-black/50 rounded-md px-2 py-1 pointer-events-none flex items-center gap-1">
-                      <Move className="h-3 w-3 text-white/60" />
-                      <span className="text-white/60 text-[10px]">Drag to reposition</span>
-                    </div>
-                  </div>
-
-                  {/* Mirror toggle */}
-                  <div className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-2.5">
-                    <span className="text-white/65 text-xs">Mirror product</span>
-                    <button
-                      onClick={() => setMirrored(m => !m)}
-                      className={`relative w-10 h-5 rounded-full transition-colors ${mirrored ? 'bg-primary' : 'bg-white/20'}`}
-                    >
-                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${mirrored ? 'left-[22px]' : 'left-0.5'}`} />
-                    </button>
-                  </div>
-
-                  {/* Sliders */}
-                  <div className="space-y-3 bg-white/5 rounded-xl p-4">
-                    <p className="text-white/55 text-xs font-semibold uppercase tracking-widest">Fine-tune</p>
-                    {sliders.map(ctrl => (
-                      <div key={ctrl.label} className="flex items-center gap-3">
-                        <div className="text-white/35">{ctrl.icon}</div>
-                        <span className="text-white/60 text-xs w-20">{ctrl.label}</span>
-                        <input
-                          type="range" min={ctrl.min} max={ctrl.max} value={ctrl.value}
-                          onChange={e => ctrl.set(Number(e.target.value))}
-                          className="flex-1 accent-primary"
-                        />
-                        <span className="text-white/35 text-xs w-8 text-right">{ctrl.value}</span>
+              {/* ── Processing ── */}
+              {step === 'processing' && (
+                <div className="space-y-5">
+                  {userPhotoPreview && (
+                    <div className="relative">
+                      <img src={userPhotoPreview} alt="Your photo" className="w-full rounded-xl object-cover max-h-56 opacity-40" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-black/70 rounded-xl px-5 py-4 text-center space-y-2">
+                          <div className="relative inline-block">
+                            <Brain className="h-10 w-10 text-primary" />
+                            <Loader2 className="h-14 w-14 animate-spin text-primary/30 absolute -inset-2" />
+                          </div>
+                          <p className="text-white font-semibold">AI Generating…</p>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
 
-                  {/* Actions */}
-                  <div className="flex gap-3">
-                    <Button
-                      variant="ghost"
-                      onClick={() => { setStep('upload'); setUserPhoto(null); }}
-                      className="text-white/50 hover:text-white gap-2"
-                    >
-                      <RotateCcw className="h-4 w-4" /> New Photo
-                    </Button>
-                    <Button
-                      onClick={generateResult}
-                      disabled={compositing}
-                      className="flex-1 bg-primary hover:bg-primary/90 text-white gap-2"
-                    >
-                      {compositing
-                        ? <><Loader2 className="h-4 w-4 animate-spin" />Generating…</>
-                        : <><Sparkles className="h-4 w-4" />Generate Photo</>
-                      }
-                    </Button>
+                  <div className="bg-white/5 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-white/70 text-sm font-medium flex items-center gap-1.5">
+                        <Sparkles className="h-4 w-4 text-primary" /> Inpainting & fitting product…
+                      </p>
+                      <span className="text-white/40 text-xs flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> {elapsed}s
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full"
+                        animate={{ width: `${progressPct}%` }}
+                        transition={{ duration: 1 }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 text-xs text-white/40">
+                      {[
+                        { label: 'Detecting body landmarks', done: elapsed > 5 },
+                        { label: 'Generating segmentation mask', done: elapsed > 15 },
+                        { label: 'Inpainting & removing old item', done: elapsed > 25 },
+                        { label: 'Fitting product with pose adaptation', done: elapsed > 38 },
+                        { label: 'Finalising lighting & texture', done: elapsed > 50 },
+                      ].map(s => (
+                        <div key={s.label} className="flex items-center gap-2">
+                          {s.done
+                            ? <CheckCircle className="h-3 w-3 text-green-400 shrink-0" />
+                            : <div className="w-3 h-3 rounded-full border border-white/20 shrink-0" />
+                          }
+                          <span className={s.done ? 'text-white/70' : ''}>{s.label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-white/30 text-xs text-center pt-1">Typically 30–60 seconds</p>
                   </div>
                 </div>
               )}
 
-              {/* ── Result step ── */}
+              {/* ── Result ── */}
               {step === 'result' && resultImage && (
                 <div className="space-y-4">
-                  <div className="bg-green-500/15 border border-green-500/25 rounded-xl p-3 text-green-300 text-sm text-center font-medium">
-                    ✅ Your try-on photo is ready!
+                  <div className="bg-green-500/15 border border-green-500/25 rounded-xl p-3 text-green-300 text-sm text-center font-medium flex items-center justify-center gap-2">
+                    <CheckCircle className="h-4 w-4" /> AI Try-On complete!
                   </div>
-                  <img src={resultImage} alt="Try-on result" className="w-full object-contain rounded-xl" />
+                  <img
+                    src={resultImage}
+                    alt="AI Try-On result"
+                    className="w-full object-contain rounded-xl border border-white/10"
+                  />
                   <div className="flex gap-3">
-                    <Button
-                      variant="ghost"
-                      onClick={() => setStep('adjust')}
-                      className="text-white/50 hover:text-white gap-2"
-                    >
-                      <RotateCcw className="h-4 w-4" /> Re-adjust
+                    <Button variant="ghost" onClick={() => { resetState(); }}
+                      className="text-white/50 hover:text-white gap-2">
+                      <RotateCcw className="h-4 w-4" /> Try Another Photo
                     </Button>
-                    <Button
-                      onClick={downloadResult}
-                      className="flex-1 bg-primary hover:bg-primary/90 text-white gap-2"
-                    >
+                    <Button onClick={downloadResult} className="flex-1 bg-primary hover:bg-primary/90 text-white gap-2">
                       <Download className="h-4 w-4" /> Save Photo
                     </Button>
                   </div>
-                  <button
-                    onClick={() => { setStep('upload'); resetState(); }}
-                    className="w-full text-white/30 hover:text-white/60 text-xs py-2 transition-colors"
-                  >
-                    Start over with a different photo
-                  </button>
+                </div>
+              )}
+
+              {/* ── Error ── */}
+              {step === 'error' && (
+                <div className="space-y-4">
+                  <div className="bg-red-500/15 border border-red-500/30 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-red-300 font-medium">
+                      <AlertTriangle className="h-4 w-4" /> Try-On failed
+                    </div>
+                    <p className="text-red-200/70 text-sm">{errorMsg}</p>
+                    {errorMsg.includes('REPLICATE_API_KEY') && (
+                      <p className="text-amber-300/80 text-xs mt-2">
+                        The store owner needs to configure a Replicate API key to enable AI Try-On.
+                      </p>
+                    )}
+                  </div>
+                  <Button onClick={resetState} className="w-full gap-2">
+                    <RotateCcw className="h-4 w-4" /> Try Again
+                  </Button>
                 </div>
               )}
 

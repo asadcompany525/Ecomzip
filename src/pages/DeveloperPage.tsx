@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import BottomNav from '@/components/layout/BottomNav';
 import { DEV_INFO_KEY, DEFAULT_DEV_INFO } from '@/components/SecretDevDashboard';
+import { supabase } from '@/integrations/supabase/client';
 
 const SERVICES = [
   { icon: Code2, label: 'E-Commerce Development', desc: 'Full-stack storefronts with AI & real-time features' },
@@ -24,6 +25,7 @@ const DeveloperPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // 1. Load from localStorage first (instant)
     try {
       const stored = localStorage.getItem(DEV_INFO_KEY);
       if (stored) {
@@ -31,6 +33,21 @@ const DeveloperPage = () => {
         setInfo({ ...DEFAULT_DEV_INFO, ...parsed, customLinks: parsed.customLinks || [] });
       }
     } catch {}
+
+    // 2. Fetch fresh data from Supabase (always up-to-date)
+    supabase
+      .from('site_settings')
+      .select('key, value')
+      .eq('key', 'developer_page')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) {
+          const v = data.value as any;
+          const merged = { ...DEFAULT_DEV_INFO, ...v, customLinks: v.customLinks || [] };
+          setInfo(merged);
+          localStorage.setItem(DEV_INFO_KEY, JSON.stringify(merged));
+        }
+      });
   }, []);
 
   const initials = info.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
