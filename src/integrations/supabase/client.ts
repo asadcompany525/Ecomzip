@@ -2,13 +2,38 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.SUPABASE_ANON_KEY ||
+  import.meta.env.SUPABASE_PUBLISHABLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+}
+
+const urlProjectRef = SUPABASE_URL.match(/^https:\/\/([^.]+)\.supabase\.co/)?.[1];
+const keyProjectRef = (() => {
+  try {
+    const payload = JSON.parse(atob(SUPABASE_ANON_KEY.split('.')[1] || ''));
+    return payload.ref as string | undefined;
+  } catch {
+    return undefined;
+  }
+})();
+
+if (urlProjectRef && keyProjectRef && urlProjectRef !== keyProjectRef) {
+  throw new Error('Supabase URL and anon key belong to different projects.');
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  db: {
+    schema: 'public',
+  },
   auth: {
     storage: localStorage,
     persistSession: true,

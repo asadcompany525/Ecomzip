@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Trash2, Loader2, Upload } from 'lucide-react';
 import { invalidateStoreSettingsCache } from '@/hooks/useStoreSettings';
+import { ensureAdminSession } from '@/lib/adminSession';
 
 const AdminSettings = () => {
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
@@ -49,14 +50,16 @@ const AdminSettings = () => {
   }, []);
 
   const save = async (key: string, value: any) => {
-    const { data: existing } = await supabase.from('site_settings').select('id').eq('key', key).maybeSingle();
-    if (existing) {
-      await supabase.from('site_settings').update({ value }).eq('key', key);
-    } else {
-      await supabase.from('site_settings').insert({ key, value });
+    try {
+      await ensureAdminSession();
+      const { error } = await supabase.from('site_settings').upsert({ key, value }, { onConflict: 'key' }).select('key').single();
+      if (error) throw error;
+      invalidateStoreSettingsCache();
+      toast({ title: `${key} settings saved!` });
+    } catch (e: any) {
+      toast({ title: `${key} save failed`, description: e.message || 'Unknown Supabase error', variant: 'destructive' });
+      throw e;
     }
-    invalidateStoreSettingsCache();
-    toast({ title: `${key} settings saved!` });
   };
 
   const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,9 +82,11 @@ const AdminSettings = () => {
   };
 
   const saveBranding = async () => {
-    await save('logo', logo);
-    await save('site_title', siteTitle || logo.name);
-    toast({ title: 'Branding saved!', description: 'Brand name, favicon and site title updated.' });
+    try {
+      await save('logo', logo);
+      await save('site_title', siteTitle || logo.name);
+      toast({ title: 'Branding saved!', description: 'Brand name, favicon and site title updated.' });
+    } catch {}
   };
 
   const productionReset = async () => {

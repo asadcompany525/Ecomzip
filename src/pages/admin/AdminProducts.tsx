@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import ProductVariantTable from '@/components/admin/ProductVariantTable';
+import { ensureAdminSession } from '@/lib/adminSession';
 
 interface Category {
   id: string;
@@ -139,12 +140,20 @@ const AdminProducts = () => {
   const [deleteDialog, setDeleteDialog] = useState<{ id: string; title: string; force: boolean } | null>(null);
 
   const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('*, product_variants(*)').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('products').select('*, product_variants(*)').order('created_at', { ascending: false });
+    if (error) {
+      toast({ title: 'Failed to load products', description: error.message, variant: 'destructive' });
+      return;
+    }
     setProducts((data || []) as any);
   };
 
   const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('*').eq('is_active', true).order('level').order('sort_order');
+    const { data, error } = await supabase.from('categories').select('*').eq('is_active', true).order('level').order('sort_order');
+    if (error) {
+      toast({ title: 'Failed to load categories', description: error.message, variant: 'destructive' });
+      return;
+    }
     setCategories((data || []) as Category[]);
   };
 
@@ -278,47 +287,53 @@ const AdminProducts = () => {
       return;
     }
     setSaving(true);
+    try {
+      await ensureAdminSession();
 
-    const totalStock = variants.reduce((sum, v) => sum + Object.values(v.sizes).reduce((a, b) => a + b, 0), 0);
-    const colorsJson = variants.map(v => ({ name: v.color, hex: v.color_hex }));
-    const sizesJson = getSizesForProduct();
+      const totalStock = variants.reduce((sum, v) => sum + Object.values(v.sizes).reduce((a, b) => a + b, 0), 0);
+      const colorsJson = variants.map(v => ({ name: v.color, hex: v.color_hex }));
+      const sizesJson = getSizesForProduct();
 
-    const saveData: any = {
-      title: form.title,
-      description: form.description || null,
-      price: form.price || 0,
-      original_price: form.original_price || null,
-      stock: totalStock,
-      gender: form.gender || 'unisex',
-      is_active: form.is_active,
-      is_flash_sale: form.discount_type === 'flash_sale',
-      is_new_arrival: form.is_new_arrival,
-      flash_sale_ends: form.discount_type === 'flash_sale' && form.flash_sale_ends ? pktInputToUtcIso(form.flash_sale_ends) : null,
-      images: form.images,
-      video_url: form.video_url || null,
-      brand: form.brand || null,
-      sizes: sizesJson,
-      colors: colorsJson,
-      discount_percent: form.discount_type !== 'none' ? form.discount_percent : 0,
-      return_policy: form.return_policy || null,
-      claim_policy: form.claim_policy || null,
-      category_id: form.category_id || null,
-      sub_category_id: form.sub_category_id || null,
-      sub_sub_category_id: form.sub_sub_category_id || null,
-      tags: form.tags,
-    };
+      const saveData: any = {
+        title: form.title,
+        description: form.description || null,
+        price: form.price || 0,
+        original_price: form.original_price || null,
+        stock: totalStock,
+        gender: form.gender || 'unisex',
+        is_active: form.is_active,
+        is_flash_sale: form.discount_type === 'flash_sale',
+        is_new_arrival: form.is_new_arrival,
+        flash_sale_ends: form.discount_type === 'flash_sale' && form.flash_sale_ends ? pktInputToUtcIso(form.flash_sale_ends) : null,
+        images: form.images,
+        video_url: form.video_url || null,
+        brand: form.brand || null,
+        sizes: sizesJson,
+        colors: colorsJson,
+        discount_percent: form.discount_type !== 'none' ? form.discount_percent : 0,
+        return_policy: form.return_policy || null,
+        claim_policy: form.claim_policy || null,
+        category_id: form.category_id || null,
+        sub_category_id: form.sub_category_id || null,
+        sub_sub_category_id: form.sub_sub_category_id || null,
+        tags: form.tags,
+      };
 
-    let productId = form.id;
-    if (productId) {
-      await supabase.from('products').update(saveData).eq('id', productId);
-    } else {
-      const { data: inserted } = await supabase.from('products').insert(saveData).select('id').single();
-      productId = inserted?.id;
-    }
+      let productId = form.id;
+      if (productId) {
+        const { error } = await supabase.from('products').update(saveData).eq('id', productId).select('id').single();
+        if (error) throw error;
+      } else {
+        const { data: inserted, error } = await supabase.from('products').insert(saveData).select('id').single();
+        if (error) throw error;
+        productId = inserted?.id;
+      }
 
-    if (productId) {
-      await supabase.from('product_variants').delete().eq('product_id', productId);
-      
+      if (!productId) throw new Error('Product save did not return an id');
+
+      const { error: deleteVariantsError } = await supabase.from('product_variants').delete().eq('product_id', productId);
+      if (deleteVariantsError) throw deleteVariantsError;
+
       const variantInserts = variants.flatMap(v => 
         Object.entries(v.sizes).map(([size, qty]) => ({
           product_id: productId!,
@@ -328,16 +343,20 @@ const AdminProducts = () => {
       );
 
       if (variantInserts.length > 0) {
-        await supabase.from('product_variants').insert(variantInserts);
+        const { error: variantInsertError } = await supabase.from('product_variants').insert(variantInserts);
+        if (variantInsertError) throw variantInsertError;
       }
-    }
 
-    toast({ title: form.id ? 'Product updated!' : 'Product added!' });
-    setDialogOpen(false);
-    setForm(defaultForm);
-    setVariants([]);
-    setSaving(false);
-    fetchProducts();
+      toast({ title: form.id ? 'Product updated!' : 'Product added!' });
+      setDialogOpen(false);
+      setForm(defaultForm);
+      setVariants([]);
+      fetchProducts();
+    } catch (e: any) {
+      toast({ title: 'Product save failed', description: e.message || 'Unknown Supabase error', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEdit = async (product: any) => {

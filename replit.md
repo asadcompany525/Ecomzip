@@ -233,6 +233,15 @@ ON CONFLICT (id) DO UPDATE SET public = true;
 
 ## Recent Changes (2026-04-10)
 
+## System Reconnect (2026-04-14)
+
+- Supabase runtime variables were aligned to the migrated project `lhdxqwvgrbjywjiixioc` using shared environment variables.
+- Supabase client now supports `VITE_SUPABASE_ANON_KEY` with fallback to the existing publishable key and verifies URL/key project mismatch at startup.
+- Admin write flows for Developer Info, site settings, and product saves now establish a real Supabase admin session before writes so RLS does not silently block updates.
+- Product/category reads now surface Supabase errors in the UI instead of failing silently.
+- Missing `Sneakers` category was created in Supabase and linked to the migrated sneaker product so the home page renders both category and product data.
+- Root dependencies were reinstalled and the Start application workflow is running on port 5000.
+
 ### 1. Storage — Logos Bucket
 - AS Logo and site logo now upload to `logos` storage bucket
 - Added `ensureLogosBucket()` helper in SecretDevDashboard

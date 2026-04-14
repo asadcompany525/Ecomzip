@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Shield, Trash2, Upload, Save, Settings, RefreshCw, AlertTriangle, User, Plus, X, Link as LinkIcon, ArrowLeft, Globe } from 'lucide-react';
+import { ensureAdminSession } from '@/lib/adminSession';
 
 const MASTER_PW_HASH = 'Asad_Dev_99';
 
@@ -98,31 +99,35 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
 
   const saveBranding = async () => {
     setSavingBranding(true);
-    document.title = siteTitle;
-    if (faviconUrl) {
-      let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
-      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-      link.href = faviconUrl;
-    }
-    const { error } = await supabase.from('site_settings').upsert(
-      { key: 'site_branding', value: { title: siteTitle, favicon: faviconUrl } as any },
-      { onConflict: 'key' }
-    );
-    if (error) {
-      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await ensureAdminSession();
+      document.title = siteTitle;
+      if (faviconUrl) {
+        let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+        if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+        link.href = faviconUrl;
+      }
+      const { error } = await supabase.from('site_settings').upsert(
+        { key: 'site_branding', value: { title: siteTitle, favicon: faviconUrl } as any },
+        { onConflict: 'key' }
+      ).select('key').single();
+      if (error) throw error;
       toast({ title: '✅ Branding saved!', description: 'Title and favicon updated instantly.' });
+    } catch (e: any) {
+      toast({ title: 'Save failed', description: e.message || 'Unknown Supabase error', variant: 'destructive' });
     }
     setSavingBranding(false);
   };
 
   const saveDevInfo = async () => {
     localStorage.setItem(DEV_INFO_KEY, JSON.stringify(devInfo));
-    const { error } = await supabase.from('site_settings').upsert({ key: 'developer_page', value: devInfo }, { onConflict: 'key' });
-    if (error) {
-      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await ensureAdminSession();
+      const { error } = await supabase.from('site_settings').upsert({ key: 'developer_page', value: devInfo }, { onConflict: 'key' }).select('key').single();
+      if (error) throw error;
       toast({ title: '✅ Developer info saved!', description: 'Changes will reflect on the Developer page.' });
+    } catch (e: any) {
+      toast({ title: 'Developer info saved locally only', description: e.message || 'Supabase write failed', variant: 'destructive' });
     }
   };
 
@@ -182,11 +187,13 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   };
 
   const saveLogo = async () => {
-    const { error } = await supabase.from('site_settings').upsert({ key: 'logo', value: { url: logoUrl, name: logoName, size: 'h-10 w-10' } }, { onConflict: 'key' });
-    if (error) {
-      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await ensureAdminSession();
+      const { error } = await supabase.from('site_settings').upsert({ key: 'logo', value: { url: logoUrl, name: logoName, size: 'h-10 w-10' } }, { onConflict: 'key' }).select('key').single();
+      if (error) throw error;
       toast({ title: '✅ Logo updated!', description: 'Refresh the page to see the change.' });
+    } catch (e: any) {
+      toast({ title: 'Save failed', description: e.message || 'Unknown Supabase error', variant: 'destructive' });
     }
   };
 
@@ -194,13 +201,15 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
     if (!settingKey.trim()) return;
     let val: any = settingValue;
     try { val = JSON.parse(settingValue); } catch {}
-    const { error } = await supabase.from('site_settings').upsert({ key: settingKey, value: val }, { onConflict: 'key' });
-    if (error) {
-      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      await ensureAdminSession();
+      const { error } = await supabase.from('site_settings').upsert({ key: settingKey, value: val }, { onConflict: 'key' }).select('key').single();
+      if (error) throw error;
       toast({ title: `✅ Setting "${settingKey}" overridden!` });
       setSettingKey('');
       setSettingValue('');
+    } catch (e: any) {
+      toast({ title: 'Save failed', description: e.message || 'Unknown Supabase error', variant: 'destructive' });
     }
   };
 
