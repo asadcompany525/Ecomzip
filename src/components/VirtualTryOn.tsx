@@ -48,14 +48,26 @@ async function uploadToStorage(dataUrl: string): Promise<string> {
   const res = await fetch(dataUrl);
   const blob = await res.blob();
   const fileName = `tryon-user/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-  const { error } = await supabase.storage
-    .from('product-images')
-    .upload(fileName, blob, { contentType: 'image/jpeg', upsert: false });
-  if (error) throw new Error(`Upload failed: ${error.message}`);
-  const { data: { publicUrl } } = supabase.storage
-    .from('product-images')
-    .getPublicUrl(fileName);
-  return publicUrl;
+  const buckets = ['product-images', 'products', 'chat', 'returns'];
+  const errors: string[] = [];
+
+  for (const bucket of buckets) {
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, blob, { contentType: 'image/jpeg', upsert: false });
+
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+      return publicUrl;
+    }
+
+    errors.push(`${bucket}: ${error.message}`);
+  }
+
+  if (dataUrl.length < 7_000_000) return dataUrl;
+  throw new Error(`Upload failed: ${errors.join(' | ')}`);
 }
 
 async function startVTON(userImageUrl: string, productImageUrl: string, categoryType: TryOnCategory) {

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import { ensureAdminSession } from '@/lib/adminSession';
 
 const ADMIN_EMAIL = 'sscck@gmail.com';
 const ROLE_OPTIONS = ['Staff', 'Sales', 'Support', 'Delivery', 'Manager', 'Editor', 'Viewer'];
@@ -129,6 +130,7 @@ export default function AdminStaff() {
 
   const fetchStaff = async () => {
     setLoading(true);
+    await ensureAdminSession().catch(() => null);
     // Fetch all moderator roles (staff) — exclude admin role
     const { data: roles, error } = await supabase
       .from('user_roles')
@@ -141,10 +143,19 @@ export default function AdminStaff() {
     const userIds = (roles || []).map((r: any) => r.user_id).filter(Boolean);
     let profileMap: Record<string, any> = {};
     if (userIds.length > 0) {
-      const { data: profiles } = await supabase
+      let { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email, username')
+        .select('user_id, full_name, email, phone, whatsapp, avatar_url, created_at, updated_at, username')
         .in('user_id', userIds);
+
+      if (profilesError) {
+        const fallback = await supabase
+          .from('profiles')
+          .select('user_id, full_name, email, phone, whatsapp, avatar_url, created_at, updated_at')
+          .in('user_id', userIds);
+        profiles = fallback.data || [];
+      }
+
       (profiles || []).forEach((p: any) => { profileMap[p.user_id] = p; });
     }
 
@@ -154,9 +165,9 @@ export default function AdminStaff() {
       const displayRole = storedRoles[r.id] || 'staff';
       return {
         id: r.id, user_id: r.user_id,
-        email: profile.email || 'N/A',
-        name: profile.full_name || 'Unknown',
-        username: profile.username || '—',
+        email: profile.email || r.email || 'No email found',
+        name: profile.full_name || profile.email || 'Staff member',
+        username: profile.username || (profile.email ? profile.email.split('@')[0] : '—'),
         role: displayRole,
         created_at: r.created_at,
         permissions: stored[r.id] ?? DEFAULT_PERMS[displayRole] ?? DEFAULT_PERMS.staff,
@@ -174,6 +185,7 @@ export default function AdminStaff() {
 
     setAdding(true);
     try {
+      await ensureAdminSession();
       // Create user via separate Supabase client (won't affect admin session)
       const tempClient = createClient(
         import.meta.env.VITE_SUPABASE_URL,
@@ -196,10 +208,42 @@ export default function AdminStaff() {
       await new Promise(r => setTimeout(r, 1200));
 
       // Update profile with username and plain_password
+      const profilePayload: any = { user_id: newUserId, full_name: fName.trim(), email: fEmail.trim().toLowerCase(), username: fUsername.trim(), plain_password: fPassword };
+      let profileSave = await supabase.from('profiles').upsert(
+        profilePayload,
+        { onConflict: 'user_id' }
+      );
+
+      if (profileSave.error?.code === 'PGRST204' || profileSave.error?.message?.includes('username') || profileSave.error?.message?.includes('plain_password')) {
+        profileSave = await supabase.from('profiles').upsert(
+          { user_id: newUserId, full_name: fName.trim(), email: fEmail.trim().toLowerCase() },
+          { onConflict: 'user_id' }
+        );
+      }
+
+      if (profileSave.error) throw profileSave.error;
+
+      await supabase.from('site_settings').upsert(
+        {
+          key: `staff_credentials_${newUserId}`,
+          value: {
+            name: fName.trim(),
+            username: fUsername.trim(),
+            email: fEmail.trim().toLowerCase(),
+            password: fPassword,
+            role: fRole,
+            created_at: new Date().toISOString(),
+          },
+        },
+        { onConflict: 'key' }
+      );
+
       await supabase.from('profiles').upsert(
         { user_id: newUserId, full_name: fName.trim(), email: fEmail.trim().toLowerCase(), username: fUsername.trim(), plain_password: fPassword },
         { onConflict: 'user_id' }
-      );
+      ).then(({ error }) => {
+        if (error && !error.message?.includes('username') && !error.message?.includes('plain_password')) throw error;
+      });
 
       // Add moderator role (staff)
       const { data: roleData, error: roleError } = await supabase
@@ -232,6 +276,7 @@ export default function AdminStaff() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
+      await ensureAdminSession();
       // Soft-delete: set is_deleted = true on profile
       const { error: profileErr } = await supabase
         .from('profiles')
