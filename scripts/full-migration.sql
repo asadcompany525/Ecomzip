@@ -1,6 +1,6 @@
 -- ============================================================
 -- STOPY SHOES — Complete 1:1 Migration SQL
--- Generated: 2026-04-14T11:11:20.025Z
+-- Generated: 2026-04-14T11:20:57.794Z
 -- Run this in: new Supabase project → SQL Editor → Run
 -- ============================================================
 
@@ -742,49 +742,15 @@ CREATE POLICY "tryon_user_upload"
 -- ============================================================
 
 -- categories: no data
--- products: 1 rows
--- Disable triggers temporarily for clean insert
-INSERT INTO public."products" ("id", "title", "description", "price", "original_price", "discount_percent", "category_id", "sub_category_id", "sub_sub_category_id", "brand", "gender", "colors", "sizes", "images", "video_url", "stock", "sold", "rating", "review_count", "is_active", "is_flash_sale", "flash_sale_ends", "is_new_arrival", "is_featured", "return_policy", "claim_policy", "tags", "meta", "created_at", "updated_at") VALUES ('f0dfcff6-6367-4199-8624-83173d2b7d14', 'Men''s Everyday Comfort Sneakers', 'Step into ultimate comfort and understated style with our Men''s Everyday Comfort Sneakers. Crafted for the modern man, these sneakers seamlessly blend lightweight design with durable construction, making them your go-to footwear for a variety of occasions.
-
-**Material:** The upper features a breathable, light grey knit fabric that offers excellent ventilation, keeping your feet cool and dry throughout the day. This is complemented by subtle synthetic overlays in a slightly darker shade of grey, providing structural support and enhancing the shoe''s aesthetic. The interior is lined with a soft, padded textile for a snug and comfortable fit. The sole is constructed from a combination of lightweight EVA foam for superior cushioning and a durable rubber outsole for reliable traction and longevity.
-
-**Comfort:** Experience unparalleled comfort with every step. The cushioned insole provides exceptional arch support and impact absorption, reducing foot fatigue even after extended wear. The breathable knit upper conforms to your foot, offering a flexible and non-restrictive feel. The padded collar and tongue add extra comfort around the ankle.
-
-**Style:** These sneakers boast a minimalist yet stylish design, featuring a contemporary light grey color palette with subtle darker grey accents. The sleek silhouette and clean lines make them incredibly versatile. The prominent striped detailing on the sides adds a touch of sporty sophistication without being overtly flashy.
-
-**Use Cases:** Perfect for everyday wear, these sneakers are ideal for casual outings, city strolls, light workouts, gym sessions, and even casual office environments where comfort is key. They are suitable for various activities that require prolonged standing or walking, offering a balance of style and practicality.
-
-**Care Instructions:** To maintain the pristine condition of your sneakers, gently wipe any dirt or stains with a damp cloth and mild soap. Avoid harsh chemicals or abrasive brushes. For deeper cleaning, hand wash with a soft brush and air dry away from direct sunlight or heat. Do not machine wash or tumble dry, as this can damage the materials. Remove insoles and wash separately if needed. Store in a cool, dry place.
-
-**Sizing Guide:** These sneakers adhere to standard men''s shoe sizing. We recommend choosing your usual shoe size. If you are between sizes, consider going up to the next full size for optimal comfort. Refer to our detailed size chart for precise measurements. Our sizes range from EU 36 to 45.
-
-**Durability:** Constructed with high-quality materials and expert craftsmanship, these sneakers are built to last. The robust rubber outsole resists wear and tear, while the reinforced stitching ensures long-term durability, making them a reliable addition to your footwear collection.
-
-**Flexibility:** The lightweight and flexible design of these sneakers allows for natural foot movement, providing a comfortable and unrestrictive experience, whether you''re walking or engaging in light activities.
-
-**Versatility:** The neutral color and modern design ensure these sneakers can be effortlessly paired with a wide range of outfits, from jeans and shorts to casual trousers and athletic wear, making them a truly versatile wardrobe staple.', 5000, 5000, 0, NULL, NULL, NULL, 'Stopy Shoes', 'men', '[{"hex":"#FFFFFF","name":"White"}]', '["41","42","43","44","45"]', '["https://lhdxqwvgrbjywjiixioc.supabase.co/storage/v1/object/public/products/1776008041470-eeee.png"]', NULL, 5, 0, 0, 0, TRUE, FALSE, NULL, FALSE, FALSE, '7 days return policy', '30 days warranty', '["PRD001","men''s shoes","casual shoes","comfort shoes","athletic shoes","grey sneakers","everyday wear","lightweight shoes","running shoes","walking shoes"]', '{}', '2026-04-12T15:35:32.192926+00:00', '2026-04-12T15:35:58.27046+00:00') ON CONFLICT (id) DO NOTHING;
-
--- product_variants: 5 rows
--- Disable triggers temporarily for clean insert
-INSERT INTO public."product_variants" ("id", "product_id", "size", "color", "color_hex", "stock", "images", "sku", "barcode", "price_override", "created_at") VALUES ('ae11a5ad-207d-4ee3-be75-55942d43c299', 'f0dfcff6-6367-4199-8624-83173d2b7d14', '41', 'White', '#FFFFFF', 1, '[]', NULL, NULL, NULL, '2026-04-12T15:35:59.494613+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."product_variants" ("id", "product_id", "size", "color", "color_hex", "stock", "images", "sku", "barcode", "price_override", "created_at") VALUES ('1d19f84d-06b4-4069-bdbb-d68bec3616ee', 'f0dfcff6-6367-4199-8624-83173d2b7d14', '42', 'White', '#FFFFFF', 1, '[]', NULL, NULL, NULL, '2026-04-12T15:35:59.494613+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."product_variants" ("id", "product_id", "size", "color", "color_hex", "stock", "images", "sku", "barcode", "price_override", "created_at") VALUES ('924f23ef-287f-4a52-bf51-5c9440d22acf', 'f0dfcff6-6367-4199-8624-83173d2b7d14', '43', 'White', '#FFFFFF', 1, '[]', NULL, NULL, NULL, '2026-04-12T15:35:59.494613+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."product_variants" ("id", "product_id", "size", "color", "color_hex", "stock", "images", "sku", "barcode", "price_override", "created_at") VALUES ('4c75ff83-e550-4986-8733-577db32f1a4b', 'f0dfcff6-6367-4199-8624-83173d2b7d14', '44', 'White', '#FFFFFF', 1, '[]', NULL, NULL, NULL, '2026-04-12T15:35:59.494613+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."product_variants" ("id", "product_id", "size", "color", "color_hex", "stock", "images", "sku", "barcode", "price_override", "created_at") VALUES ('d4b817cf-9739-4e7f-ac6c-14afc51b53bb', 'f0dfcff6-6367-4199-8624-83173d2b7d14', '45', 'White', '#FFFFFF', 1, '[]', NULL, NULL, NULL, '2026-04-12T15:35:59.494613+00:00') ON CONFLICT (id) DO NOTHING;
-
+-- products: no data
+-- product_variants: no data
 -- customers: no data
 -- orders: no data
 -- order_items: no data
 -- reviews: no data
 -- coupons: no data
 -- banners: no data
--- site_settings: 4 rows
--- Disable triggers temporarily for clean insert
-INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('705da5da-9a81-44f4-a347-0a22ccc357c9', 'receipt', '{"links":[],"tagline":"Pakistan''s #1 Shoes & Bags Store","website":"www.stopyshoes.pk","shop_name":"SSCCK","footer_line":"Thank you for shopping with Stopy Shoes!","contact_line":"support@stopyshoes.pk | +92 300 1234567"}', '2026-04-12T10:46:27.302582+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('340e69b8-7122-4ec5-bd84-b2153a711b88', 'logo', '{"url":"","name":"MY PAge ","size":"h-8 w-8"}', '2026-04-12T10:46:40.650592+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('ee97bff7-63be-4a83-af2a-b529b761b057', 'site_title', 'My PAge ', '2026-04-12T15:40:44.912635+00:00') ON CONFLICT (id) DO NOTHING;
-INSERT INTO public."site_settings" ("id", "key", "value", "updated_at") VALUES ('36d64b80-5bae-4a4f-a11b-213878386ba7', 'developer_page', '{"name":"Muhammad Asad Ali","email":"asdevolper@gmail.com","github":"","handle":"ASDEVOLPER","clients":"30+","tagline":"Full-Stack Web & Mobile Developer specializing in AI-powered e-commerce platforms, scalable cloud architectures, and intelligent automation systems.","linkedin":"","location":"Pakistan","projects":"50+","whatsapp":"+923001234567","asLogoUrl":"","copyright":"© 2024–2026 Muhammad Asad Ali · All Rights Reserved","instagram":"","experience":"5+ Yrs","customLinks":[{"url":"https://jdkbhfjsgbigr","title":"WEB"}],"origin_story":"This platform (Stopy Shoes — Universal AI Commerce Engine) was entirely designed, developed, and deployed by Muhammad Asad Ali (ASDEVOLPER). Including all AI modules, e-commerce logic, admin dashboard, and real-time integrations.","technologies":"20+","availabilityBadge":"Available for Projects"}', '2026-04-14T10:58:29.315565+00:00') ON CONFLICT (id) DO NOTHING;
-
+-- site_settings: no data
 -- payment_methods: no data
 -- notifications: no data
 -- ai_discount_suggestions: no data
