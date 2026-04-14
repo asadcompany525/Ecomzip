@@ -252,6 +252,36 @@ Generate a detailed description of at least 30 lines covering material, comfort,
           { type: "text", text: messages?.[0]?.content || "Analyze this foot/body photo and recommend the correct size from the available sizes." }
         ]
       });
+    } else if (type === "virtual-tryon") {
+      const { userImageUrl, productImageUrl, categoryType } = body;
+      const bodyPartHint = categoryType === "bags"
+        ? "shoulder, arm, wrist, or hand"
+        : categoryType === "clothing"
+        ? "torso, chest, or shoulder"
+        : "feet, ankles, or lower legs";
+      aiMessages.push({
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: userImageUrl } },
+          { type: "image_url", image_url: { url: productImageUrl } },
+          {
+            type: "text",
+            text: `The FIRST image is a user's photo. The SECOND image is a ${categoryType === "bags" ? "bag or purse" : categoryType === "clothing" ? "clothing item" : "shoe or footwear"} product for a virtual try-on.
+
+Analyze the user's photo to locate the ${bodyPartHint} in the image. Then calculate the best position and size to overlay the product image onto that body part.
+
+Respond ONLY with a valid JSON object — no markdown, no explanation, just pure JSON. Fields:
+- detected: boolean — true if the relevant body part was found
+- x: number (0–100) — horizontal center of the body part as a % of the image width
+- y: number (0–100) — vertical center of the body part as a % of the image height
+- width: number (0–100) — product overlay width as a % of the image width (typically 20–40 for shoes, 25–45 for bags)
+- angle: number — rotation in degrees to match the body part orientation (0 = no rotation)
+- note: string — one short sentence describing what was detected (e.g. "Both feet detected near bottom-center")
+
+If the body part is not visible, set detected to false and use sensible defaults (x:50, y:80, width:28, angle:0).`
+          }
+        ]
+      });
     } else if (type === "chat-support") {
       // Handle both old format (message+history) and new format (messages array)
       if (history && message) {
@@ -310,9 +340,27 @@ Generate a detailed description of at least 30 lines covering material, comfort,
       });
     }
 
+    const content = result.choices?.[0]?.message?.content || "";
+
+    // Parse JSON response for virtual-tryon
+    if (type === "virtual-tryon") {
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+        return new Response(JSON.stringify(parsed), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch {
+        // Fallback defaults if AI response is malformed
+        return new Response(JSON.stringify({
+          detected: false, x: 50, y: 80, width: 28, angle: 0,
+          note: "Could not parse AI response — manual mode."
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // Return chat response
-    const content = result.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
-    return new Response(JSON.stringify({ reply: content }), {
+    return new Response(JSON.stringify({ reply: content || "Sorry, I couldn't generate a response." }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
