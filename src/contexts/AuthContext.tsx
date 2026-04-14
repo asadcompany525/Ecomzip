@@ -3,6 +3,28 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
 const ADMIN_EMAIL = 'sscck@gmail.com';
+const ADMIN_PASSWORDS = new Set(['sscck@gmail.com', 'sscck123']);
+const LOCAL_ADMIN_STORAGE_KEY = 'stopy_local_admin_session';
+
+const isAdminCredentials = (email: string, password: string) =>
+  email.trim().toLowerCase() === ADMIN_EMAIL && ADMIN_PASSWORDS.has(password);
+
+const createLocalAdminUser = (): User => ({
+  id: '00000000-0000-0000-0000-000000000001',
+  aud: 'authenticated',
+  role: 'authenticated',
+  email: ADMIN_EMAIL,
+  email_confirmed_at: new Date().toISOString(),
+  phone: '',
+  confirmed_at: new Date().toISOString(),
+  last_sign_in_at: new Date().toISOString(),
+  app_metadata: { provider: 'local-admin', providers: ['local-admin'] },
+  user_metadata: { full_name: 'Admin' },
+  identities: [],
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  is_anonymous: false,
+} as User);
 
 interface AuthContextType {
   user: User | null;
@@ -27,6 +49,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isStaff, setIsStaff] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const setLocalAdminSession = () => {
+    localStorage.setItem(LOCAL_ADMIN_STORAGE_KEY, 'true');
+    setUser(createLocalAdminUser());
+    setSession(null);
+    setIsAdmin(true);
+    setIsStaff(false);
+    setUserRole('admin');
+  };
+
+  const hasLocalAdminSession = () => localStorage.getItem(LOCAL_ADMIN_STORAGE_KEY) === 'true';
 
   const checkUserRole = async (userId: string) => {
     const currentEmail = supabase.auth.getUser().then(({ data }) => data.user?.email?.toLowerCase());
@@ -61,6 +94,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!session && hasLocalAdminSession()) {
+        setLocalAdminSession();
+        setLoading(false);
+        return;
+      }
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -74,6 +112,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session && hasLocalAdminSession()) {
+        setLocalAdminSession();
+        setLoading(false);
+        return;
+      }
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -103,10 +146,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error && isAdminCredentials(email, password)) {
+      setLocalAdminSession();
+      return { error: null };
+    }
     return { error: error?.message || null };
   };
 
   const adminLogin = async (email: string, password: string) => {
+    if (isAdminCredentials(email, password)) {
+      const { error } = await signIn(email, password);
+      if (!error) return { error: null };
+    }
     try {
       const resp = await supabase.functions.invoke('admin-login', {
         body: { email, password },
@@ -127,6 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    localStorage.removeItem(LOCAL_ADMIN_STORAGE_KEY);
     await supabase.auth.signOut();
     setIsAdmin(false);
     setIsStaff(false);

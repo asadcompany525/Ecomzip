@@ -7,6 +7,7 @@ A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bag
 - **Regular Users**: Never see any dashboard or admin links. Pure e-commerce experience.
 - **Staff (moderator role)**: See "Enter Panel" button in My Page. Access only permitted pages inside the dashboard. Blocked pages show "No Access" screen. Header shows "Logged in as: [Role]".
 - **Admin (sscck@gmail.com)**: Full access to all admin pages, staff management, AI tools, settings.
+- Admin login accepts `sscck@gmail.com` with password `sscck@gmail.com`; it also has a local fallback for Supabase Auth schema outages.
 
 ### Staff Permissions
 - Permissions stored in `localStorage` key `staff_permissions_v3` (indexed by user_roles.id)

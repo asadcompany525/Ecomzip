@@ -13,6 +13,7 @@ import { lovable } from '@/integrations/lovable/index';
 import { supabase } from '@/integrations/supabase/client';
 
 type ForgotStep = 'email' | 'otp' | 'reset';
+const ADMIN_EMAIL = 'sscck@gmail.com';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -41,7 +42,7 @@ const Login = () => {
       toast({ title: 'Login Failed', description: error, variant: 'destructive' });
     } else {
       toast({ title: 'Welcome back!' });
-      navigate('/');
+      navigate(email.trim().toLowerCase() === ADMIN_EMAIL ? '/admin' : '/');
     }
   };
 

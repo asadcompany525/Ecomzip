@@ -156,7 +156,7 @@ const AdminLayout = () => {
   }, [isStaff, user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || user.email === ADMIN_EMAIL) return;
     supabase.from('staff_attendance').insert({ user_id: user.id, login_at: new Date().toISOString() })
       .select('id').single().then(({ data }) => {
         if (data?.id) attendanceId.current = data.id;
@@ -171,7 +171,7 @@ const AdminLayout = () => {
   }, [user?.id]);
 
   const handleLogout = async () => {
-    if (attendanceId.current) {
+    if (attendanceId.current && user?.email !== ADMIN_EMAIL) {
       await supabase.from('staff_attendance').update({ logout_at: new Date().toISOString() }).eq('id', attendanceId.current);
     }
     await signOut();
