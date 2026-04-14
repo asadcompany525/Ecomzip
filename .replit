@@ -41,3 +41,10 @@ externalPort = 3000
 deploymentTarget = "static"
 publicDir = "dist/public"
 run = ["sh", "-c", "bash -c printf \"%s\\n\\n%s\" \"$0\" \"$1\" Please use the \u001B[1;93mConfiguration\u001B[0m pane to configure your run command. For more info, see: https://docs.replit.com/replit-workspace/configuring-repl#run"]
+
+[userenv]
+
+[userenv.shared]
+VITE_SUPABASE_URL = "https://lhdxqwvgrbjywjiixioc.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxoZHhxd3ZncmJqeXdqaWl4aW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MTgwMjEsImV4cCI6MjA4Njk5NDAyMX0.3STYOTkPhDAXGPRR-ZOktXNre_-s7cs1QftR2_2MaZY"
+VITE_SUPABASE_PROJECT_ID = "lhdxqwvgrbjywjiixioc"
