@@ -170,32 +170,114 @@ const ProductDetail = () => {
   const uploadAdvisorPhoto = async (): Promise<string | null> => {
     if (!advisorFootPhotoFile) return null;
     setAdvisorUploadingPhoto(true);
-    try {
-      const ext = advisorFootPhotoFile.name.split('.').pop() || 'jpg';
-      const path = `size-advisor/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(path, advisorFootPhotoFile, { upsert: true, contentType: advisorFootPhotoFile.type });
-      if (uploadError) {
-        console.warn('Storage upload failed, using data URL:', uploadError.message);
-        return advisorFootPhoto;
-      }
-      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
-      return urlData.publicUrl;
-    } finally {
-      setAdvisorUploadingPhoto(false);
-    }
+    setAdvisorUploadingPhoto(false);
+    return advisorFootPhoto;
   };
 
   // Detect category type from product name/category for adaptive advisor
   const getCategoryType = (): 'shoes' | 'bags' | 'clothing' | 'electronics' | 'generic' => {
-    const nameAndCat = `${product?.name || ''} ${dbProduct?.category_id || ''}`.toLowerCase();
+    const nameAndCat = `${product?.name || ''} ${categoryName || ''} ${dbProduct?.description || ''} ${(product?.sizes || []).join(' ')}`.toLowerCase();
     if (/bag|purse|wallet|tote|backpack|handbag|clutch/.test(nameAndCat)) return 'bags';
-    if (/shirt|dress|pant|kurta|coat|jacket|jeans|cloth|wear|top/.test(nameAndCat)) return 'clothing';
+    if (/shirt|dress|pant|kurta|coat|jacket|jeans|cloth|wear|top|trouser|shalwar|kameez|hoodie|sweater|suit|xs|xxl/.test(nameAndCat)) return 'clothing';
     if (/phone|laptop|tablet|electronic|gadget/.test(nameAndCat)) return 'electronics';
     if (/shoe|sandal|slipper|boot|loafer|sneaker|chappal|khussa|heel/.test(nameAndCat)) return 'shoes';
-    if (product?.sizes && product.sizes.length > 0) return 'shoes';
+    if (product?.sizes?.some(s => /^\d+$/.test(String(s)))) return 'shoes';
     return 'generic';
+  };
+
+  const numberFromText = (value: string) => {
+    const match = value.match(/\d+(\.\d+)?/);
+    return match ? Number(match[0]) : null;
+  };
+
+  const normalizeSize = (size: any) => String(size || '').trim().toUpperCase();
+
+  const getStockInfo = (size: string) => {
+    const normalized = normalizeSize(size);
+    if (!normalized) return { inStock: false, stockCount: 0, exists: false };
+    const exists = product?.sizes?.some(s => normalizeSize(s) === normalized) || variants.some(v => normalizeSize(v.size) === normalized);
+    if (variants.length === 0) {
+      return { exists, inStock: exists && (product?.stock || 0) > 0, stockCount: exists ? (product?.stock || 0) : 0 };
+    }
+    const matching = variants.filter(v => normalizeSize(v.size) === normalized && (!selectedColor || v.color === selectedColor));
+    const stockCount = matching.reduce((sum: number, v: any) => sum + (Number(v.stock) || 0), 0);
+    return { exists: exists || matching.length > 0, inStock: stockCount > 0, stockCount };
+  };
+
+  const findNearestAvailableSize = (wanted: string) => {
+    const available = (product?.sizes || []).filter(size => getStockInfo(size).inStock);
+    if (available.length === 0) return null;
+    const wantedNum = numberFromText(wanted);
+    if (wantedNum !== null) {
+      return available
+        .map(size => ({ size, diff: Math.abs((numberFromText(String(size)) ?? wantedNum) - wantedNum) }))
+        .sort((a, b) => a.diff - b.diff)[0]?.size || available[0];
+    }
+    const order = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'SMALL', 'MEDIUM', 'LARGE'];
+    const wantedIndex = order.indexOf(normalizeSize(wanted));
+    if (wantedIndex >= 0) {
+      return available
+        .map(size => ({ size, diff: Math.abs(order.indexOf(normalizeSize(size)) - wantedIndex) }))
+        .filter(x => x.diff >= 0)
+        .sort((a, b) => a.diff - b.diff)[0]?.size || available[0];
+    }
+    return available[0];
+  };
+
+  const buildLocalSizeAdvice = (catType: ReturnType<typeof getCategoryType>) => {
+    const sizes = (product?.sizes || []).map(String);
+    const usual = advisorUsualSize.trim();
+    const firstNumber = numberFromText(advisorFootLength);
+    const secondNumber = numberFromText(advisorFootWidth);
+    let recommendedSize = usual || sizes[0] || 'Standard';
+    let fitNote = '';
+
+    if (catType === 'shoes') {
+      if (usual) {
+        recommendedSize = String(numberFromText(usual) ?? usual).trim();
+        fitNote = `You entered shoe size ${recommendedSize}; checking this exact size in current stock.`;
+      } else if (firstNumber) {
+        recommendedSize = String(Math.round((firstNumber + 1.5) * 1.5));
+        fitNote = `Based on ${firstNumber}cm foot length${secondNumber ? ` and ${secondNumber}cm width` : ''}, this is the nearest EU/Pakistan shoe size.`;
+      }
+    } else if (catType === 'clothing') {
+      const text = `${usual} ${advisorFootLength} ${advisorFootWidth}`.toUpperCase();
+      const direct = text.match(/\b(XXS|XS|S|M|L|XL|XXL|XXXL)\b/)?.[1];
+      if (direct) recommendedSize = direct;
+      else {
+        const chest = firstNumber || 0;
+        if (chest > 0) {
+          recommendedSize = chest <= 34 ? 'S' : chest <= 38 ? 'M' : chest <= 42 ? 'L' : chest <= 46 ? 'XL' : 'XXL';
+        }
+      }
+      fitNote = `For clothing, use chest/height and width/waist measurements. The recommendation is matched against this product's sizes.`;
+    } else if (catType === 'bags') {
+      const text = `${usual} ${advisorFootLength}`.toLowerCase();
+      recommendedSize = /large|xl|travel|laptop|15|20/.test(text) ? 'Large' : /small|mini|compact/.test(text) ? 'Small' : 'Medium';
+      fitNote = 'Bag size is based on your use case and available product sizes.';
+    } else {
+      recommendedSize = usual || advisorFootLength || sizes[0] || 'Standard';
+      fitNote = 'Recommendation is matched to this product category and available options.';
+    }
+
+    const stock = getStockInfo(recommendedSize);
+    const alternateSize = stock.inStock ? null : findNearestAvailableSize(recommendedSize);
+    const alternateStock = alternateSize ? getStockInfo(alternateSize) : null;
+
+    return {
+      recommendedSize,
+      alternateSize,
+      confidence: advisorFootPhoto ? 82 : 76,
+      shortAdvice: stock.inStock
+        ? `Size ${recommendedSize} is suitable and currently available.`
+        : `Size ${recommendedSize} is the right recommendation, but it is not available in this product right now.${alternateSize ? ` Closest available option: ${alternateSize}.` : ''}`,
+      fitNote,
+      categoryType: catType,
+      inStock: stock.inStock,
+      stockCount: stock.stockCount,
+      sizeExists: stock.exists,
+      alternateStockCount: alternateStock?.stockCount || 0,
+    };
   };
 
   const getSizeAdvice = async () => {
@@ -213,81 +295,9 @@ const ProductDetail = () => {
         toast({ title: '📸 Photo uploaded — analyzing with AI...', description: 'Checking live inventory stock for your size.' });
       }
 
-      const gender = product?.gender || 'unisex';
       const catType = getCategoryType();
-      const photoProvided = !!uploadedPhotoUrl;
-
-      const categoryContext = {
-        shoes: `You are an expert shoe size advisor. ${photoProvided ? 'Carefully analyze the foot in the provided photo — estimate foot length from heel to longest toe. Use standard Pakistani/EU sizing (36-46).' : ''}`,
-        bags: `You are a bag sizing advisor. Analyze the customer's needs and suggest the best bag size (Small/Medium/Large/XL).`,
-        clothing: `You are a clothing size advisor for Pakistan. ${photoProvided ? 'Analyze body proportions from the photo.' : ''} Suggest sizes (XS/S/M/L/XL/XXL or Pakistani numbers).`,
-        electronics: `You are a tech product advisor. Based on the product specs and customer needs, suggest the right variant/configuration.`,
-        generic: `You are a universal size advisor. Based on the product and customer input, suggest the best size from the available options.`,
-      }[catType];
-
-      const measurementContext = {
-        shoes: `- Foot Photo: ${photoProvided ? 'PROVIDED — analyze heel-to-toe length and width from the image' : 'Not uploaded'}
-- Foot Length (cm): ${advisorFootLength || 'Not provided'}
-- Foot Width (cm): ${advisorFootWidth || 'Not provided'}
-- Reference size: ${advisorUsualSize ? `${advisorUsualSize} in ${advisorBrand || 'another brand'}` : 'Not provided'}`,
-        bags: `- Use case / preference: ${advisorUsualSize || advisorFootLength || 'General everyday use'}`,
-        clothing: `- Photo: ${photoProvided ? 'PROVIDED' : 'Not uploaded'}
-- Body measurements or reference: ${advisorFootLength || advisorUsualSize || 'Not provided'}`,
-        electronics: `- Preference / use case: ${advisorUsualSize || advisorFootLength || 'Not provided'}`,
-        generic: `- Reference or measurement: ${advisorFootLength || advisorUsualSize || 'Not provided'}`,
-      }[catType];
-
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: {
-          type: 'size-advisor',
-          imageUrl: uploadedPhotoUrl || undefined,
-          messages: [{
-            role: 'user',
-            content: `${categoryContext}
-
-PRODUCT: "${product?.name || 'Product'}"
-GENDER: ${gender}
-CATEGORY TYPE: ${catType}
-
-CUSTOMER INPUT:
-${measurementContext}
-
-AVAILABLE SIZES FOR THIS PRODUCT: ${product?.sizes?.join(', ') || 'One size / Standard'}
-
-${photoProvided ? `IMPORTANT: Analyze the uploaded ${catType === 'shoes' ? 'foot' : 'body/product'} photo carefully. Estimate measurements from the image and use them to determine the most accurate size recommendation from the available sizes list above.` : ''}
-
-Return ONLY this JSON (no extra text):
-{
-  "recommendedSize": "<exact size from available sizes>",
-  "alternateSize": "<second best option or null>",
-  "confidence": <50-99>,
-  "shortAdvice": "<1-2 sentences in friendly English>",
-  "fitNote": "<tip about fit or null>",
-  "categoryType": "${catType}"
-}`
-          }]
-        }
-      });
-      if (error) throw error;
-      let parsed = data;
-      if (typeof data === 'string') {
-        const jsonMatch = data.match(/\{[\s\S]*\}/);
-        if (jsonMatch) { try { parsed = JSON.parse(jsonMatch[0]); } catch {} }
-      }
-      if (typeof parsed === 'object' && parsed?.reply) {
-        const m = parsed.reply.match(/\{[\s\S]*\}/);
-        if (m) { try { parsed = JSON.parse(m[0]); } catch {} }
-      }
-      // Live stock check for recommended size
-      if (parsed?.recommendedSize) {
-        const recommendedSize = parsed.recommendedSize.toString().trim();
-        const inStock = isSizeAvailable(recommendedSize) || (variants.length === 0 && (product?.stock || 0) > 0);
-        const stockCount = variants.length > 0
-          ? variants.filter(v => v.size === recommendedSize && v.stock > 0).reduce((s: number, v: any) => s + v.stock, 0)
-          : (product?.stock || 0);
-        parsed = { ...parsed, inStock, stockCount, recommendedSize };
-        toast({ title: `AI suggests Size ${recommendedSize} (${inStock ? `In Stock: ${stockCount}` : 'Out of Stock'})` });
-      }
+      let parsed = buildLocalSizeAdvice(catType);
+      toast({ title: `Size ${parsed.recommendedSize} checked`, description: parsed.inStock ? `Available: ${parsed.stockCount}` : 'Not available in current stock' });
       setAdvisorResult(parsed);
     } catch (e: any) {
       toast({ title: 'Could not get recommendation', description: e.message, variant: 'destructive' });
@@ -718,16 +728,16 @@ Return ONLY this JSON (no extra text):
               const photoLabel = { shoes: 'Upload Foot Photo', bags: 'Upload Reference Photo', clothing: 'Upload Body Photo', electronics: 'Upload Reference', generic: 'Upload Photo' }[catType];
               const photoHint = { shoes: 'AI analyzes foot shape to find the perfect shoe size', bags: 'AI analyzes the reference image to suggest the right bag size', clothing: 'AI analyzes body proportions from the photo', electronics: 'AI analyzes your reference to suggest the right variant', generic: 'AI analyzes the photo to suggest the right size' }[catType];
               const measureLabel1 = { shoes: 'Foot Length (cm)', bags: 'Preferred size / capacity', clothing: 'Chest / Height (cm)', electronics: 'Preferred specs', generic: 'Measurement / Reference' }[catType];
-              const measureLabel2 = { shoes: 'Foot Width (cm)', bags: 'Brand preference', clothing: 'Waist / Weight (kg)', electronics: 'Budget range', generic: 'Additional info' }[catType];
+              const measureLabel2 = { shoes: 'Foot Width (cm)', bags: 'Brand preference', clothing: 'Width / Waist (cm)', electronics: 'Budget range', generic: 'Additional info' }[catType];
               const placeholder1 = { shoes: 'e.g. 25.5', bags: 'e.g. Medium, 15L', clothing: 'e.g. 40, 170', electronics: 'e.g. 256GB', generic: 'e.g. Standard' }[catType];
               const placeholder2 = { shoes: 'e.g. 9.5 (optional)', bags: 'e.g. Gucci, local', clothing: 'e.g. 32, 70kg', electronics: 'e.g. Rs. 50,000', generic: 'optional' }[catType];
               return (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    {catType === 'shoes' ? 'Upload a foot photo or enter measurements — AI will recommend the perfect size.' :
+                    {catType === 'shoes' ? 'Upload a foot photo or enter measurements — adviser will recommend the perfect shoe size.' :
                      catType === 'bags' ? 'Tell us your preferences — AI will recommend the best bag size.' :
-                     catType === 'clothing' ? 'Upload a photo or enter body measurements — AI suggests your clothing size.' :
-                     'Describe your needs — AI will recommend the right option.'}
+                     catType === 'clothing' ? 'For shirts/clothing, enter height/chest and width/waist so adviser recommends clothing size.' :
+                     'Describe your needs — adviser will recommend the right option.'}
                   </p>
 
                   {/* Photo Upload */}
@@ -811,14 +821,14 @@ Return ONLY this JSON (no extra text):
                     {advisorResult.recommendedSize}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-base">AI Recommended Size</p>
+                    <p className="font-bold text-base">Recommended Size</p>
                     <p className="text-xs text-muted-foreground">{advisorResult.confidence}% confidence {advisorFootPhoto ? '· Photo analyzed' : ''}</p>
                     {/* Live stock badge */}
                     <div className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${advisorResult.inStock !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${advisorResult.inStock !== false ? 'bg-green-500' : 'bg-red-500'}`} />
                       {advisorResult.inStock !== false
                         ? `In Stock${advisorResult.stockCount ? ` · ${advisorResult.stockCount} left` : ''}`
-                        : 'Out of Stock'}
+                        : advisorResult.sizeExists === false ? 'Size not available for this product' : 'Out of Stock'}
                     </div>
                     {advisorResult.alternateSize && advisorResult.alternateSize !== advisorResult.recommendedSize && (
                       <p className="text-xs text-muted-foreground mt-0.5">

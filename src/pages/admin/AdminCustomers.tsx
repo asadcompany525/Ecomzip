@@ -79,37 +79,29 @@ const AdminCustomers = () => {
     setDeleteError('');
     try {
       await ensureAdminSession();
-      // Soft delete: set is_deleted = true (never permanently removes data)
+      await supabase.from('user_roles').delete().eq('user_id', deleteTarget.user_id);
       const { error } = await supabase
         .from('profiles')
-        .update({ is_deleted: true } as any)
+        .delete()
         .eq('id', deleteTarget.id);
 
       if (error) {
-        // If column doesn't exist yet (migration not applied), fall back to persistent settings-based hiding
-        if (error.code === 'PGRST204' || error.message?.includes('is_deleted')) {
-          const { data: existing, error: loadHiddenError } = await supabase
-            .from('site_settings')
-            .select('value')
-            .eq('key', DEACTIVATED_CUSTOMERS_KEY)
-            .maybeSingle();
-          if (loadHiddenError) throw loadHiddenError;
-
-          const hiddenIds = Array.isArray(existing?.value) ? existing.value : [];
-          const nextHiddenIds = [...new Set([...hiddenIds, deleteTarget.id, deleteTarget.user_id].filter(Boolean))];
-          const { error: saveHiddenError } = await supabase
-            .from('site_settings')
-            .upsert({ key: DEACTIVATED_CUSTOMERS_KEY, value: nextHiddenIds }, { onConflict: 'key' });
-          if (saveHiddenError) throw saveHiddenError;
-        } else {
-          throw error;
-        }
+        throw error;
       }
+
+      const { data: existing } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', DEACTIVATED_CUSTOMERS_KEY)
+        .maybeSingle();
+      const hiddenIds = Array.isArray(existing?.value) ? existing.value : [];
+      const nextHiddenIds = hiddenIds.filter((id: string) => id !== deleteTarget.id && id !== deleteTarget.user_id);
+      await supabase.from('site_settings').upsert({ key: DEACTIVATED_CUSTOMERS_KEY, value: nextHiddenIds }, { onConflict: 'key' });
 
       setProfiles(prev => prev.filter(p => p.id !== deleteTarget.id));
       setDeleteTarget(null);
       if (selected?.id === deleteTarget.id) setSelected(null);
-      toast({ title: '✅ Customer deactivated', description: 'Account hidden from list. Data is preserved.' });
+      toast({ title: '✅ Customer permanently deleted', description: 'Customer profile was removed from the database.' });
     } catch (err: any) {
       setDeleteError(err.message || 'Failed to deactivate customer.');
     } finally {
@@ -195,8 +187,8 @@ const AdminCustomers = () => {
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold">Deactivate Customer?</h3>
-                <p className="text-sm text-gray-500 mt-0.5">Their data is never permanently deleted.</p>
+                <h3 className="text-base font-semibold">Permanently Delete Customer?</h3>
+                <p className="text-sm text-gray-500 mt-0.5">Their profile will be removed from the database. Orders stay for records.</p>
               </div>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 space-y-1">
@@ -213,7 +205,7 @@ const AdminCustomers = () => {
               </button>
               <button onClick={handleSoftDelete} disabled={deleting}
                 className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 flex items-center justify-center gap-2">
-                {deleting ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>Deactivating…</> : <><Trash2 className="h-4 w-4" />Deactivate</>}
+                {deleting ? <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>Deleting…</> : <><Trash2 className="h-4 w-4" />Delete Permanently</>}
               </button>
             </div>
           </div>
