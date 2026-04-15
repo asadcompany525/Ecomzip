@@ -179,6 +179,7 @@ CREATE TABLE IF NOT EXISTS public.products (
   is_new_arrival BOOLEAN NOT NULL DEFAULT false,
   is_featured BOOLEAN NOT NULL DEFAULT false,
   return_policy TEXT,
+  claim_duration TEXT DEFAULT '30 days',
   claim_policy TEXT,
   tags TEXT[],
   meta JSONB DEFAULT '{}'::jsonb,
@@ -190,6 +191,7 @@ DROP POLICY IF EXISTS "Anyone can view active products" ON public.products;
 CREATE POLICY "Anyone can view active products" ON public.products FOR SELECT USING (is_active = true);
 DROP POLICY IF EXISTS "Admins can manage products" ON public.products;
 CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS claim_duration TEXT DEFAULT '30 days';
 
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_gender ON public.products(gender);
@@ -429,6 +431,27 @@ DROP POLICY IF EXISTS "Users can create returns" ON public.returns;
 CREATE POLICY "Users can create returns" ON public.returns FOR INSERT WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Admins can manage returns" ON public.returns;
 CREATE POLICY "Admins can manage returns" ON public.returns FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can create contact messages" ON public.contact_messages;
+CREATE POLICY "Anyone can create contact messages" ON public.contact_messages FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Admins and moderators can view contact messages" ON public.contact_messages;
+CREATE POLICY "Admins and moderators can view contact messages" ON public.contact_messages FOR SELECT USING (
+  public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'moderator')
+);
+DROP POLICY IF EXISTS "Admins and moderators can update contact messages" ON public.contact_messages;
+CREATE POLICY "Admins and moderators can update contact messages" ON public.contact_messages FOR UPDATE USING (
+  public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'moderator')
+);
 
 -- =============================================
 -- 12. CHAT / SUPPORT
@@ -863,6 +886,17 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Admins can insert profiles'
+  ) THEN
+    CREATE POLICY "Admins can insert profiles"
+      ON public.profiles FOR INSERT
+      WITH CHECK (public.has_role(auth.uid(), 'admin'));
+  END IF;
+END $$;
+
 
 -- ── Migration: 20260412100000_sql_fix_customers_and_roles.sql ──
 -- Fix: Add is_deleted to legacy customers table only if that table exists.
@@ -890,6 +924,7 @@ CREATE INDEX IF NOT EXISTS user_roles_custom_role_label_idx ON public.user_roles
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES 
   ('product-images', 'product-images', true, 52428800, ARRAY['image/jpeg','image/png','image/webp','image/gif','image/avif']),
+  ('products', 'products', true, 104857600, ARRAY['image/jpeg','image/png','image/webp','image/gif','image/avif','video/mp4','video/quicktime','video/webm']),
   ('logos', 'logos', true, 5242880, ARRAY['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'])
 ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 

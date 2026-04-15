@@ -186,82 +186,108 @@ export default function AdminStaff() {
     setAdding(true);
     try {
       await ensureAdminSession();
-      // Create user via separate Supabase client (won't affect admin session)
-      const tempClient = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
-      );
+      const normalizedEmail = fEmail.trim().toLowerCase();
+      let newUserId = '';
+      let roleId = '';
+      let createdByFunction = false;
 
-      const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
-        email: fEmail.trim().toLowerCase(),
-        password: fPassword,
-        options: { data: { full_name: fName.trim() } },
+      const functionResult = await supabase.functions.invoke('admin-staff', {
+        body: {
+          action: 'createStaff',
+          name: fName.trim(),
+          username: fUsername.trim(),
+          email: normalizedEmail,
+          password: fPassword,
+          role: fRole,
+        },
       });
 
-      if (signUpError) throw signUpError;
-      if (!signUpData.user) throw new Error('User creation failed — no user returned');
+      if (!functionResult.error && functionResult.data?.user_id) {
+        newUserId = functionResult.data.user_id;
+        roleId = functionResult.data.role_id || '';
+        createdByFunction = true;
+      } else {
+        const message = functionResult.error?.message || functionResult.data?.error || '';
+        const canFallback = !message || /not found|failed to send|edge function/i.test(message);
+        if (!canFallback) throw new Error(message || 'Staff creation failed');
 
-      const newUserId = signUpData.user.id;
-
-      // Wait a moment for the profile trigger to fire
-      await new Promise(r => setTimeout(r, 1200));
-
-      // Update profile with username and plain_password
-      const profilePayload: any = { user_id: newUserId, full_name: fName.trim(), email: fEmail.trim().toLowerCase(), username: fUsername.trim(), plain_password: fPassword };
-      let profileSave = await supabase.from('profiles').upsert(
-        profilePayload,
-        { onConflict: 'user_id' }
-      );
-
-      if (profileSave.error?.code === 'PGRST204' || profileSave.error?.message?.includes('username') || profileSave.error?.message?.includes('plain_password')) {
-        profileSave = await supabase.from('profiles').upsert(
-          { user_id: newUserId, full_name: fName.trim(), email: fEmail.trim().toLowerCase() },
-          { onConflict: 'user_id' }
+        const tempClient = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
         );
+
+        const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
+          email: normalizedEmail,
+          password: fPassword,
+          options: { data: { full_name: fName.trim() } },
+        });
+
+        if (signUpError) throw signUpError;
+        if (!signUpData.user) throw new Error('User creation failed — no user returned');
+        newUserId = signUpData.user.id;
+        await new Promise(r => setTimeout(r, 1200));
       }
 
-      if (profileSave.error) throw profileSave.error;
+      if (!createdByFunction) {
+        const profilePayload: any = { user_id: newUserId, full_name: fName.trim(), email: normalizedEmail, username: fUsername.trim(), plain_password: fPassword };
+        let profileSave = await supabase.from('profiles').upsert(
+          profilePayload,
+          { onConflict: 'user_id' }
+        );
 
-      await supabase.from('site_settings').upsert(
-        {
-          key: `staff_credentials_${newUserId}`,
-          value: {
-            name: fName.trim(),
-            username: fUsername.trim(),
-            email: fEmail.trim().toLowerCase(),
-            password: fPassword,
-            role: fRole,
-            created_at: new Date().toISOString(),
+        if (profileSave.error?.code === 'PGRST204' || profileSave.error?.message?.includes('username') || profileSave.error?.message?.includes('plain_password')) {
+          profileSave = await supabase.from('profiles').upsert(
+            { user_id: newUserId, full_name: fName.trim(), email: normalizedEmail },
+            { onConflict: 'user_id' }
+          );
+        }
+
+        if (profileSave.error) throw profileSave.error;
+
+        await supabase.from('site_settings').upsert(
+          {
+            key: `staff_credentials_${newUserId}`,
+            value: {
+              name: fName.trim(),
+              username: fUsername.trim(),
+              email: normalizedEmail,
+              password: fPassword,
+              role: fRole,
+              created_at: new Date().toISOString(),
+            },
           },
-        },
-        { onConflict: 'key' }
-      );
+          { onConflict: 'key' }
+        );
 
-      await supabase.from('profiles').upsert(
-        { user_id: newUserId, full_name: fName.trim(), email: fEmail.trim().toLowerCase(), username: fUsername.trim(), plain_password: fPassword },
-        { onConflict: 'user_id' }
-      ).then(({ error }) => {
-        if (error && !error.message?.includes('username') && !error.message?.includes('plain_password')) throw error;
-      });
+        await supabase.from('profiles').upsert(
+          { user_id: newUserId, full_name: fName.trim(), email: normalizedEmail, username: fUsername.trim(), plain_password: fPassword },
+          { onConflict: 'user_id' }
+        ).then(({ error }) => {
+          if (error && !error.message?.includes('username') && !error.message?.includes('plain_password')) throw error;
+        });
+      }
 
       // Add moderator role (staff)
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({ user_id: newUserId, role: 'moderator' as any }, { onConflict: 'user_id,role' })
-        .select('id').single();
+      if (!roleId) {
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .upsert({ user_id: newUserId, role: 'moderator' as any, custom_role_label: fRole }, { onConflict: 'user_id,role' })
+          .select('id').single();
 
-      if (roleError) throw roleError;
+        if (roleError) throw roleError;
+        roleId = roleData?.id || '';
+      }
 
-      if (roleData?.id) {
+      if (roleId) {
         const defaultPerms = DEFAULT_PERMS[fRole.toLowerCase()] || DEFAULT_PERMS.staff;
-        const newPerms  = { ...loadPerms(),  [roleData.id]: defaultPerms };
-        const newRoles  = { ...loadRoles(),  [roleData.id]: fRole.toLowerCase() };
+        const newPerms  = { ...loadPerms(),  [roleId]: defaultPerms };
+        const newRoles  = { ...loadRoles(),  [roleId]: fRole.toLowerCase() };
         savePerms(newPerms); saveRoles(newRoles); setStaffPerms(newPerms);
       }
 
       // Show success credentials popup
-      setCredentials({ name: fName.trim(), username: fUsername.trim(), email: fEmail.trim().toLowerCase(), password: fPassword, role: fRole });
+      setCredentials({ name: fName.trim(), username: fUsername.trim(), email: normalizedEmail, password: fPassword, role: fRole });
       setFName(''); setFUsername(''); setFEmail('');
       setFPassword(genPassword()); setFRole('staff');
       setShowForm(false);

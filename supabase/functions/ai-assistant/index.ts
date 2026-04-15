@@ -295,6 +295,7 @@ Generate a detailed description of at least 30 lines covering material, comfort,
               },
               suggestedSizes: { type: "array", items: { type: "string" } },
               returnPolicy: { type: "string" },
+              claimDuration: { type: "string" },
               claimPolicy: { type: "string" }
             },
             required: ["title", "description", "category", "subCategory", "gender", "productType", "suggestedPrice", "suggestedSizes", "suggestedColors"],

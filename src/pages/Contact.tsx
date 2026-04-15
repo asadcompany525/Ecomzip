@@ -1,4 +1,4 @@
-import { Phone, Mail, MapPin, MessageCircle } from 'lucide-react';
+import { Phone, Mail, MapPin, MessageCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,13 +10,35 @@ import { supabase } from '@/integrations/supabase/client';
 
 const Contact = () => {
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
 
   useEffect(() => {
     supabase.from('site_settings').select('*').eq('key', 'contact').maybeSingle().then(({ data }) => {
       if (data) setContact(data.value as any);
     });
   }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.subject.trim() || !form.message.trim()) return;
+    setSending(true);
+    const { error } = await supabase.from('contact_messages' as any).insert({
+      name: form.name.trim(),
+      email: form.email.trim(),
+      subject: form.subject.trim(),
+      message: form.message.trim(),
+      is_read: false,
+    });
+    setSending(false);
+    if (error) {
+      alert(`Message could not be sent: ${error.message}`);
+      return;
+    }
+    setForm({ name: '', email: '', subject: '', message: '' });
+    setSent(true);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -55,13 +77,15 @@ const Contact = () => {
                 <Button className="mt-4" onClick={() => setSent(false)}>Send Another</Button>
               </div>
             ) : (
-              <form onSubmit={(e) => { e.preventDefault(); setSent(true); }} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <h3 className="font-bold text-lg mb-2">ہمیں پیغام بھیجیں</h3>
-                <div><Label>Name</Label><Input placeholder="آپ کا نام" required className="mt-1" /></div>
-                <div><Label>Email</Label><Input type="email" placeholder="your@email.com" required className="mt-1" /></div>
-                <div><Label>Subject</Label><Input placeholder="کیسے مدد کر سکتے ہیں؟" required className="mt-1" /></div>
-                <div><Label>Message</Label><Textarea placeholder="اپنا پیغام لکھیں..." required className="mt-1" rows={4} /></div>
-                <Button type="submit" className="w-full">Send Message</Button>
+                <div><Label>Name</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="آپ کا نام" required className="mt-1" /></div>
+                <div><Label>Email</Label><Input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} type="email" placeholder="your@email.com" required className="mt-1" /></div>
+                <div><Label>Subject</Label><Input value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} placeholder="کیسے مدد کر سکتے ہیں؟" required className="mt-1" /></div>
+                <div><Label>Message</Label><Textarea value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))} placeholder="اپنا پیغام لکھیں..." required className="mt-1" rows={4} /></div>
+                <Button type="submit" className="w-full" disabled={sending}>
+                  {sending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</> : 'Send Message'}
+                </Button>
               </form>
             )}
           </div>

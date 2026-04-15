@@ -12,6 +12,13 @@ import Header from '@/components/layout/Header';
 import BottomNav from '@/components/layout/BottomNav';
 import { toast } from '@/hooks/use-toast';
 
+const parseClaimDurationDays = (value?: string | null) => {
+  const text = String(value || '').toLowerCase();
+  if (!text || text.includes('no claim')) return null;
+  const match = text.match(/(\d+)/);
+  return match ? Number(match[1]) : null;
+};
+
 const MyReturns = () => {
   const { user } = useAuth();
   const [returns, setReturns] = useState<any[]>([]);
@@ -69,8 +76,39 @@ const MyReturns = () => {
       if (error) throw error;
 
       // AI auto-review
-      const { data: orderItems } = await supabase.from('order_items').select('*, products:product_id(title, claim_policy, return_policy)').eq('order_id', selectedOrder);
+      const selectedOrderData = orders.find(o => o.id === selectedOrder);
+      const { data: orderItems } = await supabase.from('order_items').select('*, products:product_id(title, claim_policy, claim_duration, return_policy)').eq('order_id', selectedOrder);
       const product = (orderItems || [])[0]?.products;
+      const claimDays = parseClaimDurationDays(product?.claim_duration);
+      const daysSinceOrder = selectedOrderData?.created_at
+        ? Math.floor((Date.now() - new Date(selectedOrderData.created_at).getTime()) / 86400000)
+        : null;
+      if (requestType === 'claim' && product?.claim_duration?.toLowerCase?.().includes('no claim')) {
+        await supabase.from('returns').update({
+          status: 'rejected' as any,
+          ai_recommendation: `AI Auto-Rejected: This product is marked as No Claim. Admin instructions: ${product?.claim_policy || 'None'}`
+        }).eq('id', returnData.id);
+        toast({ title: 'Request auto-reviewed', description: 'This product is marked as No Claim.' });
+        setDialogOpen(false);
+        setSelectedOrder(''); setReason(''); setImages([]); setRequestType('return');
+        const { data: refreshed } = await supabase.from('returns').select('*, orders(order_number)').eq('user_id', user!.id).order('created_at', { ascending: false });
+        setReturns(refreshed || []);
+        setSubmitting(false);
+        return;
+      }
+      if (requestType === 'claim' && claimDays !== null && daysSinceOrder !== null && daysSinceOrder > claimDays) {
+        await supabase.from('returns').update({
+          status: 'rejected' as any,
+          ai_recommendation: `AI Auto-Rejected: Claim submitted after ${daysSinceOrder} days, outside the ${product?.claim_duration} claim duration.`
+        }).eq('id', returnData.id);
+        toast({ title: 'Request auto-reviewed', description: `Claim duration expired after ${product?.claim_duration}.` });
+        setDialogOpen(false);
+        setSelectedOrder(''); setReason(''); setImages([]); setRequestType('return');
+        const { data: refreshed } = await supabase.from('returns').select('*, orders(order_number)').eq('user_id', user!.id).order('created_at', { ascending: false });
+        setReturns(refreshed || []);
+        setSubmitting(false);
+        return;
+      }
       
       const { data: aiData } = await supabase.functions.invoke('ai-assistant', {
         body: {
@@ -80,12 +118,15 @@ const MyReturns = () => {
             content: `Auto-review this ${requestType} request:
 Reason: ${reason}
 Product: ${product?.title || 'Unknown'}
-Claim Policy: ${product?.claim_policy || 'None'}
+Standard Claim Duration: ${product?.claim_duration || 'Not set'}
+AI Claim Advisor Instructions: ${product?.claim_policy || 'None'}
 Return Policy: ${product?.return_policy || 'None'}
+Order Date: ${selectedOrderData?.created_at ? new Date(selectedOrderData.created_at).toLocaleDateString() : 'Unknown'}
+Days Since Order: ${daysSinceOrder ?? 'Unknown'}
 Has Images: ${images.length > 0 ? 'Yes' : 'No'}
 Type: ${requestType}
 
-Check if the claim matches the product's claim policy. If it clearly does NOT match (e.g., color fade when policy says only sole issues), AUTO-REJECT with explanation. If it matches or is unclear, mark for admin review with recommendation.
+Check claim duration first, then check if the claim matches the admin's AI claim instructions. If it clearly does NOT match (e.g., color fade when policy says only sole issues), AUTO-REJECT with explanation. If it matches or is unclear, mark for admin review with recommendation.
 
 Return JSON: { "decision": "reject" or "review", "reason": "explanation" }`
           }]

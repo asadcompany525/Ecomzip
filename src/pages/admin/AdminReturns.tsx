@@ -55,7 +55,7 @@ const AdminReturns = () => {
     if (items && items.length > 0) {
       const productIds = items.map(i => i.product_id).filter(Boolean);
       if (productIds.length > 0) {
-        const { data: prods } = await supabase.from('products').select('id, title, images, claim_policy, return_policy, price, brand').in('id', productIds);
+        const { data: prods } = await supabase.from('products').select('id, title, images, claim_policy, claim_duration, return_policy, price, brand').in('id', productIds);
         setProductDetails(prods || []);
       }
     }
@@ -74,14 +74,15 @@ const AdminReturns = () => {
             content: `Review this ${isClaim(selected) ? 'CLAIM' : 'RETURN'} request:
 Reason: ${selected.reason}
 Product: ${product?.title || 'Unknown'}
-Product Claim Policy: ${product?.claim_policy || 'None'}
+Standard Claim Duration: ${product?.claim_duration || 'Not set'}
+AI Claim Advisor Instructions: ${product?.claim_policy || 'None'}
 Product Return Policy: ${product?.return_policy || 'None'}
 Order Date: ${order ? new Date(order.created_at).toLocaleDateString() : 'Unknown'}
 Return Date: ${new Date(selected.created_at).toLocaleDateString()}
 Has Images: ${images(selected).length > 0 ? 'Yes' : 'No'}
 Admin Notes: ${adminNotes || 'None'}
 
-Check if: 1) Return/claim is within policy time, 2) Reason is valid, 3) Recommend approve/reject with explanation`
+Check if: 1) Return/claim is within policy time, 2) Claim reason matches the admin's AI instructions, 3) Customer photos support the claim, 4) Recommend approve/reject with explanation`
           }]
         }
       });
@@ -274,7 +275,8 @@ Check if: 1) Return/claim is within policy time, 2) Reason is valid, 3) Recommen
                         {prod && (
                           <div className="mt-2 text-xs space-y-1 border-t pt-2">
                             {prod.return_policy && <p><span className="font-medium">Return:</span> {prod.return_policy}</p>}
-                            {prod.claim_policy && <p><span className="font-medium">Claim:</span> {prod.claim_policy}</p>}
+                            {prod.claim_duration && <p><span className="font-medium">Claim Duration:</span> {prod.claim_duration}</p>}
+                            {prod.claim_policy && <p><span className="font-medium">AI Claim Instructions:</span> {prod.claim_policy}</p>}
                           </div>
                         )}
                       </div>

@@ -248,6 +248,36 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_read: boolean
+          message: string
+          name: string
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_read?: boolean
+          message: string
+          name: string
+          subject: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          name?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           color: string | null
@@ -462,6 +492,7 @@ export type Database = {
         Row: {
           brand: string | null
           category_id: string | null
+          claim_duration: string | null
           claim_policy: string | null
           colors: Json | null
           created_at: string
@@ -494,6 +525,7 @@ export type Database = {
         Insert: {
           brand?: string | null
           category_id?: string | null
+          claim_duration?: string | null
           claim_policy?: string | null
           colors?: Json | null
           created_at?: string
@@ -526,6 +558,7 @@ export type Database = {
         Update: {
           brand?: string | null
           category_id?: string | null
+          claim_duration?: string | null
           claim_policy?: string | null
           colors?: Json | null
           created_at?: string

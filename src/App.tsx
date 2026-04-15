@@ -77,6 +77,8 @@ import AdminPricingEngine from "./pages/admin/AdminPricingEngine";
 import AdminLoyaltyHeatmap from "./pages/admin/AdminLoyaltyHeatmap";
 import AdminSearchLogs from "./pages/admin/AdminSearchLogs";
 import AdminNewsletter from "./pages/admin/AdminNewsletter";
+import AdminContactMessages from "./pages/admin/AdminContactMessages";
+import AdminAiClaimValidator from "./pages/admin/AdminAiClaimValidator";
 import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
@@ -164,6 +166,7 @@ const App = () => (
                 <Route path="promos" element={<AdminPromos />} />
                 <Route path="reviews" element={<AdminReviews />} />
                 <Route path="returns" element={<AdminReturns />} />
+                <Route path="contact-messages" element={<AdminContactMessages />} />
                 <Route path="chat" element={<AdminChat />} />
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="product-analytics" element={<AdminProductAnalytics />} />
@@ -183,6 +186,7 @@ const App = () => (
                 <Route path="ai-feedback-analyzer" element={<AdminAiFeedbackAnalyzer />} />
                 <Route path="ai-price-intelligence" element={<AdminAiPriceIntelligence />} />
                 <Route path="ai-global-manager" element={<AdminAiGlobalManager />} />
+                <Route path="ai-claim-advisor" element={<AdminAiClaimValidator />} />
                 <Route path="ai-voice" element={<AdminAiGlobalManager />} />
                 <Route path="inventory" element={<AdminInventoryInsights />} />
                 <Route path="activity" element={<AdminActivity />} />

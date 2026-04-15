@@ -37,6 +37,7 @@ interface ProductForm {
   is_active: boolean;
   is_new_arrival: boolean;
   return_policy: string;
+  claim_duration: string;
   claim_policy: string;
   images: string[];
   video_url: string;
@@ -59,7 +60,7 @@ const defaultForm: ProductForm = {
   discount_type: 'none', flash_sale_ends: '',
   category_id: null, sub_category_id: null, sub_sub_category_id: null,
   is_active: true, is_new_arrival: false,
-  return_policy: '7 days return policy', claim_policy: '30 days warranty',
+  return_policy: '7 days return policy', claim_duration: '30 days', claim_policy: 'Manufacturing defects only. Normal wear, misuse, water damage, color fading, and size issues are not claimable.',
   images: [], video_url: '', sizes: [], tags: [], product_type: 'shoes',
 };
 
@@ -216,6 +217,8 @@ const AdminProducts = () => {
       const { data: urlData } = supabase.storage.from('products').getPublicUrl(path);
       setForm(p => ({ ...p, video_url: urlData.publicUrl }));
       toast({ title: 'Video uploaded!' });
+    } else {
+      toast({ title: 'Video upload failed', description: error.message, variant: 'destructive' });
     }
     setUploading(false);
   };
@@ -246,6 +249,7 @@ const AdminProducts = () => {
           price: data.suggestedPrice || p.price,
           original_price: data.suggestedOriginalPrice || p.original_price,
           return_policy: data.returnPolicy || p.return_policy,
+          claim_duration: data.claimDuration || p.claim_duration,
           claim_policy: data.claimPolicy || p.claim_policy,
           tags: data.tags || p.tags,
           product_type: data.productType || p.product_type,
@@ -312,6 +316,7 @@ const AdminProducts = () => {
         colors: colorsJson,
         discount_percent: form.discount_type !== 'none' ? form.discount_percent : 0,
         return_policy: form.return_policy || null,
+        claim_duration: form.claim_duration || null,
         claim_policy: form.claim_policy || null,
         category_id: form.category_id || null,
         sub_category_id: form.sub_category_id || null,
@@ -379,6 +384,7 @@ const AdminProducts = () => {
       is_active: product.is_active,
       is_new_arrival: product.is_new_arrival,
       return_policy: product.return_policy || '',
+      claim_duration: product.claim_duration || '30 days',
       claim_policy: product.claim_policy || '',
       images: (product.images as string[]) || [],
       video_url: product.video_url || '',
@@ -725,8 +731,22 @@ const AdminProducts = () => {
                       }}>Auto</Button>
                     </div>
                   </div>
+                  <div>
+                    <Label className="text-xs">Standard Claim Duration</Label>
+                    <Select value={form.claim_duration} onValueChange={v => setForm(p => ({ ...p, claim_duration: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="7 days">7 Days</SelectItem>
+                        <SelectItem value="15 days">15 Days</SelectItem>
+                        <SelectItem value="30 days">30 Days</SelectItem>
+                        <SelectItem value="60 days">60 Days</SelectItem>
+                        <SelectItem value="90 days">90 Days</SelectItem>
+                        <SelectItem value="No claim">No Claim</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="col-span-full">
-                    <Label className="text-xs">AI Claim Instructions (tell AI what qualifies for claim)</Label>
+                    <Label className="text-xs">AI Claim Advisor Instructions (tell AI what qualifies for claim)</Label>
                     <Textarea value={form.claim_policy} onChange={e => setForm(p => ({ ...p, claim_policy: e.target.value }))}
                       rows={3} placeholder="e.g. Sole detach within 30 days = claim. Color fade is not claimable." />
                   </div>
@@ -744,18 +764,6 @@ const AdminProducts = () => {
                       <SelectItem value="15 days return policy">15 Days Return</SelectItem>
                       <SelectItem value="30 days return policy">30 Days Return</SelectItem>
                       <SelectItem value="No return">No Return</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Claim Policy</Label>
-                  <Select value={form.claim_policy} onValueChange={v => setForm(p => ({ ...p, claim_policy: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30 days warranty">30 Days Warranty</SelectItem>
-                      <SelectItem value="60 days warranty">60 Days Warranty</SelectItem>
-                      <SelectItem value="90 days warranty">90 Days Warranty</SelectItem>
-                      <SelectItem value="No claim">No Claim</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

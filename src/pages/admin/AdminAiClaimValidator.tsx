@@ -18,7 +18,7 @@ export default function AdminAiClaimValidator() {
   const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
-    supabase.from('returns').select('*, products(title, claim_policy)').order('created_at', { ascending: false }).limit(50)
+    supabase.from('returns').select('*, products(title, claim_policy, claim_duration)').order('created_at', { ascending: false }).limit(50)
       .then(({ data }) => setReturns(data || []));
 
     const saved = localStorage.getItem('ai_claim_history');
@@ -37,6 +37,7 @@ export default function AdminAiClaimValidator() {
 
       const claimPolicy = selectedReturn.products?.claim_policy ||
         'Standard: Manufacturing defects within 30 days qualify for claim. Normal wear and tear does not.';
+      const claimDuration = selectedReturn.products?.claim_duration || 'Not set';
 
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
@@ -48,6 +49,9 @@ export default function AdminAiClaimValidator() {
 
 ADMIN CLAIM INSTRUCTIONS (Product Policy):
 ${claimPolicy}
+
+STANDARD CLAIM DURATION:
+${claimDuration}
 
 CUSTOMER CLAIM DETAILS:
 - Return Reason: ${selectedReturn.reason || 'Not specified'}
@@ -167,8 +171,9 @@ Return ONLY valid JSON.`
                 )}
                 {selectedReturn.products?.claim_policy && (
                   <div className="border-t pt-2">
-                    <p className="text-muted-foreground text-xs font-medium">Claim Policy:</p>
+                    <p className="text-muted-foreground text-xs font-medium">AI Claim Instructions:</p>
                     <p className="text-xs">{selectedReturn.products.claim_policy}</p>
+                    {selectedReturn.products?.claim_duration && <p className="text-xs mt-1"><span className="font-medium">Duration:</span> {selectedReturn.products.claim_duration}</p>}
                   </div>
                 )}
               </div>

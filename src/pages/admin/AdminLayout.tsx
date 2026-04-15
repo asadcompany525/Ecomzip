@@ -34,6 +34,7 @@ const PATH_TO_PERM: Record<string, string> = {
   '/admin/reviews': 'page_reviews',
   '/admin/returns': 'page_returns',
   '/admin/chat': 'page_chat',
+  '/admin/contact-messages': 'page_chat',
   '/admin/delivery': 'page_deliveries',
   '/admin/product-analytics': 'page_analytics',
   '/admin/reports': 'page_analytics',
@@ -75,6 +76,7 @@ const sidebarGroups = [
       { icon: Heart,           label: 'Loyalty Heatmap',        path: '/admin/loyalty-heatmap',       adminOnly: true },
       { icon: Search,          label: 'Search Logs',            path: '/admin/search-logs',           adminOnly: true },
       { icon: Command,         label: 'AI Global Manager',      path: '/admin/ai-global-manager',     adminOnly: true },
+      { icon: Shield,          label: 'AI Claim Advisor',       path: '/admin/ai-claim-advisor',      adminOnly: true },
       { icon: Bot,             label: 'AI Helper',              path: '/admin/ai-helper',             adminOnly: true },
       { icon: Shield,          label: 'AI Fraud Detector',      path: '/admin/ai-fraud-detector',     adminOnly: true },
       { icon: TrendingUp,      label: 'AI Sales Predictor',     path: '/admin/ai-sales-predictor',    adminOnly: true },
@@ -92,6 +94,7 @@ const sidebarGroups = [
     items: [
       { icon: Star,            label: 'Reviews',            path: '/admin/reviews',           adminOnly: false },
       { icon: RotateCcw,       label: 'Returns/Claims',     path: '/admin/returns',           adminOnly: false },
+      { icon: Mail,            label: 'Contact Messages',   path: '/admin/contact-messages',  adminOnly: false },
       { icon: MessageSquare,   label: 'Chat Support',       path: '/admin/chat',              adminOnly: false },
       { icon: BarChart3,       label: 'Reports',            path: '/admin/reports',           adminOnly: false },
       { icon: PieChart,        label: 'Product Analytics',  path: '/admin/product-analytics', adminOnly: false },

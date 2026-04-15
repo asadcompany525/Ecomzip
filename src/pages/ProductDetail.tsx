@@ -388,7 +388,7 @@ const ProductDetail = () => {
     );
   }
 
-  const allImages = product.images?.length ? product.images : [product.image];
+  const allImages = [...(product.images?.length ? product.images : [product.image]), dbProduct?.video_url].filter(Boolean);
   const uniqueColors = [...new Set(variants.map(v => v.color).filter(Boolean))];
   const uniqueSizes = product.sizes?.length ? product.sizes : [...new Set(variants.map(v => v.size).filter(Boolean))];
 
