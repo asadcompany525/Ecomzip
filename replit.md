@@ -68,7 +68,7 @@ Starts the Vite dev server on port 5000.
 - Product gallery with video (.mp4/.mov/.webm) autoplay support
 - Size selector with real-time variant stock from `product_variants` table
 - AI Size Advisor in product detail (measurements-based recommendation)
-- **Virtual Try-On** (`VirtualTryOn.tsx`): Camera overlay on product detail — overlay product image, adjust opacity/size/position, capture photo
+- **Virtual Try-On** (`VirtualTryOn.tsx`): Product detail AI try-on flow compresses the customer photo and sends image data directly to the AI function, avoiding missing Supabase storage bucket failures.
 - **Smart Cross-sell "Pairs Well With"**: AI-curated related product grid shown on product detail page
 - **Order Tracking** (`/track-order`): Animated progress bar + auto courier detection (TCS/Leopards/BlueEx/PostEx by tracking ID pattern)
 - **Abandoned Cart Recovery**: Detects idle carts 30+ min with recovery metrics
@@ -243,6 +243,7 @@ ON CONFLICT (id) DO UPDATE SET public = true;
 - Root dependencies were reinstalled and the Start application workflow is running on port 5000.
 - Admin favicon upload now falls back to the existing `products` storage bucket or embedded base64 if the `logos` bucket is missing/blocked.
 - Admin customer deactivation now falls back to a persistent `site_settings.deactivated_customers` list when the `profiles.is_deleted` migration has not been applied.
+- AI Virtual Try-On no longer depends on the missing `product-images` bucket for customer photo uploads; it sends a compressed data image directly to the AI edge function.
 
 ### 1. Storage — Logos Bucket
 - AS Logo and site logo now upload to `logos` storage bucket

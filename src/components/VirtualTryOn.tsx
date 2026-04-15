@@ -45,29 +45,10 @@ function compressImage(dataUrl: string, maxDim = 1024, quality = 0.85): Promise<
 }
 
 async function uploadToStorage(dataUrl: string): Promise<string> {
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
-  const fileName = `tryon-user/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-  const buckets = ['product-images', 'products', 'chat', 'returns'];
-  const errors: string[] = [];
-
-  for (const bucket of buckets) {
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(fileName, blob, { contentType: 'image/jpeg', upsert: false });
-
-    if (!error) {
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(fileName);
-      return publicUrl;
-    }
-
-    errors.push(`${bucket}: ${error.message}`);
+  if (dataUrl.length > 7_000_000) {
+    throw new Error('Photo is too large. Please upload a smaller or clearer photo.');
   }
-
-  if (dataUrl.length < 7_000_000) return dataUrl;
-  throw new Error(`Upload failed: ${errors.join(' | ')}`);
+  return dataUrl;
 }
 
 async function startVTON(userImageUrl: string, productImageUrl: string, categoryType: TryOnCategory) {
@@ -147,7 +128,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
       const raw = ev.target?.result as string;
 
       try {
-        const compressed = await compressImage(raw, 1024, 0.85);
+        const compressed = await compressImage(raw, 768, 0.78);
         setUserPhotoPreview(compressed);
 
         setStep('uploading');
