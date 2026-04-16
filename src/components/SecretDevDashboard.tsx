@@ -66,6 +66,20 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   const asLogoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
 
+  // Tech Stack & Services (Developer Page Content)
+  const [techStack, setTechStack] = useState<string[]>([
+    'React', 'TypeScript', 'Node.js', 'Supabase', 'Tailwind CSS',
+    'Next.js', 'React Native', 'PostgreSQL', 'OpenAI', 'Framer Motion',
+  ]);
+  const [newTech, setNewTech] = useState('');
+  const [devServices, setDevServices] = useState<{ label: string; desc: string }[]>([
+    { label: 'E-Commerce Development', desc: 'Full-stack storefronts with AI & real-time features' },
+    { label: 'Mobile App Development', desc: 'React Native & Expo cross-platform apps' },
+    { label: 'AI Integration', desc: 'LLM-powered chatbots, automation & analytics' },
+    { label: 'Cloud & Backend', desc: 'Supabase, Firebase, Node.js scalable APIs' },
+    { label: 'UI/UX Design', desc: 'Pixel-perfect, mobile-first interfaces' },
+  ]);
+
   useEffect(() => {
     if (!open) return;
     try {
@@ -92,6 +106,12 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
           const v = s.value as any;
           if (v.title) setSiteTitle(v.title);
           if (v.favicon) setFaviconUrl(v.favicon);
+        }
+        if (s.key === 'developer_tech_stack' && Array.isArray(s.value)) {
+          setTechStack(s.value as string[]);
+        }
+        if (s.key === 'developer_services' && Array.isArray(s.value)) {
+          setDevServices(s.value as { label: string; desc: string }[]);
         }
       });
     });
@@ -128,6 +148,28 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
       toast({ title: '✅ Developer info saved!', description: 'Changes will reflect on the Developer page.' });
     } catch (e: any) {
       toast({ title: 'Developer info saved locally only', description: e.message || 'Supabase write failed', variant: 'destructive' });
+    }
+  };
+
+  const saveTechStack = async () => {
+    try {
+      await ensureAdminSession();
+      const { error } = await supabase.from('site_settings').upsert({ key: 'developer_tech_stack', value: techStack as any }, { onConflict: 'key' }).select('key').single();
+      if (error) throw error;
+      toast({ title: '✅ Tech Stack saved!', description: 'Developer page will show updated technologies.' });
+    } catch (e: any) {
+      toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const saveDevServices = async () => {
+    try {
+      await ensureAdminSession();
+      const { error } = await supabase.from('site_settings').upsert({ key: 'developer_services', value: devServices as any }, { onConflict: 'key' }).select('key').single();
+      if (error) throw error;
+      toast({ title: '✅ Services saved!', description: 'Developer page will show updated services.' });
+    } catch (e: any) {
+      toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -404,7 +446,85 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            {/* ── Tech Stack ── */}
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🛠️ Tech Stack (Languages)</p>
+              <p className="text-xs text-muted-foreground">These badges appear on the Developer page. Add/remove anytime.</p>
+              <div className="flex flex-wrap gap-2 min-h-[36px] p-2 border rounded-lg bg-muted/30">
+                {techStack.map((tech, i) => (
+                  <span key={i} className="flex items-center gap-1 bg-secondary text-secondary-foreground text-xs px-2.5 py-1 rounded-full font-medium">
+                    {tech}
+                    <button onClick={() => setTechStack(prev => prev.filter((_, j) => j !== i))}
+                      className="ml-0.5 text-muted-foreground hover:text-destructive transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                {techStack.length === 0 && <span className="text-xs text-muted-foreground">No technologies added yet.</span>}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  className="text-sm h-8"
+                  value={newTech}
+                  onChange={e => setNewTech(e.target.value)}
+                  placeholder="e.g. Vue.js, Python, Docker..."
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newTech.trim()) {
+                      setTechStack(prev => [...prev, newTech.trim()]);
+                      setNewTech('');
+                    }
+                  }}
+                />
+                <Button size="sm" variant="outline" onClick={() => {
+                  if (newTech.trim()) { setTechStack(prev => [...prev, newTech.trim()]); setNewTech(''); }
+                }}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <Button size="sm" onClick={saveTechStack} className="gap-2">
+                <Save className="h-3.5 w-3.5" />Save Tech Stack
+              </Button>
+            </div>
+
+            {/* ── Services ── */}
+            <div className="border-t pt-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">💼 Services</p>
+              <p className="text-xs text-muted-foreground">These service cards appear on the Developer page.</p>
+              <div className="space-y-2">
+                {devServices.map((svc, i) => (
+                  <div key={i} className="flex gap-2 items-start border rounded-lg p-2.5 bg-muted/20">
+                    <div className="flex-1 space-y-1.5">
+                      <Input
+                        className="text-sm h-8"
+                        value={svc.label}
+                        placeholder="Service name"
+                        onChange={e => setDevServices(prev => prev.map((s, j) => j === i ? { ...s, label: e.target.value } : s))}
+                      />
+                      <Input
+                        className="text-sm h-8"
+                        value={svc.desc}
+                        placeholder="Short description"
+                        onChange={e => setDevServices(prev => prev.map((s, j) => j === i ? { ...s, desc: e.target.value } : s))}
+                      />
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 mt-0.5"
+                      onClick={() => setDevServices(prev => prev.filter((_, j) => j !== i))}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setDevServices(prev => [...prev, { label: '', desc: '' }])}>
+                  <Plus className="h-3.5 w-3.5" />Add Service
+                </Button>
+                <Button size="sm" onClick={saveDevServices} className="gap-2">
+                  <Save className="h-3.5 w-3.5" />Save Services
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t">
               <Button onClick={saveDevInfo} className="flex-1 gap-2"><Save className="h-4 w-4" />Save All Developer Info</Button>
               <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
             </div>
