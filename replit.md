@@ -2,6 +2,13 @@
 
 A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bags store — Pakistan's #1 Shoes & Bags Store.
 
+## Recent Changes (April 2026)
+- **Smart Staff Upsert**: AdminStaff.tsx now checks if email exists before creating. If exists → updates role + password. If new → creates account.
+- **RLS Fixes**: Migration `20260416000001_contact_rls_developer_fixes.sql` adds admin full-bypass policies for profiles, site_settings, products tables + moderator read policies.
+- **contact_messages table**: Created with RLS (anyone can insert, admins/moderators can read).
+- **Developer Page dynamic content**: Tech Stack and Services now loaded from `site_settings` DB keys `developer_tech_stack` and `developer_services`. Editable from Admin → Settings → Pages tab.
+- **ProductDetail crash-proofing**: fetchProduct wrapped in try/catch with Promise.allSettled, all field null-guarded. Also loading state guaranteed to clear via `finally` block.
+
 ## Role-Based Access Control (RBAC)
 
 - **Regular Users**: Never see any dashboard or admin links. Pure e-commerce experience.

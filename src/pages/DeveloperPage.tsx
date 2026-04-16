@@ -1,31 +1,33 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Code2, Smartphone, Brain, Cloud, Palette, ExternalLink, ArrowLeft, Mail, MessageCircle, Github, Instagram, Linkedin } from 'lucide-react';
+import { Shield, ExternalLink, ArrowLeft, Mail, MessageCircle, Github, Instagram, Linkedin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import BottomNav from '@/components/layout/BottomNav';
 import { DEV_INFO_KEY, DEFAULT_DEV_INFO } from '@/components/SecretDevDashboard';
 import { supabase } from '@/integrations/supabase/client';
 
-const SERVICES = [
-  { icon: Code2, label: 'E-Commerce Development', desc: 'Full-stack storefronts with AI & real-time features' },
-  { icon: Smartphone, label: 'Mobile App Development', desc: 'React Native & Expo cross-platform apps' },
-  { icon: Brain, label: 'AI Integration', desc: 'LLM-powered chatbots, automation & analytics' },
-  { icon: Cloud, label: 'Cloud & Backend', desc: 'Supabase, Firebase, Node.js scalable APIs' },
-  { icon: Palette, label: 'UI/UX Design', desc: 'Pixel-perfect, mobile-first interfaces' },
-];
-
-const TECH_STACK = [
+const DEFAULT_TECH_STACK = [
   'React', 'TypeScript', 'Node.js', 'Supabase', 'Tailwind CSS',
   'Next.js', 'React Native', 'PostgreSQL', 'OpenAI', 'Framer Motion',
 ];
 
+const DEFAULT_SERVICES = [
+  { label: 'E-Commerce Development', desc: 'Full-stack storefronts with AI & real-time features' },
+  { label: 'Mobile App Development', desc: 'React Native & Expo cross-platform apps' },
+  { label: 'AI Integration', desc: 'LLM-powered chatbots, automation & analytics' },
+  { label: 'Cloud & Backend', desc: 'Supabase, Firebase, Node.js scalable APIs' },
+  { label: 'UI/UX Design', desc: 'Pixel-perfect, mobile-first interfaces' },
+];
+
 const DeveloperPage = () => {
   const [info, setInfo] = useState<typeof DEFAULT_DEV_INFO>(DEFAULT_DEV_INFO);
+  const [techStack, setTechStack] = useState<string[]>(DEFAULT_TECH_STACK);
+  const [services, setServices] = useState<{ label: string; desc: string }[]>(DEFAULT_SERVICES);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 1. Load from localStorage first (instant)
+    // 1. Load developer info from localStorage first (instant)
     try {
       const stored = localStorage.getItem(DEV_INFO_KEY);
       if (stored) {
@@ -34,19 +36,26 @@ const DeveloperPage = () => {
       }
     } catch {}
 
-    // 2. Fetch fresh data from Supabase (always up-to-date)
+    // 2. Fetch all developer settings from Supabase
     supabase
       .from('site_settings')
       .select('key, value')
-      .eq('key', 'developer_page')
-      .maybeSingle()
+      .in('key', ['developer_page', 'developer_tech_stack', 'developer_services'])
       .then(({ data }) => {
-        if (data?.value) {
-          const v = data.value as any;
-          const merged = { ...DEFAULT_DEV_INFO, ...v, customLinks: v.customLinks || [] };
-          setInfo(merged);
-          localStorage.setItem(DEV_INFO_KEY, JSON.stringify(merged));
-        }
+        (data || []).forEach((s: any) => {
+          if (s.key === 'developer_page' && s.value) {
+            const v = s.value as any;
+            const merged = { ...DEFAULT_DEV_INFO, ...v, customLinks: v.customLinks || [] };
+            setInfo(merged);
+            localStorage.setItem(DEV_INFO_KEY, JSON.stringify(merged));
+          }
+          if (s.key === 'developer_tech_stack' && Array.isArray(s.value)) {
+            setTechStack(s.value as string[]);
+          }
+          if (s.key === 'developer_services' && Array.isArray(s.value)) {
+            setServices(s.value as { label: string; desc: string }[]);
+          }
+        });
       });
   }, []);
 
@@ -139,10 +148,10 @@ const DeveloperPage = () => {
         <div className="mb-10">
           <h2 className="text-xl font-bold mb-4">Services</h2>
           <div className="grid md:grid-cols-2 gap-3">
-            {SERVICES.map(s => (
-              <div key={s.label} className="bg-card border rounded-xl p-4 flex gap-3 hover:border-primary/30 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <s.icon className="h-5 w-5 text-primary" />
+            {services.map((s, i) => (
+              <div key={i} className="bg-card border rounded-xl p-4 flex gap-3 hover:border-primary/30 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary font-bold text-lg">
+                  ✦
                 </div>
                 <div>
                   <p className="font-semibold text-sm">{s.label}</p>
@@ -157,8 +166,8 @@ const DeveloperPage = () => {
         <div className="mb-10">
           <h2 className="text-xl font-bold mb-4">Tech Stack</h2>
           <div className="flex flex-wrap gap-2">
-            {TECH_STACK.map(t => (
-              <Badge key={t} variant="secondary" className="text-sm px-3 py-1">{t}</Badge>
+            {techStack.map((t, i) => (
+              <Badge key={i} variant="secondary" className="text-sm px-3 py-1">{t}</Badge>
             ))}
           </div>
         </div>

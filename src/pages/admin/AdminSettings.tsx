@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Trash2, Loader2, Upload } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Upload, Plus, X } from 'lucide-react';
 import { invalidateStoreSettingsCache } from '@/hooks/useStoreSettings';
 import { ensureAdminSession } from '@/lib/adminSession';
 
@@ -24,6 +24,20 @@ const AdminSettings = () => {
   const [resetConfirm, setResetConfirm] = useState('');
   const [faviconUploading, setFaviconUploading] = useState(false);
   const faviconInputRef = useRef<HTMLInputElement>(null);
+
+  // Developer Page — Tech Stack & Services
+  const [techStack, setTechStack] = useState<string[]>([
+    'React', 'TypeScript', 'Node.js', 'Supabase', 'Tailwind CSS',
+    'Next.js', 'React Native', 'PostgreSQL', 'OpenAI', 'Framer Motion',
+  ]);
+  const [newTech, setNewTech] = useState('');
+  const [devServices, setDevServices] = useState<{ label: string; desc: string }[]>([
+    { label: 'E-Commerce Development', desc: 'Full-stack storefronts with AI & real-time features' },
+    { label: 'Mobile App Development', desc: 'React Native & Expo cross-platform apps' },
+    { label: 'AI Integration', desc: 'LLM-powered chatbots, automation & analytics' },
+    { label: 'Cloud & Backend', desc: 'Supabase, Firebase, Node.js scalable APIs' },
+    { label: 'UI/UX Design', desc: 'Pixel-perfect, mobile-first interfaces' },
+  ]);
   const [receipt, setReceipt] = useState<any>({ 
     shop_name: '', tagline: "Pakistan's #1 Shoes & Bags Store",
     contact_line: '',
@@ -52,6 +66,8 @@ const AdminSettings = () => {
         if (s.key === 'faq_page') setFaqPage(s.value);
         if (s.key === 'receipt') setReceipt(s.value);
         if (s.key === 'site_title') setSiteTitle(String(s.value || ''));
+        if (s.key === 'developer_tech_stack' && Array.isArray(s.value)) setTechStack(s.value);
+        if (s.key === 'developer_services' && Array.isArray(s.value)) setDevServices(s.value);
       });
     };
     load();
@@ -333,6 +349,81 @@ const AdminSettings = () => {
               <div><Label>Return Days</Label><Input type="number" value={returnPolicy.days} onChange={e => setReturnPolicy(p => ({ ...p, days: Number(e.target.value) }))} /></div>
               <div><Label>Content</Label><Textarea rows={8} value={returnPolicy.content} onChange={e => setReturnPolicy(p => ({ ...p, content: e.target.value }))} /></div>
               <Button onClick={() => save('return_policy', returnPolicy)}>Save Return Policy</Button>
+            </CardContent>
+          </Card>
+
+          {/* Developer Page — Tech Stack */}
+          <Card>
+            <CardHeader><CardTitle>🛠️ Developer Page — Tech Stack (Languages)</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">These tags appear on the Developer page. Add or remove technologies anytime.</p>
+              <div className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded-lg bg-muted/30">
+                {techStack.map((tech, i) => (
+                  <span key={i} className="flex items-center gap-1 bg-secondary text-secondary-foreground text-xs px-3 py-1 rounded-full font-medium">
+                    {tech}
+                    <button onClick={() => setTechStack(prev => prev.filter((_, j) => j !== i))}
+                      className="ml-1 text-muted-foreground hover:text-destructive transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                {techStack.length === 0 && <span className="text-xs text-muted-foreground">No technologies added yet.</span>}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newTech}
+                  onChange={e => setNewTech(e.target.value)}
+                  placeholder="e.g. Vue.js, Python, Docker..."
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newTech.trim()) {
+                      setTechStack(prev => [...prev, newTech.trim()]);
+                      setNewTech('');
+                    }
+                  }}
+                />
+                <Button variant="outline" onClick={() => {
+                  if (newTech.trim()) { setTechStack(prev => [...prev, newTech.trim()]); setNewTech(''); }
+                }}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button onClick={() => save('developer_tech_stack', techStack)}>
+                Save Tech Stack
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Developer Page — Services */}
+          <Card>
+            <CardHeader><CardTitle>💼 Developer Page — Services</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">These service cards appear on the Developer page. Add, edit, or remove services.</p>
+              {devServices.map((svc, i) => (
+                <div key={i} className="flex gap-2 items-start border rounded-lg p-3 bg-muted/20">
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      value={svc.label}
+                      placeholder="Service name"
+                      onChange={e => setDevServices(prev => prev.map((s, j) => j === i ? { ...s, label: e.target.value } : s))}
+                    />
+                    <Input
+                      value={svc.desc}
+                      placeholder="Short description"
+                      onChange={e => setDevServices(prev => prev.map((s, j) => j === i ? { ...s, desc: e.target.value } : s))}
+                    />
+                  </div>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 mt-1"
+                    onClick={() => setDevServices(prev => prev.filter((_, j) => j !== i))}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button variant="outline" className="w-full gap-2" onClick={() => setDevServices(prev => [...prev, { label: '', desc: '' }])}>
+                <Plus className="h-4 w-4" /> Add Service
+              </Button>
+              <Button onClick={() => save('developer_services', devServices)}>
+                Save Services
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

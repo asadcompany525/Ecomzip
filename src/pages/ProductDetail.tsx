@@ -93,40 +93,74 @@ const ProductDetail = () => {
     window.scrollTo(0, 0);
 
     const fetchProduct = async () => {
-      const { data: p } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
-      if (!p) { setLoading(false); return; }
-      setDbProduct(p);
-      setProduct(mapDbProduct(p));
+      try {
+        const { data: p, error: pError } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
+        if (pError) { console.error('Product fetch error:', pError); setLoading(false); return; }
+        if (!p) { setLoading(false); return; }
 
-      const { data: vars } = await supabase.from('product_variants').select('*').eq('product_id', id);
-      setVariants(vars || []);
+        // Safely map product — guard all optional fields
+        const safeProduct = {
+          ...p,
+          images: Array.isArray(p.images) ? p.images : [],
+          colors: Array.isArray(p.colors) ? p.colors : [],
+          sizes: Array.isArray(p.sizes) ? p.sizes : [],
+          price: Number(p.price) || 0,
+          original_price: p.original_price ? Number(p.original_price) : null,
+          discount_percent: p.discount_percent ? Number(p.discount_percent) : 0,
+          rating: Number(p.rating) || 0,
+          review_count: p.review_count || 0,
+          stock: p.stock || 0,
+          sold: p.sold || 0,
+          video_url: typeof p.video_url === 'string' ? p.video_url : null,
+          return_policy: p.return_policy || null,
+          claim_policy: p.claim_policy || null,
+          meta: p.meta && typeof p.meta === 'object' ? p.meta : {},
+        };
 
-      const { data: revs } = await supabase.from('reviews').select('*').eq('product_id', id).eq('is_approved', true).order('created_at', { ascending: false });
-      const reviewList = revs || [];
-      setReviews(reviewList);
-      // Compute live average rating from approved reviews
-      if (reviewList.length > 0) {
-        const avg = reviewList.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0) / reviewList.length;
-        setProduct(prev => prev ? { ...prev, rating: Math.round(avg * 10) / 10, reviews: reviewList.length } : prev);
+        setDbProduct(safeProduct);
+        setProduct(mapDbProduct(safeProduct));
+
+        // Run secondary queries in parallel — don't crash if they fail
+        const [varsResult, revsResult] = await Promise.allSettled([
+          supabase.from('product_variants').select('*').eq('product_id', id),
+          supabase.from('reviews').select('*').eq('product_id', id).eq('is_approved', true).order('created_at', { ascending: false }),
+        ]);
+
+        const vars = varsResult.status === 'fulfilled' ? varsResult.value.data || [] : [];
+        setVariants(vars);
+
+        const reviewList = revsResult.status === 'fulfilled' ? revsResult.value.data || [] : [];
+        setReviews(reviewList);
+        if (reviewList.length > 0) {
+          const avg = reviewList.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0) / reviewList.length;
+          setProduct(prev => prev ? { ...prev, rating: Math.round(avg * 10) / 10, reviews: reviewList.length } : prev);
+        }
+
+        if (safeProduct.category_id) {
+          const [relResult, catResult] = await Promise.allSettled([
+            supabase.from('products').select('*').eq('category_id', safeProduct.category_id).neq('id', id).eq('is_active', true).limit(4),
+            supabase.from('categories').select('name').eq('id', safeProduct.category_id).maybeSingle(),
+          ]);
+          if (relResult.status === 'fulfilled') setRelatedProducts((relResult.value.data || []).map(mapDbProduct));
+          if (catResult.status === 'fulfilled' && catResult.value.data?.name) setCategoryName(catResult.value.data.name);
+        }
+
+        // Fetch extras in parallel — non-critical, don't block render
+        Promise.allSettled([
+          supabase.from('products').select('*').eq('is_active', true).neq('id', id).order('sold', { ascending: false }).limit(8),
+          supabase.from('products').select('*').eq('is_active', true).neq('id', id).gt('discount_percent', 0).order('discount_percent', { ascending: false }).limit(4),
+          supabase.from('products').select('*').eq('is_active', true).eq('is_flash_sale', true).neq('id', id).limit(4),
+        ]).then(([popRes, discRes, flashRes]) => {
+          if (popRes.status === 'fulfilled') setPopularProducts((popRes.value.data || []).map(mapDbProduct));
+          if (discRes.status === 'fulfilled') setDiscountProducts((discRes.value.data || []).map(mapDbProduct));
+          if (flashRes.status === 'fulfilled') setFlashProducts((flashRes.value.data || []).map(mapDbProduct));
+        });
+
+      } catch (err) {
+        console.error('ProductDetail crashed:', err);
+      } finally {
+        setLoading(false);
       }
-
-      if (p.category_id) {
-        const { data: rel } = await supabase.from('products').select('*').eq('category_id', p.category_id).neq('id', id).eq('is_active', true).limit(4);
-        setRelatedProducts((rel || []).map(mapDbProduct));
-        const { data: cat } = await supabase.from('categories').select('name').eq('id', p.category_id).maybeSingle();
-        if (cat?.name) setCategoryName(cat.name);
-      }
-
-      const { data: pop } = await supabase.from('products').select('*').eq('is_active', true).neq('id', id).order('sold', { ascending: false }).limit(8);
-      setPopularProducts((pop || []).map(mapDbProduct));
-
-      const { data: disc } = await supabase.from('products').select('*').eq('is_active', true).neq('id', id).gt('discount_percent', 0).order('discount_percent', { ascending: false }).limit(4);
-      setDiscountProducts((disc || []).map(mapDbProduct));
-
-      const { data: flash } = await supabase.from('products').select('*').eq('is_active', true).eq('is_flash_sale', true).neq('id', id).limit(4);
-      setFlashProducts((flash || []).map(mapDbProduct));
-
-      setLoading(false);
     };
     fetchProduct();
   }, [id]);

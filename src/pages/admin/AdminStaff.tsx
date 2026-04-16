@@ -191,6 +191,71 @@ export default function AdminStaff() {
       let roleId = '';
       let createdByFunction = false;
 
+      // ── SMART UPSERT: check if user already exists by email ──
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (existingProfile?.user_id) {
+        // User exists — update their role and password
+        newUserId = existingProfile.user_id;
+
+        // Update profile name/username
+        await supabase.from('profiles').update({
+          full_name: fName.trim(),
+        }).eq('user_id', newUserId);
+
+        // Try updating password via admin-staff function
+        await supabase.functions.invoke('admin-staff', {
+          body: { action: 'updatePassword', user_id: newUserId, password: fPassword },
+        });
+
+        // Update or insert moderator role with new custom_role_label
+        const { data: existingRole } = await supabase
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', newUserId)
+          .eq('role', 'moderator')
+          .maybeSingle();
+
+        if (existingRole?.id) {
+          await supabase.from('user_roles')
+            .update({ custom_role_label: fRole } as any)
+            .eq('id', existingRole.id);
+          roleId = existingRole.id;
+        } else {
+          const { data: newRole } = await supabase.from('user_roles')
+            .upsert({ user_id: newUserId, role: 'moderator' as any, custom_role_label: fRole }, { onConflict: 'user_id,role' })
+            .select('id').single();
+          roleId = newRole?.id || '';
+        }
+
+        // Update saved credentials
+        await supabase.from('site_settings').upsert(
+          { key: `staff_credentials_${newUserId}`, value: { name: fName.trim(), username: fUsername.trim(), email: normalizedEmail, password: fPassword, role: fRole, updated_at: new Date().toISOString() } },
+          { onConflict: 'key' }
+        );
+
+        if (roleId) {
+          const defaultPerms = DEFAULT_PERMS[fRole.toLowerCase()] || DEFAULT_PERMS.staff;
+          const newPerms = { ...loadPerms(), [roleId]: defaultPerms };
+          const newRoles = { ...loadRoles(), [roleId]: fRole.toLowerCase() };
+          savePerms(newPerms); saveRoles(newRoles); setStaffPerms(newPerms);
+        }
+
+        setCredentials({ name: fName.trim(), username: fUsername.trim(), email: normalizedEmail, password: fPassword, role: fRole });
+        setFName(''); setFUsername(''); setFEmail('');
+        setFPassword(genPassword()); setFRole('staff');
+        setShowForm(false);
+        toast({ title: '✅ Staff Updated', description: `${normalizedEmail}'s role & password updated successfully.` });
+        fetchStaff();
+        setAdding(false);
+        return;
+      }
+      // ── END UPSERT CHECK ──
+
       const functionResult = await supabase.functions.invoke('admin-staff', {
         body: {
           action: 'createStaff',
