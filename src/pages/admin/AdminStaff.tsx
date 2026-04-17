@@ -63,6 +63,7 @@ const loadPerms  = (): Record<string, string[]> => { try { return JSON.parse(loc
 const savePerms  = (p: Record<string, string[]>) => localStorage.setItem(PERMS_KEY, JSON.stringify(p));
 const loadRoles  = (): Record<string, string> => { try { return JSON.parse(localStorage.getItem(ROLES_KEY) || '{}'); } catch { return {}; } };
 const saveRoles  = (r: Record<string, string>) => localStorage.setItem(ROLES_KEY, JSON.stringify(r));
+const accessKey = (userId: string) => `staff_access_${userId}`;
 
 function getRoleColor(role: string) { return ROLE_COLORS[role.toLowerCase()] || 'bg-indigo-100 text-indigo-700 border-indigo-200'; }
 
@@ -132,10 +133,9 @@ export default function AdminStaff() {
     setLoading(true);
     await ensureAdminSession().catch(() => null);
 
-    // Fetch all moderator roles (staff) — include custom_role_label from DB
     const { data: roles, error } = await supabase
       .from('user_roles')
-      .select('id, user_id, role, created_at, custom_role_label')
+      .select('id, user_id, role, created_at')
       .eq('role', 'moderator')
       .order('created_at', { ascending: false });
 
@@ -144,9 +144,9 @@ export default function AdminStaff() {
     const userIds = (roles || []).map((r: any) => r.user_id).filter(Boolean);
     let profileMap: Record<string, any> = {};
     let credentialsMap: Record<string, any> = {};
+    let accessMap: Record<string, any> = {};
 
     if (userIds.length > 0) {
-      // Fetch profiles (with username fallback)
       let { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('user_id, full_name, email, phone, whatsapp, avatar_url, created_at, updated_at, username, staff_role')
@@ -161,16 +161,21 @@ export default function AdminStaff() {
       }
       (profiles || []).forEach((p: any) => { profileMap[p.user_id] = p; });
 
-      // Fetch stored credentials from site_settings as email/name fallback
-      const credKeys = userIds.map(uid => `staff_credentials_${uid}`);
-      const { data: credRows } = await supabase
+      const settingKeys = userIds.flatMap(uid => [`staff_credentials_${uid}`, accessKey(uid)]);
+      const { data: settingsRows } = await supabase
         .from('site_settings')
         .select('key, value')
-        .in('key', credKeys);
+        .in('key', settingKeys);
 
-      (credRows || []).forEach((row: any) => {
-        const uid = row.key.replace('staff_credentials_', '');
-        credentialsMap[uid] = typeof row.value === 'object' ? row.value : {};
+      (settingsRows || []).forEach((row: any) => {
+        if (row.key.startsWith('staff_credentials_')) {
+          const uid = row.key.replace('staff_credentials_', '');
+          credentialsMap[uid] = typeof row.value === 'object' ? row.value : {};
+        }
+        if (row.key.startsWith('staff_access_')) {
+          const uid = row.key.replace('staff_access_', '');
+          accessMap[uid] = typeof row.value === 'object' ? row.value : {};
+        }
       });
     }
 
@@ -180,13 +185,12 @@ export default function AdminStaff() {
     const mapped: StaffMember[] = (roles || []).map((r: any) => {
       const profile = profileMap[r.user_id] || {};
       const creds = credentialsMap[r.user_id] || {};
+      const access = accessMap[r.user_id] || {};
 
-      // Role priority: DB custom_role_label > localStorage > creds.role > 'staff'
-      const dbRole = (r.custom_role_label || '').toLowerCase();
+      const dbRole = (profile.staff_role || access.role || '').toLowerCase();
       const localRole = storedRoles[r.id] || '';
       const displayRole = dbRole || localRole || (creds.role || 'staff').toLowerCase();
 
-      // Sync localStorage roles with DB
       if (dbRole && dbRole !== localRole) {
         const newRoles = { ...storedRoles, [r.id]: dbRole };
         saveRoles(newRoles);
@@ -204,7 +208,7 @@ export default function AdminStaff() {
         username,
         role: displayRole,
         created_at: r.created_at,
-        permissions: stored[r.id] ?? DEFAULT_PERMS[displayRole] ?? DEFAULT_PERMS.staff,
+        permissions: Array.isArray(access.permissions) ? access.permissions : (stored[r.id] ?? DEFAULT_PERMS[displayRole] ?? DEFAULT_PERMS.staff),
       };
     });
 
@@ -267,6 +271,12 @@ export default function AdminStaff() {
           roleId = newRole?.id || '';
         }
 
+        const defaultPerms = DEFAULT_PERMS[fRole.toLowerCase()] || DEFAULT_PERMS.staff;
+        await supabase.from('site_settings').upsert(
+          { key: accessKey(newUserId), value: { role: fRole, permissions: defaultPerms, updated_at: new Date().toISOString() } },
+          { onConflict: 'key' }
+        );
+
         // Update saved credentials
         await supabase.from('site_settings').upsert(
           { key: `staff_credentials_${newUserId}`, value: { name: fName.trim(), username: fUsername.trim(), email: normalizedEmail, password: fPassword, role: fRole, updated_at: new Date().toISOString() } },
@@ -274,7 +284,6 @@ export default function AdminStaff() {
         );
 
         if (roleId) {
-          const defaultPerms = DEFAULT_PERMS[fRole.toLowerCase()] || DEFAULT_PERMS.staff;
           const newPerms = { ...loadPerms(), [roleId]: defaultPerms };
           const newRoles = { ...loadRoles(), [roleId]: fRole.toLowerCase() };
           savePerms(newPerms); saveRoles(newRoles); setStaffPerms(newPerms);
@@ -384,6 +393,10 @@ export default function AdminStaff() {
         const newPerms  = { ...loadPerms(),  [roleId]: defaultPerms };
         const newRoles  = { ...loadRoles(),  [roleId]: fRole.toLowerCase() };
         savePerms(newPerms); saveRoles(newRoles); setStaffPerms(newPerms);
+        await supabase.from('site_settings').upsert(
+          { key: accessKey(newUserId), value: { role: fRole, permissions: defaultPerms, updated_at: new Date().toISOString() } },
+          { onConflict: 'key' }
+        );
       }
 
       // Show success credentials popup
@@ -428,38 +441,40 @@ export default function AdminStaff() {
     setDeleteTarget(null);
   };
 
-  const togglePerm = (staffId: string, permKey: string) => {
-    const current = staffPerms[staffId] || [];
-    const updated = current.includes(permKey) ? current.filter(p => p !== permKey) : [...current, permKey];
-    const newPerms = { ...staffPerms, [staffId]: updated };
-    setStaffPerms(newPerms); savePerms(newPerms);
-    setStaff(prev => prev.map(s => s.id === staffId ? { ...s, permissions: updated } : s));
+  const saveAccessState = async (s: StaffMember, permissions: string[], role = s.role) => {
+    const newPerms = { ...loadPerms(), [s.id]: permissions };
+    const newRoles = { ...loadRoles(), [s.id]: role };
+    setStaffPerms(newPerms); savePerms(newPerms); saveRoles(newRoles);
+    setStaff(prev => prev.map(m => m.id === s.id ? { ...m, role, permissions } : m));
+    const { error } = await supabase.from('site_settings').upsert(
+      { key: accessKey(s.user_id), value: { role, permissions, updated_at: new Date().toISOString() } },
+      { onConflict: 'key' }
+    );
+    if (error) toast({ title: 'Access saved locally only', description: error.message, variant: 'destructive' });
   };
 
-  const toggleGroup = (staffId: string, group: string) => {
+  const togglePerm = (s: StaffMember, permKey: string) => {
+    const current = staffPerms[s.id] || s.permissions || [];
+    const updated = current.includes(permKey) ? current.filter(p => p !== permKey) : [...current, permKey];
+    saveAccessState(s, updated);
+  };
+
+  const toggleGroup = (s: StaffMember, group: string) => {
     const groupPerms = PAGE_PERMISSIONS.filter(p => p.group === group).map(p => p.key);
-    const current = staffPerms[staffId] || [];
+    const current = staffPerms[s.id] || s.permissions || [];
     const allGranted = groupPerms.every(k => current.includes(k));
     const updated = allGranted ? current.filter(k => !groupPerms.includes(k)) : [...new Set([...current, ...groupPerms])];
-    const newPerms = { ...staffPerms, [staffId]: updated };
-    setStaffPerms(newPerms); savePerms(newPerms);
-    setStaff(prev => prev.map(s => s.id === staffId ? { ...s, permissions: updated } : s));
+    saveAccessState(s, updated);
   };
 
   const changeRole = async (s: StaffMember, newRole: string) => {
-    const newRoles = { ...loadRoles(), [s.id]: newRole };
-    saveRoles(newRoles);
     const defaults = DEFAULT_PERMS[newRole] || DEFAULT_PERMS.staff;
-    const newPerms = { ...loadPerms(), [s.id]: defaults };
-    savePerms(newPerms); setStaffPerms(newPerms);
-    setStaff(prev => prev.map(m => m.id === s.id ? { ...m, role: newRole, permissions: defaults } : m));
+    await saveAccessState(s, defaults, newRole);
 
-    // Persist role to database
     await supabase.from('user_roles')
       .update({ custom_role_label: newRole } as any)
       .eq('id', s.id);
 
-    // Persist role to profile
     await supabase.from('profiles')
       .update({ staff_role: newRole } as any)
       .eq('user_id', s.user_id);
@@ -675,7 +690,7 @@ export default function AdminStaff() {
                           return (
                             <div key={group}>
                               <div className="flex items-center gap-2 mb-2">
-                                <Checkbox id={`grp-${s.id}-${group}`} checked={allChecked} onCheckedChange={() => toggleGroup(s.id, group)} />
+                                <Checkbox id={`grp-${s.id}-${group}`} checked={allChecked} onCheckedChange={() => toggleGroup(s, group)} />
                                 <label htmlFor={`grp-${s.id}-${group}`} className="text-xs font-semibold cursor-pointer">{group}</label>
                                 <span className="text-xs text-muted-foreground">({gPerms.filter(p => currentPerms.includes(p.key)).length}/{gPerms.length})</span>
                               </div>
@@ -684,7 +699,7 @@ export default function AdminStaff() {
                                   const granted = currentPerms.includes(perm.key);
                                   return (
                                     <label key={perm.key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-xs font-medium transition-colors ${granted ? 'bg-green-50 border-green-300 text-green-800' : 'bg-background border-border text-muted-foreground hover:bg-accent/50'}`}>
-                                      <Checkbox checked={granted} onCheckedChange={() => togglePerm(s.id, perm.key)} className="h-3.5 w-3.5 flex-shrink-0" />
+                                      <Checkbox checked={granted} onCheckedChange={() => togglePerm(s, perm.key)} className="h-3.5 w-3.5 flex-shrink-0" />
                                       {perm.label}
                                     </label>
                                   );
@@ -697,19 +712,16 @@ export default function AdminStaff() {
                       <div className="mt-4 pt-3 border-t flex gap-2 flex-wrap">
                         <Button size="sm" variant="outline" onClick={() => {
                           const all = PAGE_PERMISSIONS.map(p => p.key);
-                          const np = { ...staffPerms, [s.id]: all }; setStaffPerms(np); savePerms(np);
-                          setStaff(prev => prev.map(m => m.id === s.id ? { ...m, permissions: all } : m));
+                          saveAccessState(s, all);
                           toast({ title: 'All pages granted' });
                         }}>Grant All</Button>
                         <Button size="sm" variant="outline" className="text-destructive border-destructive/30" onClick={() => {
-                          const np = { ...staffPerms, [s.id]: [] }; setStaffPerms(np); savePerms(np);
-                          setStaff(prev => prev.map(m => m.id === s.id ? { ...m, permissions: [] } : m));
+                          saveAccessState(s, []);
                           toast({ title: 'All pages revoked' });
                         }}>Revoke All</Button>
                         <Button size="sm" variant="outline" onClick={() => {
                           const d = DEFAULT_PERMS[s.role] || DEFAULT_PERMS.staff;
-                          const np = { ...staffPerms, [s.id]: d }; setStaffPerms(np); savePerms(np);
-                          setStaff(prev => prev.map(m => m.id === s.id ? { ...m, permissions: d } : m));
+                          saveAccessState(s, d);
                           toast({ title: 'Reset to default' });
                         }}>Reset Default</Button>
                       </div>

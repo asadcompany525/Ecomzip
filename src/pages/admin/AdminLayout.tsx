@@ -22,6 +22,7 @@ const PERMS_KEY = 'staff_permissions_v3';
 const ROLES_KEY = 'staff_roles_v3';
 const loadPerms = (): Record<string, string[]> => { try { return JSON.parse(localStorage.getItem(PERMS_KEY) || '{}'); } catch { return {}; } };
 const loadRoles = (): Record<string, string> => { try { return JSON.parse(localStorage.getItem(ROLES_KEY) || '{}'); } catch { return {}; } };
+const accessKey = (userId: string) => `staff_access_${userId}`;
 
 const PATH_TO_PERM: Record<string, string> = {
   '/admin': 'page_dashboard',
@@ -147,12 +148,18 @@ const AdminLayout = () => {
       .eq('user_id', user.id)
       .eq('role', 'moderator')
       .maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data?.id) {
           const stored = loadPerms();
           const roles = loadRoles();
-          const perms = stored[data.id] ?? ['page_dashboard', 'page_orders', 'page_customers', 'page_chat'];
-          const roleKey = roles[data.id] || 'staff';
+          const { data: accessRow } = await supabase
+            .from('site_settings')
+            .select('value')
+            .eq('key', accessKey(user.id))
+            .maybeSingle();
+          const value = typeof accessRow?.value === 'object' && accessRow.value ? accessRow.value as any : {};
+          const perms = Array.isArray(value.permissions) ? value.permissions : (stored[data.id] ?? ['page_dashboard', 'page_orders', 'page_customers', 'page_chat']);
+          const roleKey = value.role || roles[data.id] || 'staff';
           setStaffPermissions(perms);
           setStaffRoleLabel(ROLE_DISPLAY[roleKey] || roleKey.charAt(0).toUpperCase() + roleKey.slice(1));
         }

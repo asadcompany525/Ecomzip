@@ -33,7 +33,10 @@ const Contact = () => {
     });
     setSending(false);
     if (error) {
-      alert(`Message could not be sent: ${error.message}`);
+      const needsPolicy = error.code === '42501' || /row-level security|permission denied/i.test(error.message || '');
+      alert(needsPolicy
+        ? 'Message could not be sent: contact_messages table policy is missing. Please run the latest contact_messages SQL migration in Supabase.'
+        : `Message could not be sent: ${error.message}`);
       return;
     }
     setForm({ name: '', email: '', subject: '', message: '' });

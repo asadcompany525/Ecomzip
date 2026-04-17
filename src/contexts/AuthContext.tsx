@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        setTimeout(() => checkUserRole(session.user.id), 0);
+        await checkUserRole(session.user.id);
       } else {
         setIsAdmin(false);
         setIsStaff(false);
@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session && hasLocalAdminSession()) {
         setLocalAdminSession();
         setLoading(false);
@@ -120,9 +120,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        checkUserRole(session.user.id);
-      }
+      if (session?.user) await checkUserRole(session.user.id);
       setLoading(false);
     });
 
@@ -160,8 +158,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const adminLogin = async (email: string, password: string) => {
     // First try direct Supabase sign-in (fast path for confirmed accounts)
-    const { error: directError } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
-    if (!directError) return { error: null };
+    const { data: directData, error: directError } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    if (!directError && directData.session?.user) {
+      setSession(directData.session);
+      setUser(directData.session.user);
+      await checkUserRole(directData.session.user.id);
+      return { error: null };
+    }
 
     // Fall back to edge function (handles: admin local session, unconfirmed staff emails, credential lookup)
     try {
@@ -172,10 +175,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (resp.data?.error) return { error: resp.data.error };
 
       if (resp.data?.session) {
-        await supabase.auth.setSession({
+        const { data } = await supabase.auth.setSession({
           access_token: resp.data.session.access_token,
           refresh_token: resp.data.session.refresh_token,
         });
+        if (data.session?.user) {
+          setSession(data.session);
+          setUser(data.session.user);
+          await checkUserRole(data.session.user.id);
+        }
         return { error: null };
       }
 

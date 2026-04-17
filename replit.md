@@ -3,6 +3,8 @@
 A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bags store — Pakistan's #1 Shoes & Bags Store.
 
 ## Recent Changes (April 2026)
+- **Staff access persistence fix**: Staff permissions and role labels are now saved in `site_settings` under `staff_access_{user_id}`, so staff can log in from their own browser and still receive the assigned panel access. Local storage remains only as a fallback.
+- **Contact messages policy fix**: The contact messages setup SQL now includes public insert and admin/staff select/update policies, and the admin inbox no longer labels RLS errors as "table not created".
 - **Smart Staff Upsert**: AdminStaff.tsx now checks if email exists before creating. If exists → updates role + password. If new → creates account.
 - **RLS Fixes**: Migration `20260416000001_contact_rls_developer_fixes.sql` adds admin full-bypass policies for profiles, site_settings, products tables + moderator read policies.
 - **contact_messages table**: Created with RLS (anyone can insert, admins/moderators can read).

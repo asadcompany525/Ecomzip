@@ -6,19 +6,28 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
+import { ensureAdminSession } from '@/lib/adminSession';
 
-const MIGRATION_SQL = `create table if not exists contact_messages (
+const MIGRATION_SQL = `create table if not exists public.contact_messages (
   id uuid primary key default gen_random_uuid(),
-  name text,
-  email text,
-  subject text,
-  message text,
-  is_read boolean default false,
-  created_at timestamptz default now()
+  name text not null,
+  email text not null,
+  subject text not null,
+  message text not null,
+  is_read boolean not null default false,
+  created_at timestamptz not null default now()
 );
-alter table contact_messages enable row level security;
-create policy "Admin full access" on contact_messages
-  for all using (true);`;
+alter table public.contact_messages enable row level security;
+drop policy if exists "Anyone can submit contact message" on public.contact_messages;
+create policy "Anyone can submit contact message" on public.contact_messages
+  for insert with check (true);
+drop policy if exists "Admins and staff can view contact messages" on public.contact_messages;
+create policy "Admins and staff can view contact messages" on public.contact_messages
+  for select using (public.has_role(auth.uid(), 'admin'::app_role) or public.has_role(auth.uid(), 'moderator'::app_role));
+drop policy if exists "Admins and staff can update contact messages" on public.contact_messages;
+create policy "Admins and staff can update contact messages" on public.contact_messages
+  for update using (public.has_role(auth.uid(), 'admin'::app_role) or public.has_role(auth.uid(), 'moderator'::app_role))
+  with check (public.has_role(auth.uid(), 'admin'::app_role) or public.has_role(auth.uid(), 'moderator'::app_role));`;
 
 export default function AdminContactMessages() {
   const [messages, setMessages] = useState<any[]>([]);
@@ -30,6 +39,7 @@ export default function AdminContactMessages() {
   const fetchMessages = async () => {
     setLoading(true);
     setTableNotFound(false);
+    await ensureAdminSession().catch(() => null);
     const { data, error } = await supabase
       .from('contact_messages' as any)
       .select('*')
@@ -39,9 +49,8 @@ export default function AdminContactMessages() {
       const msg = error.message || '';
       if (
         msg.includes('schema cache') ||
-        msg.includes('contact_messages') ||
         msg.includes('does not exist') ||
-        msg.includes('relation') ||
+        msg.includes('relation "contact_messages"') ||
         error.code === '42P01' ||
         error.code === 'PGRST200'
       ) {
@@ -57,6 +66,7 @@ export default function AdminContactMessages() {
   useEffect(() => { fetchMessages(); }, []);
 
   const markRead = async (message: any) => {
+    await ensureAdminSession().catch(() => null);
     const { error } = await supabase.from('contact_messages' as any).update({ is_read: true }).eq('id', message.id);
     if (error) { toast({ title: 'Could not mark as read', description: error.message, variant: 'destructive' }); return; }
     setMessages(prev => prev.map(m => m.id === message.id ? { ...m, is_read: true } : m));

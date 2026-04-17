@@ -7,6 +7,15 @@ const corsHeaders = {
 };
 
 const adminEmail = "sscck@gmail.com";
+const defaultPerms: Record<string, string[]> = {
+  staff: ["page_dashboard", "page_orders", "page_customers", "page_chat"],
+  sales: ["page_orders", "page_customers", "page_dashboard", "page_analytics"],
+  support: ["page_chat", "page_returns", "page_reviews", "page_customers", "page_orders"],
+  delivery: ["page_orders", "page_deliveries", "page_dashboard"],
+  manager: ["page_dashboard", "page_orders", "page_products", "page_customers", "page_reviews", "page_returns", "page_chat", "page_deliveries", "page_analytics", "page_banners", "page_promos"],
+  editor: ["page_products", "page_banners", "page_promos", "page_newsletter"],
+  viewer: ["page_dashboard", "page_analytics"],
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -83,6 +92,15 @@ serve(async (req) => {
       await admin.from("site_settings").upsert({
         key: `staff_credentials_${userId}`,
         value: { name, username, email, password, role: displayRole, created_at: new Date().toISOString() },
+      }, { onConflict: "key" });
+
+      await admin.from("site_settings").upsert({
+        key: `staff_access_${userId}`,
+        value: {
+          role: displayRole,
+          permissions: defaultPerms[displayRole] || defaultPerms.staff,
+          updated_at: new Date().toISOString(),
+        },
       }, { onConflict: "key" });
 
       return json({ success: true, user_id: userId, role_id: roleData.id });
