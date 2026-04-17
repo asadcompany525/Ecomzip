@@ -79,7 +79,6 @@ import AdminSearchLogs from "./pages/admin/AdminSearchLogs";
 import AdminNewsletter from "./pages/admin/AdminNewsletter";
 import AdminContactMessages from "./pages/admin/AdminContactMessages";
 import AdminAiClaimValidator from "./pages/admin/AdminAiClaimValidator";
-import AdminAiVirtualTryon from "./pages/admin/AdminAiVirtualTryon";
 import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
@@ -174,7 +173,6 @@ const App = () => (
                 <Route path="ai-discounts" element={<AdminAiDiscounts />} />
                 <Route path="order-checklist" element={<AdminOrderChecklist />} />
                 <Route path="form-generator" element={<AdminFormGenerator />} />
-                <Route path="ai-virtual-tryon" element={<AdminAiVirtualTryon />} />
                 <Route path="delivery" element={<AdminDelivery />} />
                 <Route path="stock-alerts" element={<AdminStockAlerts />} />
                 <Route path="city-manager" element={<AdminCityManager />} />

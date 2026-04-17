@@ -8,7 +8,7 @@ import {
   BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard,
   TrendingUp, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe,
   ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command, Mail, Heart, Search,
-  Clock, Lock, Activity, Shirt, FileSpreadsheet
+  Clock, Lock, Activity, FileSpreadsheet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +88,6 @@ const sidebarGroups = [
       { icon: ImagePlus,       label: 'AI Banner Creator',      path: '/admin/ai-banner-creator',     adminOnly: true },
       { icon: Sparkles,        label: 'AI Bulk Creator',        path: '/admin/ai-bulk-creator',       adminOnly: true },
       { icon: FileSpreadsheet, label: 'AI Report Generator',    path: '/admin/form-generator',        adminOnly: true },
-      { icon: Shirt,           label: 'AI Virtual Try-On',      path: '/admin/ai-virtual-tryon',      adminOnly: true },
     ],
   },
   {

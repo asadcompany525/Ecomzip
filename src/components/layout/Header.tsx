@@ -193,7 +193,7 @@ const Header = () => {
       <header className="sticky top-0 z-50 bg-card shadow-sm">
         {/* Top bar - only on home page, hidden in landscape mode */}
         {isHome && (
-          <div className="bg-primary text-primary-foreground landscape:hidden md:landscape:block md:block">
+          <div className="bg-primary text-primary-foreground portrait:block landscape:hidden">
             <div className="container flex items-center justify-between py-1.5 text-xs md:text-sm">
               <span>Pakistan's #1 Shoes & Bags Store</span>
               <Link to="/contact" className="hover:opacity-80 transition-opacity">Help & Support</Link>

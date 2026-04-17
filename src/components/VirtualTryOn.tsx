@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Upload, X, Download, Sparkles, Loader2,
   RotateCcw, Brain, CheckCircle, AlertTriangle, Camera,
@@ -176,6 +176,29 @@ export default function VirtualTryOn({ productImage, productName, productCategor
     setElapsed(0);
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      if (scrollY) window.scrollTo(0, parseInt(scrollY || '0') * -1);
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+    };
+  }, [isOpen]);
+
   const handleOpen = () => { cancelledRef.current = false; setIsOpen(true); resetState(); };
   const handleClose = () => { setIsOpen(false); resetState(); };
 
@@ -312,7 +335,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
 
               {/* ── Upload ── */}
               {step === 'upload' && (
