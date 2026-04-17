@@ -159,13 +159,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const adminLogin = async (email: string, password: string) => {
-    if (isAdminCredentials(email, password)) {
-      const { error } = await signIn(email, password);
-      if (!error) return { error: null };
-    }
+    // First try direct Supabase sign-in (fast path for confirmed accounts)
+    const { error: directError } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    if (!directError) return { error: null };
+
+    // Fall back to edge function (handles: admin local session, unconfirmed staff emails, credential lookup)
     try {
       const resp = await supabase.functions.invoke('admin-login', {
-        body: { email, password },
+        body: { email: email.trim().toLowerCase(), password },
       });
       if (resp.error) return { error: resp.error.message || 'Login failed' };
       if (resp.data?.error) return { error: resp.data.error };
@@ -175,10 +176,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           access_token: resp.data.session.access_token,
           refresh_token: resp.data.session.refresh_token,
         });
+        return { error: null };
       }
-      return { error: null };
+
+      // Admin local session fallback
+      if (isAdminCredentials(email, password)) {
+        setLocalAdminSession();
+        return { error: null };
+      }
+
+      return { error: 'Login failed — no session returned' };
     } catch (e: any) {
-      return { error: e.message || 'Admin login failed' };
+      if (isAdminCredentials(email, password)) {
+        setLocalAdminSession();
+        return { error: null };
+      }
+      return { error: e.message || 'Login failed' };
     }
   };
 

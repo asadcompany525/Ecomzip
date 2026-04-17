@@ -3,72 +3,44 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock, Mail, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 
-const ADMIN_EMAIL = 'sscck@gmail.com';
-
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const { adminLogin, signIn } = useAuth();
+  const { adminLogin } = useAuth();
   const { brandName } = useStoreSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      toast({ title: 'Enter email and password', variant: 'destructive' });
+      return;
+    }
     setLoading(true);
 
-    // Try regular signIn first (works for staff with moderator role)
-    const { error: signInError } = await signIn(email, password);
+    const { error } = await adminLogin(email.trim(), password);
 
-    if (signInError) {
-      // Fall back to admin edge-function login (for main admin)
-      const { error: adminError } = await adminLogin(email, password);
-      if (adminError) {
-        toast({ title: 'Login Failed', description: adminError, variant: 'destructive' });
-        setLoading(false);
-        return;
-      }
-    } else {
-      // Verify the user has admin or moderator role
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session.session?.user?.id;
-      const userEmail = session.session?.user?.email?.toLowerCase();
-      if (userEmail === ADMIN_EMAIL) {
-        setLoading(false);
-        toast({ title: 'Welcome to Panel!' });
-        navigate('/admin');
-        return;
-      }
-      if (userId) {
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userId)
-          .in('role', ['admin', 'moderator'])
-          .maybeSingle();
-
-        if (!roleData) {
-          // Not an admin or staff — sign them out
-          await supabase.auth.signOut();
-          toast({
-            title: 'Access Denied',
-            description: 'You do not have panel access. Please use the customer login.',
-            variant: 'destructive',
-          });
-          setLoading(false);
-          return;
-        }
-      }
+    if (error) {
+      toast({
+        title: 'Login Failed',
+        description: error.includes('Invalid credentials') || error.includes('invalid_credentials')
+          ? 'Wrong email or password. Please check and try again.'
+          : error,
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
     }
 
     setLoading(false);
-    toast({ title: 'Welcome to Panel!' });
+    toast({ title: 'Welcome!' });
     navigate('/admin');
   };
 
@@ -89,18 +61,33 @@ const AdminLogin = () => {
               <Label htmlFor="email">Email</Label>
               <div className="relative mt-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)} className="pl-10" required />
+                <Input
+                  id="email" type="email" placeholder="Your email"
+                  value={email} onChange={e => setEmail(e.target.value)}
+                  className="pl-10" required autoComplete="email"
+                />
               </div>
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
               <div className="relative mt-1">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="pl-10" required />
+                <Input
+                  id="password" type={showPass ? 'text' : 'password'} placeholder="••••••••"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  className="pl-10 pr-10" required autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
             <Button type="submit" className="w-full h-11" disabled={loading}>
-              {loading ? 'Signing in...' : 'Enter Panel'}
+              {loading ? 'Signing in…' : 'Enter Panel'}
             </Button>
           </form>
         </div>

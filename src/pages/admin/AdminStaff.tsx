@@ -131,10 +131,11 @@ export default function AdminStaff() {
   const fetchStaff = async () => {
     setLoading(true);
     await ensureAdminSession().catch(() => null);
-    // Fetch all moderator roles (staff) — exclude admin role
+
+    // Fetch all moderator roles (staff) — include custom_role_label from DB
     const { data: roles, error } = await supabase
       .from('user_roles')
-      .select('id, user_id, role, created_at')
+      .select('id, user_id, role, created_at, custom_role_label')
       .eq('role', 'moderator')
       .order('created_at', { ascending: false });
 
@@ -142,10 +143,13 @@ export default function AdminStaff() {
 
     const userIds = (roles || []).map((r: any) => r.user_id).filter(Boolean);
     let profileMap: Record<string, any> = {};
+    let credentialsMap: Record<string, any> = {};
+
     if (userIds.length > 0) {
+      // Fetch profiles (with username fallback)
       let { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email, phone, whatsapp, avatar_url, created_at, updated_at, username')
+        .select('user_id, full_name, email, phone, whatsapp, avatar_url, created_at, updated_at, username, staff_role')
         .in('user_id', userIds);
 
       if (profilesError) {
@@ -155,24 +159,55 @@ export default function AdminStaff() {
           .in('user_id', userIds);
         profiles = fallback.data || [];
       }
-
       (profiles || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
+      // Fetch stored credentials from site_settings as email/name fallback
+      const credKeys = userIds.map(uid => `staff_credentials_${uid}`);
+      const { data: credRows } = await supabase
+        .from('site_settings')
+        .select('key, value')
+        .in('key', credKeys);
+
+      (credRows || []).forEach((row: any) => {
+        const uid = row.key.replace('staff_credentials_', '');
+        credentialsMap[uid] = typeof row.value === 'object' ? row.value : {};
+      });
     }
 
-    const stored = loadPerms(), storedRoles = loadRoles();
+    const stored = loadPerms();
+    const storedRoles = loadRoles();
+
     const mapped: StaffMember[] = (roles || []).map((r: any) => {
       const profile = profileMap[r.user_id] || {};
-      const displayRole = storedRoles[r.id] || 'staff';
+      const creds = credentialsMap[r.user_id] || {};
+
+      // Role priority: DB custom_role_label > localStorage > creds.role > 'staff'
+      const dbRole = (r.custom_role_label || '').toLowerCase();
+      const localRole = storedRoles[r.id] || '';
+      const displayRole = dbRole || localRole || (creds.role || 'staff').toLowerCase();
+
+      // Sync localStorage roles with DB
+      if (dbRole && dbRole !== localRole) {
+        const newRoles = { ...storedRoles, [r.id]: dbRole };
+        saveRoles(newRoles);
+      }
+
+      const email = profile.email || creds.email || '';
+      const name = profile.full_name || creds.name || email.split('@')[0] || 'Staff member';
+      const username = profile.username || creds.username || (email ? email.split('@')[0] : '—');
+
       return {
-        id: r.id, user_id: r.user_id,
-        email: profile.email || r.email || 'No email found',
-        name: profile.full_name || profile.email || 'Staff member',
-        username: profile.username || (profile.email ? profile.email.split('@')[0] : '—'),
+        id: r.id,
+        user_id: r.user_id,
+        email: email || '(email not found)',
+        name,
+        username,
         role: displayRole,
         created_at: r.created_at,
         permissions: stored[r.id] ?? DEFAULT_PERMS[displayRole] ?? DEFAULT_PERMS.staff,
       };
     });
+
     setStaff(mapped);
     setLoading(false);
   };
@@ -411,13 +446,24 @@ export default function AdminStaff() {
     setStaff(prev => prev.map(s => s.id === staffId ? { ...s, permissions: updated } : s));
   };
 
-  const changeRole = (s: StaffMember, newRole: string) => {
+  const changeRole = async (s: StaffMember, newRole: string) => {
     const newRoles = { ...loadRoles(), [s.id]: newRole };
     saveRoles(newRoles);
     const defaults = DEFAULT_PERMS[newRole] || DEFAULT_PERMS.staff;
     const newPerms = { ...loadPerms(), [s.id]: defaults };
     savePerms(newPerms); setStaffPerms(newPerms);
     setStaff(prev => prev.map(m => m.id === s.id ? { ...m, role: newRole, permissions: defaults } : m));
+
+    // Persist role to database
+    await supabase.from('user_roles')
+      .update({ custom_role_label: newRole } as any)
+      .eq('id', s.id);
+
+    // Persist role to profile
+    await supabase.from('profiles')
+      .update({ staff_role: newRole } as any)
+      .eq('user_id', s.user_id);
+
     toast({ title: `✅ Role updated to "${newRole}"` });
   };
 
