@@ -21,7 +21,15 @@ export default function AdminContactMessages() {
       .order('created_at', { ascending: false });
     setLoading(false);
     if (error) {
-      toast({ title: 'Failed to load contact messages', description: error.message, variant: 'destructive' });
+      if (error.message?.includes('schema cache') || error.message?.includes('contact_messages')) {
+        toast({
+          title: 'Table not yet created',
+          description: 'The contact_messages table needs to be created in Supabase. Please apply the latest migration from supabase/migrations folder.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Failed to load contact messages', description: error.message, variant: 'destructive' });
+      }
       return;
     }
     setMessages(data || []);

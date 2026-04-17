@@ -324,15 +324,38 @@ const AdminProducts = () => {
         tags: form.tags,
       };
 
+      // Helper: try save, fallback without missing columns if schema cache error
+      const trySave = async (data: any, id?: string) => {
+        if (id) {
+          const { error } = await supabase.from('products').update(data).eq('id', id).select('id').single();
+          if (error) {
+            if (error.message?.includes('claim_duration') || error.message?.includes('schema cache')) {
+              const { claim_duration, ...dataWithout } = data;
+              const { error: e2 } = await supabase.from('products').update(dataWithout).eq('id', id).select('id').single();
+              if (e2) throw e2;
+              return { id };
+            }
+            throw error;
+          }
+          return { id };
+        } else {
+          const { data: inserted, error } = await supabase.from('products').insert(data).select('id').single();
+          if (error) {
+            if (error.message?.includes('claim_duration') || error.message?.includes('schema cache')) {
+              const { claim_duration, ...dataWithout } = data;
+              const { data: ins2, error: e2 } = await supabase.from('products').insert(dataWithout).select('id').single();
+              if (e2) throw e2;
+              return { id: ins2?.id };
+            }
+            throw error;
+          }
+          return { id: inserted?.id };
+        }
+      };
+
       let productId = form.id;
-      if (productId) {
-        const { error } = await supabase.from('products').update(saveData).eq('id', productId).select('id').single();
-        if (error) throw error;
-      } else {
-        const { data: inserted, error } = await supabase.from('products').insert(saveData).select('id').single();
-        if (error) throw error;
-        productId = inserted?.id;
-      }
+      const saved = await trySave(saveData, productId || undefined);
+      if (!productId) productId = saved.id;
 
       if (!productId) throw new Error('Product save did not return an id');
 

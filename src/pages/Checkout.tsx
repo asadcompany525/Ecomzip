@@ -347,6 +347,22 @@ const Checkout = () => {
   const placeOrder = async () => {
     if (!user) { toast({ title: 'Please login first', variant: 'destructive' }); navigate('/login'); return; }
     if (!fullName || !phone || !province || !city || !area || !fullAddress) { toast({ title: 'Fill all address fields', variant: 'destructive' }); return; }
+    // Validate Pakistani phone number format
+    const pkPhoneRegex = /^(03\d{9}|\+923\d{9})$/;
+    if (!pkPhoneRegex.test(phone.replace(/\s/g, ''))) {
+      toast({ title: 'Invalid phone number', description: 'Please enter a valid Pakistani number (e.g. 03001234567)', variant: 'destructive' });
+      return;
+    }
+    // Validate WhatsApp differs from phone
+    if (whatsapp && whatsapp.replace(/\s/g, '') === phone.replace(/\s/g, '')) {
+      toast({ title: 'Phone & WhatsApp must be different', description: 'Please enter a different number for WhatsApp.', variant: 'destructive' });
+      return;
+    }
+    // Validate email format if provided
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({ title: 'Invalid email address', description: 'Please enter a valid email (e.g. example@gmail.com)', variant: 'destructive' });
+      return;
+    }
     if (paymentMethod !== 'cod' && !transactionId) { toast({ title: 'Enter transaction ID', variant: 'destructive' }); return; }
 
     // Check account verification
@@ -458,9 +474,21 @@ const Checkout = () => {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div><Label>Full Name *</Label><Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" className="mt-1" required /></div>
-                  <div><Label>Phone *</Label><Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="03001234567" className="mt-1" required /></div>
-                  <div><Label>WhatsApp</Label><Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="WhatsApp number" className="mt-1" /></div>
-                  <div><Label>Email</Label><Input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="mt-1" /></div>
+                  <div>
+                    <Label>Phone *</Label>
+                    <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="03001234567" className={`mt-1 ${phone && !/^(03\d{9}|\+923\d{9})$/.test(phone.replace(/\s/g,'')) ? 'border-red-400 focus-visible:ring-red-300' : ''}`} required />
+                    {phone && !/^(03\d{9}|\+923\d{9})$/.test(phone.replace(/\s/g,'')) && <p className="text-xs text-red-500 mt-0.5">Enter Pakistani number e.g. 03001234567</p>}
+                  </div>
+                  <div>
+                    <Label>WhatsApp (Optional)</Label>
+                    <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="Different WhatsApp number" className={`mt-1 ${whatsapp && whatsapp.replace(/\s/g,'') === phone.replace(/\s/g,'') ? 'border-red-400 focus-visible:ring-red-300' : ''}`} />
+                    {whatsapp && whatsapp.replace(/\s/g,'') === phone.replace(/\s/g,'') && <p className="text-xs text-red-500 mt-0.5">WhatsApp must be different from Phone</p>}
+                  </div>
+                  <div>
+                    <Label>Email (Optional)</Label>
+                    <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="example@gmail.com" className={`mt-1 ${email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? 'border-red-400 focus-visible:ring-red-300' : ''}`} />
+                    {email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && <p className="text-xs text-red-500 mt-0.5">Enter a valid email address</p>}
+                  </div>
                 </div>
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div>
@@ -509,7 +537,22 @@ const Checkout = () => {
                   <Checkbox checked={saveAddress} onCheckedChange={(v) => setSaveAddress(!!v)} />
                   Save this address for future orders
                 </label>
-                <Button onClick={() => setStep(2)} className="w-full h-11" disabled={!fullName || !phone || !province || !city || !area || !fullAddress}>Continue to Payment</Button>
+                <Button onClick={() => {
+                  const pkPhoneRegex = /^(03\d{9}|\+923\d{9})$/;
+                  if (!pkPhoneRegex.test(phone.replace(/\s/g, ''))) {
+                    toast({ title: 'Invalid phone number', description: 'Enter a valid Pakistani number e.g. 03001234567', variant: 'destructive' });
+                    return;
+                  }
+                  if (whatsapp && whatsapp.replace(/\s/g, '') === phone.replace(/\s/g, '')) {
+                    toast({ title: 'Phone & WhatsApp must be different', description: 'Enter a different WhatsApp number.', variant: 'destructive' });
+                    return;
+                  }
+                  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    toast({ title: 'Invalid email', description: 'Enter a valid email address.', variant: 'destructive' });
+                    return;
+                  }
+                  setStep(2);
+                }} className="w-full h-11" disabled={!fullName || !phone || !province || !city || !area || !fullAddress}>Continue to Payment</Button>
               </div>
             )}
 

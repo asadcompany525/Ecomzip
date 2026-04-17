@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Printer, Loader2, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { Sparkles, Printer, Loader2, Download, FileText, FileSpreadsheet, History, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
+
+const HISTORY_KEY = 'ai_form_generator_history_v1';
+const loadFormHistory = (): string[] => { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; } };
+const saveFormHistory = (prompts: string[]) => { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(prompts.slice(0, 15))); } catch {} };
 
 const EXAMPLES = [
   'PMP001 all sizes with stock',
@@ -51,6 +55,9 @@ const AdminFormGenerator = () => {
   const [prompt, setPrompt] = useState('');
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
+  const [recentHistory, setRecentHistory] = useState<string[]>([]);
+
+  useEffect(() => { setRecentHistory(loadFormHistory()); }, []);
 
   const generateForm = async () => {
     if (!prompt.trim()) {
@@ -137,6 +144,9 @@ Format output as clean HTML table(s) with headers, subtotals and grand totals. B
       if (error) throw error;
       setResult(typeof data === 'string' ? data : data?.reply || data?.content || JSON.stringify(data));
       toast({ title: '✅ Report generated!' });
+      const updated = [prompt, ...recentHistory.filter(h => h !== prompt)].slice(0, 15);
+      setRecentHistory(updated);
+      saveFormHistory(updated);
     } catch (e: any) {
       toast({ title: 'Error generating report', description: e.message, variant: 'destructive' });
     }
@@ -278,6 +288,32 @@ Format output as clean HTML table(s) with headers, subtotals and grand totals. B
         />
         <p className="text-[11px] text-muted-foreground">Tip: Press Ctrl+Enter to generate quickly</p>
       </div>
+
+      {recentHistory.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <History className="h-3.5 w-3.5" /> Recent Reports — click to reuse:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {recentHistory.map((h, i) => (
+              <button
+                key={i}
+                onClick={() => setPrompt(h)}
+                className="text-[11px] px-2.5 py-1 rounded-full bg-muted/50 border hover:border-primary hover:text-primary transition-colors flex items-center gap-1 max-w-xs truncate"
+              >
+                <History className="h-3 w-3 shrink-0 opacity-60" />
+                <span className="truncate">{h}</span>
+              </button>
+            ))}
+            <button
+              onClick={() => { setRecentHistory([]); localStorage.removeItem(HISTORY_KEY); }}
+              className="text-[11px] px-2 py-1 rounded-full text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1"
+            >
+              <X className="h-3 w-3" /> Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       <Button onClick={generateForm} disabled={loading} className="gap-2 w-full sm:w-auto">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
