@@ -17,6 +17,11 @@ const defaultPerms: Record<string, string[]> = {
   viewer: ["page_dashboard", "page_analytics"],
 };
 
+const isMissingColumn = (error: unknown, columns: string[]) => {
+  const err = error as { code?: string; message?: string } | null;
+  return err?.code === "42703" || columns.some((column) => (err?.message || "").toLowerCase().includes(column.toLowerCase()));
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -78,15 +83,27 @@ serve(async (req) => {
         userId = data.user.id;
       }
 
-      await admin.from("profiles").upsert({
+      const profilePayload = {
         user_id: userId, full_name: name, email, username,
         plain_password: password, is_deleted: false, staff_role: displayRole,
-      }, { onConflict: "user_id" });
+      };
+      let profileSave = await admin.from("profiles").upsert(profilePayload, { onConflict: "user_id" });
+      if (profileSave.error && isMissingColumn(profileSave.error, ["username", "plain_password", "is_deleted", "staff_role"])) {
+        profileSave = await admin.from("profiles").upsert({ user_id: userId, full_name: name, email }, { onConflict: "user_id" });
+      }
+      if (profileSave.error) throw profileSave.error;
 
-      const { data: roleData, error: roleError } = await admin
+      let roleSave = await admin
         .from("user_roles")
         .upsert({ user_id: userId, role: "moderator", custom_role_label: displayRole }, { onConflict: "user_id,role" })
         .select("id").single();
+      if (roleSave.error && isMissingColumn(roleSave.error, ["custom_role_label"])) {
+        roleSave = await admin
+          .from("user_roles")
+          .upsert({ user_id: userId, role: "moderator" }, { onConflict: "user_id,role" })
+          .select("id").single();
+      }
+      const { data: roleData, error: roleError } = roleSave;
       if (roleError) throw roleError;
 
       await admin.from("site_settings").upsert({

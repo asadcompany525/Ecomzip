@@ -4,6 +4,7 @@ A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bag
 
 ## Recent Changes (April 2026)
 - **Staff access persistence fix**: Staff permissions and role labels are now saved in `site_settings` under `staff_access_{user_id}`, so staff can log in from their own browser and still receive the assigned panel access. Local storage remains only as a fallback.
+- **Full smoke test follow-up**: All public and admin routes return HTTP 200 and render without runtime crashes. Admin login returns a valid session. Code now avoids hard failures when optional staff columns (`custom_role_label`, `username`, `staff_role`, `plain_password`) or `staff_attendance` are missing.
 - **Contact messages policy fix**: The contact messages setup SQL now includes public insert and admin/staff select/update policies, and the admin inbox no longer labels RLS errors as "table not created".
 - **Smart Staff Upsert**: AdminStaff.tsx now checks if email exists before creating. If exists → updates role + password. If new → creates account.
 - **RLS Fixes**: Migration `20260416000001_contact_rls_developer_fixes.sql` adds admin full-bypass policies for profiles, site_settings, products tables + moderator read policies.
@@ -19,8 +20,8 @@ A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bag
 - Admin login accepts `sscck@gmail.com` with password `sscck@gmail.com`; the app maps that to the current Supabase Auth password `sscck123` to create a real database-backed session, with local fallback only for Supabase Auth outages.
 
 ### Staff Permissions
-- Permissions stored in `localStorage` key `staff_permissions_v3` (indexed by user_roles.id)
-- Role labels stored in `localStorage` key `staff_roles_v3`
+- Permissions are primarily stored in Supabase `site_settings` key `staff_access_{user_id}`.
+- `localStorage` keys `staff_permissions_v3` and `staff_roles_v3` remain as browser fallback caches.
 - Default permissions per role defined in `AdminStaff.tsx:DEFAULT_PERMS`
 - Path-to-permission map in `AdminLayout.tsx:PATH_TO_PERM`
 
@@ -214,6 +215,8 @@ The combined migration file at `scripts/full-migration.sql` is designed to be sa
 The legacy `public.customers` cleanup step is guarded with `to_regclass('public.customers')` because the active app stores customers in `public.profiles`.
 Seed product data uses explicit `jsonb` casts and PostgreSQL `text[]` arrays so it can run cleanly in Supabase SQL Editor.
 The main admin email `sscck@gmail.com` is treated as admin in both frontend login checks and database role logic; the full migration also inserts an admin `user_roles` row for that auth user when present.
+Latest test confirmed the live Supabase database still needs `contact_messages` and `staff_attendance` tables applied in the SQL Editor; app code handles missing tables, but those features cannot fully work until the SQL is run.
+Latest test also confirmed the deployed `admin-staff` Edge Function is missing/not deployed. The frontend has a signup fallback for new staff creation, but password sync for old saved staff credentials needs the function deployed or those staff accounts recreated.
 
 ```sql
 -- Expand app_role enum for all staff roles

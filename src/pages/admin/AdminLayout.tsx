@@ -169,7 +169,8 @@ const AdminLayout = () => {
   useEffect(() => {
     if (!user?.id || user.email === ADMIN_EMAIL) return;
     supabase.from('staff_attendance').insert({ user_id: user.id, login_at: new Date().toISOString() })
-      .select('id').single().then(({ data }) => {
+      .select('id').single().then(({ data, error }) => {
+        if (error?.code === 'PGRST205') return;
         if (data?.id) attendanceId.current = data.id;
       });
     const handleUnload = () => {

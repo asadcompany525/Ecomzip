@@ -72,6 +72,9 @@ function genPassword() {
   return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
+const isMissingColumnError = (error: any, columns: string[]) =>
+  error?.code === '42703' || columns.some(column => String(error?.message || '').toLowerCase().includes(column.toLowerCase()));
+
 interface StaffMember {
   id: string;
   user_id: string;
@@ -251,7 +254,7 @@ export default function AdminStaff() {
           body: { action: 'updatePassword', user_id: newUserId, password: fPassword },
         });
 
-        // Update or insert moderator role with new custom_role_label
+        // Update or insert moderator role
         const { data: existingRole } = await supabase
           .from('user_roles')
           .select('id')
@@ -260,13 +263,10 @@ export default function AdminStaff() {
           .maybeSingle();
 
         if (existingRole?.id) {
-          await supabase.from('user_roles')
-            .update({ custom_role_label: fRole } as any)
-            .eq('id', existingRole.id);
           roleId = existingRole.id;
         } else {
           const { data: newRole } = await supabase.from('user_roles')
-            .upsert({ user_id: newUserId, role: 'moderator' as any, custom_role_label: fRole }, { onConflict: 'user_id,role' })
+            .upsert({ user_id: newUserId, role: 'moderator' as any }, { onConflict: 'user_id,role' })
             .select('id').single();
           roleId = newRole?.id || '';
         }
@@ -317,7 +317,7 @@ export default function AdminStaff() {
         createdByFunction = true;
       } else {
         const message = functionResult.error?.message || functionResult.data?.error || '';
-        const canFallback = !message || /not found|failed to send|edge function/i.test(message);
+        const canFallback = !message || /not found|failed to send|edge function|column|schema cache|does not exist|pgrst/i.test(message);
         if (!canFallback) throw new Error(message || 'Staff creation failed');
 
         const tempClient = createClient(
@@ -381,7 +381,7 @@ export default function AdminStaff() {
       if (!roleId) {
         const { data: roleData, error: roleError } = await supabase
           .from('user_roles')
-          .upsert({ user_id: newUserId, role: 'moderator' as any, custom_role_label: fRole }, { onConflict: 'user_id,role' })
+          .upsert({ user_id: newUserId, role: 'moderator' as any }, { onConflict: 'user_id,role' })
           .select('id').single();
 
         if (roleError) throw roleError;
@@ -471,13 +471,12 @@ export default function AdminStaff() {
     const defaults = DEFAULT_PERMS[newRole] || DEFAULT_PERMS.staff;
     await saveAccessState(s, defaults, newRole);
 
-    await supabase.from('user_roles')
-      .update({ custom_role_label: newRole } as any)
-      .eq('id', s.id);
-
-    await supabase.from('profiles')
+    const profileUpdate = await supabase.from('profiles')
       .update({ staff_role: newRole } as any)
       .eq('user_id', s.user_id);
+    if (profileUpdate.error && !isMissingColumnError(profileUpdate.error, ['staff_role'])) {
+      toast({ title: 'Role saved in access settings only', description: profileUpdate.error.message, variant: 'destructive' });
+    }
 
     toast({ title: `✅ Role updated to "${newRole}"` });
   };
