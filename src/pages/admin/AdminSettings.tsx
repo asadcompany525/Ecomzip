@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Trash2, Loader2, Upload } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Upload, Bot, Eye, EyeOff } from 'lucide-react';
 import { invalidateStoreSettingsCache } from '@/hooks/useStoreSettings';
 import { ensureAdminSession } from '@/lib/adminSession';
 
@@ -20,6 +20,9 @@ const AdminSettings = () => {
   const [returnPolicy, setReturnPolicy] = useState({ title: 'Return Policy', content: '', days: 7 });
   const [faqPage, setFaqPage] = useState({ title: 'FAQs', items: '[]' });
   const [adminCreds, setAdminCreds] = useState({ email: '', password: '' });
+  const [geminiKey, setGeminiKey] = useState('');
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [savingAi, setSavingAi] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetConfirm, setResetConfirm] = useState('');
   const [faviconUploading, setFaviconUploading] = useState(false);
@@ -53,6 +56,7 @@ const AdminSettings = () => {
         if (s.key === 'faq_page') setFaqPage(s.value);
         if (s.key === 'receipt') setReceipt(s.value);
         if (s.key === 'site_title') setSiteTitle(String(s.value || ''));
+        if (s.key === 'gemini_api_key') setGeminiKey(String(s.value || ''));
       });
     };
     load();
@@ -141,6 +145,19 @@ const AdminSettings = () => {
     setResetting(false);
   };
 
+  const saveAiSettings = async () => {
+    if (!geminiKey.trim()) {
+      toast({ title: 'Please enter a Gemini API key', variant: 'destructive' });
+      return;
+    }
+    setSavingAi(true);
+    try {
+      await save('gemini_api_key', geminiKey.trim());
+      toast({ title: '✅ Gemini API key saved!', description: 'All AI features will now use your Gemini key.' });
+    } catch {}
+    setSavingAi(false);
+  };
+
   const updateAdminPassword = async () => {
     if (!adminCreds.email || !adminCreds.password) {
       toast({ title: 'Email and password required', variant: 'destructive' });
@@ -163,6 +180,7 @@ const AdminSettings = () => {
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="receipt">Receipt</TabsTrigger>
           <TabsTrigger value="pages">Pages</TabsTrigger>
+          <TabsTrigger value="ai">AI Settings</TabsTrigger>
           <TabsTrigger value="admin">Admin</TabsTrigger>
           <TabsTrigger value="reset" className="text-destructive">Production Reset</TabsTrigger>
         </TabsList>
@@ -337,6 +355,59 @@ const AdminSettings = () => {
             </CardContent>
           </Card>
 
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary" /> AI Configuration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                <p className="font-semibold mb-1">📌 How to get your Gemini API Key</p>
+                <ol className="list-decimal ml-4 space-y-0.5 text-xs">
+                  <li>Go to <strong>aistudio.google.com</strong></li>
+                  <li>Click <strong>Get API Key</strong> → Create API key</li>
+                  <li>Copy and paste the key below</li>
+                </ol>
+                <p className="mt-2 text-xs">This key enables: AI Virtual Try-On, AI Helper, AI Sales Predictor, AI Fraud Detector, AI Marketing Hub, AI Banner Creator, and all other AI tools.</p>
+              </div>
+              <div>
+                <Label>Gemini API Key</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showGeminiKey ? 'text' : 'password'}
+                    value={geminiKey}
+                    onChange={e => setGeminiKey(e.target.value)}
+                    placeholder="AIza..."
+                    className="pr-10 font-mono text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowGeminiKey(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showGeminiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Key is stored securely in your database. It is never exposed to the public.
+                </p>
+              </div>
+              {geminiKey && (
+                <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <Bot className="h-3.5 w-3.5 shrink-0" />
+                  Key entered — click Save to apply.
+                </div>
+              )}
+              <Button onClick={saveAiSettings} disabled={savingAi} className="gap-2">
+                {savingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                {savingAi ? 'Saving...' : 'Save Gemini API Key'}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="admin" className="space-y-4">

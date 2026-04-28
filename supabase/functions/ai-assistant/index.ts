@@ -242,9 +242,30 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI service is not configured. Please contact the store administrator to set up the AI API key.", reply: "AI service is currently unavailable. Please try again later or contact support." }), {
+    // Fetch Gemini API key from site_settings in Supabase DB
+    let GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+    if (!GEMINI_API_KEY) {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        try {
+          const dbRes = await fetch(`${SUPABASE_URL}/rest/v1/site_settings?key=eq.gemini_api_key&select=value`, {
+            headers: {
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+          });
+          const dbData = await dbRes.json();
+          if (Array.isArray(dbData) && dbData[0]?.value) {
+            GEMINI_API_KEY = String(dbData[0].value).trim();
+          }
+        } catch (e) {
+          console.error("[AI] Failed to fetch Gemini key from DB:", e);
+        }
+      }
+    }
+    if (!GEMINI_API_KEY) {
+      return new Response(JSON.stringify({ error: "AI service not configured. Go to Admin → Settings → AI Settings and enter your Gemini API key.", reply: "AI service is currently unavailable. Please ask the admin to configure the Gemini API key in Settings." }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -343,22 +364,21 @@ Generate a detailed description of at least 30 lines covering material, comfort,
     }
 
     const requestBody: any = {
-      model: "google/gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       messages: aiMessages,
+      stream: false,
     };
 
     if (useToolCalling) {
       requestBody.tools = tools;
       requestBody.tool_choice = toolChoice;
-      requestBody.stream = false;
-    } else {
-      requestBody.stream = false;
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Use Google Gemini OpenAI-compatible endpoint
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -366,14 +386,19 @@ Generate a detailed description of at least 30 lines covering material, comfort,
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later.", reply: "AI is busy right now. Please try again in a moment." }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 401 || response.status === 403) {
+        return new Response(JSON.stringify({ error: "Invalid Gemini API key. Go to Admin → Settings → AI Settings to update it.", reply: "AI service unavailable. The API key may be invalid." }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI service error" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.error("Gemini API error:", response.status, t);
+      return new Response(JSON.stringify({ error: `AI service error: ${response.status}`, reply: "AI service encountered an error. Please try again." }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
