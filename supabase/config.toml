@@ -1,7 +1,10 @@
-project_id = "nuwvnwjyzcmqytpkmiyg"
+project_id = "qprotczezvygnzrtspvx"
 
 [functions.admin-login]
 verify_jwt = false
 
 [functions.ai-assistant]
+verify_jwt = false
+
+[functions.admin-staff]
 verify_jwt = false
