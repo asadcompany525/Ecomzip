@@ -24,7 +24,7 @@ const DEFAULT_DEV_INFO = {
   clients: '30+',
   experience: '5+ Yrs',
   technologies: '20+',
-  origin_story: 'This platform (Stopy Shoes — Universal AI Commerce Engine) was entirely designed, developed, and deployed by Muhammad Asad Ali (ASDEVOLPER). Including all AI modules, e-commerce logic, admin dashboard, and real-time integrations.',
+  origin_story: 'This platform (E Commerce — Universal AI Commerce Engine) was entirely designed, developed, and deployed by Muhammad Asad Ali (ASDEVOLPER). Including all AI modules, e-commerce logic, admin dashboard, and real-time integrations.',
   copyright: '© 2024–2026 Muhammad Asad Ali · All Rights Reserved',
   email: 'asdevolper@gmail.com',
   whatsapp: '+923001234567',
@@ -51,7 +51,7 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   const [tab, setTab] = useState('dev-info');
   const [devInfo, setDevInfo] = useState<typeof DEFAULT_DEV_INFO>(DEFAULT_DEV_INFO);
   const [logoUrl, setLogoUrl] = useState('');
-  const [logoName, setLogoName] = useState('Stopy Shoes');
+  const [logoName, setLogoName] = useState('E Commerce');
   const [settingKey, setSettingKey] = useState('');
   const [settingValue, setSettingValue] = useState('');
   const [resetConfirm, setResetConfirm] = useState('');
@@ -94,7 +94,7 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
         if (s.key === 'logo') {
           const v = s.value as any;
           setLogoUrl(v.url || '');
-          setLogoName(v.name || 'Stopy Shoes');
+          setLogoName(v.name || 'E Commerce');
         }
         if (s.key === 'developer_page') {
           const v = s.value as any;
@@ -543,7 +543,7 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
             </div>
             <div>
               <Label className="text-xs">Brand Name (shown next to logo)</Label>
-              <Input className="mt-1" value={logoName} onChange={e => setLogoName(e.target.value)} placeholder="Stopy Shoes" />
+              <Input className="mt-1" value={logoName} onChange={e => setLogoName(e.target.value)} placeholder="E Commerce" />
             </div>
             <div>
               <Label className="text-xs">Or Upload a New Logo (saved to logos bucket)</Label>
@@ -567,7 +567,7 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
                 className="mt-1"
                 value={siteTitle}
                 onChange={e => { setSiteTitle(e.target.value); document.title = e.target.value; }}
-                placeholder="e.g. Stopy Shoes | Pakistan's Best Store"
+                placeholder="e.g. E Commerce | Pakistan's Best Store"
               />
               <p className="text-xs text-muted-foreground mt-1">This updates the browser tab title in real-time as you type.</p>
             </div>
@@ -627,7 +627,7 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
             </div>
             <div>
               <Label className="text-xs">Value (JSON or plain text)</Label>
-              <Textarea className="mt-1" rows={3} value={settingValue} onChange={e => setSettingValue(e.target.value)} placeholder='e.g. "Stopy Shoes" or {"url":"..."}' />
+              <Textarea className="mt-1" rows={3} value={settingValue} onChange={e => setSettingValue(e.target.value)} placeholder='e.g. "E Commerce" or {"url":"..."}' />
             </div>
             <div className="flex gap-2">
               <Button onClick={saveSetting} disabled={!settingKey.trim()} className="flex-1 gap-2"><Save className="h-4 w-4" />Override Setting</Button>

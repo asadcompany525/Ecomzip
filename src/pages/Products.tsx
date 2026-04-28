@@ -3,7 +3,6 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Filter, Grid3X3, List, X, ArrowLeft, ShoppingCart, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -196,9 +195,43 @@ const Products = () => {
       </div>
       <div>
         <h4 className="font-semibold mb-3 text-sm">Price Range</h4>
-        <Slider min={0} max={50000} step={500} value={priceRange} onValueChange={setPriceRange} className="mb-2" />
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Rs. {priceRange[0].toLocaleString()}</span><span>Rs. {priceRange[1].toLocaleString()}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground mb-1 block">Min (Rs.)</label>
+            <Input
+              type="number"
+              min={0}
+              max={priceRange[1]}
+              step={100}
+              value={priceRange[0]}
+              onChange={e => {
+                const val = Math.max(0, Math.min(Number(e.target.value), priceRange[1]));
+                setPriceRange([val, priceRange[1]]);
+              }}
+              className="h-8 text-sm"
+              placeholder="0"
+            />
+          </div>
+          <span className="text-muted-foreground pt-5 text-xs">—</span>
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground mb-1 block">Max (Rs.)</label>
+            <Input
+              type="number"
+              min={priceRange[0]}
+              max={50000}
+              step={100}
+              value={priceRange[1]}
+              onChange={e => {
+                const val = Math.max(priceRange[0], Math.min(Number(e.target.value), 50000));
+                setPriceRange([priceRange[0], val]);
+              }}
+              className="h-8 text-sm"
+              placeholder="50000"
+            />
+          </div>
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground mt-1.5">
+          <span>Selected: Rs. {priceRange[0].toLocaleString()} – Rs. {priceRange[1].toLocaleString()}</span>
         </div>
       </div>
       {allColors.length > 0 && (

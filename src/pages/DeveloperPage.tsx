@@ -137,7 +137,7 @@ const DeveloperPage = () => {
           <div className="flex items-start gap-3">
             <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-bold text-base mb-1">Original Creator — Stopy Shoes</h3>
+              <h3 className="font-bold text-base mb-1">Original Creator — E Commerce</h3>
               <p className="text-sm text-muted-foreground">{info.origin_story}</p>
               <p className="text-xs text-primary font-medium mt-2">{info.copyright}</p>
             </div>

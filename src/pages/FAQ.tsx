@@ -10,7 +10,7 @@ const faqs = [
   { q: 'Can I return or exchange a product?', a: 'Yes, we offer a 7-day easy return policy. The product must be unused and in original packaging.' },
   { q: 'How do I track my order?', a: 'Go to My Page > My Orders to see your order status and tracking information.' },
   { q: 'Do you offer free delivery?', a: 'Free delivery is available on eligible orders. Check the cart page for delivery charges.' },
-  { q: 'How do I contact customer support?', a: 'You can reach us via WhatsApp at +92 300 1234567, email at support@stopyshoes.pk, or use the Contact Us page.' },
+  { q: 'How do I contact customer support?', a: 'You can reach us via WhatsApp at +92 300 1234567, email at support@ecommerce.store, or use the Contact Us page.' },
   { q: 'Are all products original?', a: 'Yes, we guarantee 100% original products. All items come with quality assurance.' },
 ];
 

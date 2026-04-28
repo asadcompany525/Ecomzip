@@ -22,8 +22,8 @@ serve(async (req) => {
       const htmlBody = `
         <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border:1px solid #eee">
           <div style="text-align:center;margin-bottom:24px">
-            <h2 style="color:#f97316;margin:0">Stopy Shoes</h2>
-            <p style="color:#666;font-size:13px;margin:4px 0">Pakistan's #1 Shoes & Bags Store</p>
+            <h2 style="color:#f97316;margin:0">E Commerce</h2>
+            <p style="color:#666;font-size:13px;margin:4px 0">Pakistan's #1 Online Store</p>
           </div>
           <p style="font-size:15px;color:#333">Hi <strong>${name || 'there'}</strong>,</p>
           <p style="font-size:14px;color:#555">Your one-time verification code is:</p>
@@ -32,7 +32,7 @@ serve(async (req) => {
           </div>
           <p style="font-size:13px;color:#888">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
           <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
-          <p style="font-size:12px;color:#aaa;text-align:center">Stopy Shoes — stopychoices.com</p>
+          <p style="font-size:12px;color:#aaa;text-align:center">E Commerce Store</p>
         </div>`;
 
       // 1. Try Gmail SMTP via nodemailer-compatible approach (RFC 2822 raw SMTP over fetch to Gmail API)
@@ -42,9 +42,9 @@ serve(async (req) => {
           const encoder = new TextEncoder();
           const boundary = `stopy_${Date.now()}`;
           const rawEmail = [
-            `From: Stopy Shoes <${GMAIL_USER}>`,
+            `From: E Commerce <${GMAIL_USER}>`,
             `To: ${email}`,
-            `Subject: ${otp} — Your Stopy Shoes Verification Code`,
+            `Subject: ${otp} — Your E Commerce Verification Code`,
             `MIME-Version: 1.0`,
             `Content-Type: text/html; charset=UTF-8`,
             ``,
@@ -104,9 +104,9 @@ serve(async (req) => {
           method: "POST",
           headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            from: "Stopy Shoes <noreply@stopychoices.com>",
+            from: `E Commerce <${GMAIL_USER || 'noreply@ecommerce.store'}>`,
             to: [email],
-            subject: `${otp} — Your Stopy Shoes Verification Code`,
+            subject: `${otp} — Your E Commerce Verification Code`,
             html: htmlBody,
           }),
         });
@@ -243,7 +243,11 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "AI service is not configured. Please contact the store administrator to set up the AI API key.", reply: "AI service is currently unavailable. Please try again later or contact support." }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     let systemPrompt = "";
     let useToolCalling = false;
@@ -251,18 +255,18 @@ serve(async (req) => {
     let toolChoice: any = undefined;
 
     if (type === "chat-support") {
-      systemPrompt = `You are a helpful customer support assistant for Stopy Shoes - Pakistan's #1 Shoes & Bags Store. 
+      systemPrompt = `You are a helpful customer support assistant for an E Commerce Store - Pakistan's Online Store. 
 You help customers with product inquiries, order status, returns, delivery info, payment methods (COD, JazzCash, EasyPaisa, Bank Transfer), and size guide.
 Always be polite, respond in the user's language (English or Urdu), and keep answers concise.
 If the customer asks about order tracking, ask for their order number.
 If they ask about returns, explain 7-day return policy.
 If they ask about delivery, explain free delivery above Rs. 3000, standard delivery Rs. 200.`;
     } else if (type === "admin-assistant") {
-      systemPrompt = `You are an AI admin assistant for Stopy Shoes e-commerce platform.
+      systemPrompt = `You are an AI admin assistant for an E Commerce platform.
 You help with sales analysis, restocking suggestions, dead stock identification, product descriptions, category suggestions, and order insights.
 Be data-driven and actionable.`;
     } else if (type === "product-ai") {
-      systemPrompt = `You are a product analysis AI for Stopy Shoes Pakistan.
+      systemPrompt = `You are a product analysis AI for an E Commerce store in Pakistan.
 Analyze the product image/title and generate structured product details.
 For shoes: suggest appropriate sizes (36-45 for men, 36-41 for women, 28-35 for kids).
 For bags: suggest sizes like Small, Medium, Large, XL.

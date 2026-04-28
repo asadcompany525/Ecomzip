@@ -62,7 +62,7 @@ export default function AdminAiSalesPredictor() {
           type: 'sales-predictor',
           messages: [{
             role: 'user',
-            content: `You are a sales prediction AI for Stopy Shoes Pakistan.
+            content: `You are a sales prediction AI for E Commerce Pakistan.
 Analyze these products and predict next 7-day demand:
 
 ${JSON.stringify(productData, null, 2)}

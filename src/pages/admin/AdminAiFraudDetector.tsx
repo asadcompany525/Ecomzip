@@ -189,7 +189,7 @@ export default function AdminAiFraudDetector() {
           type: 'fraud-check',
           messages: [{
             role: 'user',
-            content: `You are a strict fraud detection AI for Stopy Shoes Pakistan.
+            content: `You are a strict fraud detection AI for E Commerce Pakistan.
 
 RULES:
 - Phone 03000000000 = FAKE (all zeros)

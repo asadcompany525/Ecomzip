@@ -77,7 +77,6 @@ const sidebarGroups = [
       { icon: Heart,           label: 'Loyalty Heatmap',        path: '/admin/loyalty-heatmap',       adminOnly: true },
       { icon: Search,          label: 'Search Logs',            path: '/admin/search-logs',           adminOnly: true },
       { icon: Command,         label: 'AI Global Manager',      path: '/admin/ai-global-manager',     adminOnly: true },
-      { icon: Shield,          label: 'AI Claim Advisor',       path: '/admin/ai-claim-advisor',      adminOnly: true },
       { icon: Bot,             label: 'AI Helper',              path: '/admin/ai-helper',             adminOnly: true },
       { icon: Shield,          label: 'AI Fraud Detector',      path: '/admin/ai-fraud-detector',     adminOnly: true },
       { icon: TrendingUp,      label: 'AI Sales Predictor',     path: '/admin/ai-sales-predictor',    adminOnly: true },

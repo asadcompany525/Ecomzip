@@ -176,7 +176,7 @@ export default function AdminAiVoice() {
           type: 'voice-command',
           messages: [{
             role: 'user',
-            content: `You are an AI admin assistant for Stopy Shoes Pakistan e-commerce store.
+            content: `You are an AI admin assistant for E Commerce Pakistan online store.
 The admin has given this voice command (Urdu/English mixed): "${command}"
 
 CURRENT DATA SNAPSHOT:

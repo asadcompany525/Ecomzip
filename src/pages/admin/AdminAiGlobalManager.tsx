@@ -10,7 +10,7 @@ import { Command, History, Trash2, Send, Loader2, Zap, CheckCircle, Navigation, 
 import { toast } from '@/hooks/use-toast';
 
 const QUICK_COMMANDS = [
-  { label: 'Change site title', example: 'Change site title to Stopy Luxury', icon: Globe },
+  { label: 'Change site title', example: 'Change site title to My Store', icon: Globe },
   { label: '20% store-wide discount for 12 hours', example: 'Apply 20% store-wide discount for 12 hours', icon: Tag },
   { label: 'Update delivery fee', example: 'Set delivery fee to Rs. 250', icon: ShoppingCart },
   { label: 'Show today revenue', example: 'Show me today\'s total revenue', icon: BarChart3 },
@@ -279,7 +279,7 @@ Return ONLY valid JSON inside <RESPONSE_JSON>...</RESPONSE_JSON> and optionally 
             ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder='e.g. "Change site title to Stopy Luxury" or "Apply 15% discount on all shoes for 6 hours"'
+            placeholder='e.g. "Change site title to My Store" or "Apply 15% discount on all shoes for 6 hours"'
             rows={2}
             className="flex-1 resize-none"
             onKeyDown={e => {

@@ -82,7 +82,7 @@ Wrap ANY action in <ACTION_JSON>...</ACTION_JSON> tags.`;
         body: {
           type: 'admin-helper',
           messages: [
-            { role: 'system', content: `You are an AI admin assistant for "${brandName || 'Stopy Shoes'}" store with FULL management access. Use the provided data and return action JSON when admin asks to make changes. Reply in English or Roman Urdu based on user language.\n\n${context}` },
+            { role: 'system', content: `You are an AI admin assistant for "${brandName || 'E Commerce'}" store with FULL management access. Use the provided data and return action JSON when admin asks to make changes. Reply in English or Roman Urdu based on user language.\n\n${context}` },
             ...newMessages.slice(-8).map(m => ({ role: m.role, content: m.content })),
           ],
         },
