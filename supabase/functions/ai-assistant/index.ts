@@ -363,41 +363,53 @@ Generate a detailed description of at least 30 lines covering material, comfort,
       aiMessages.push(...messages);
     }
 
-    const requestBody: any = {
-      model: "gemini-2.0-flash",
+    const baseRequestBody: any = {
       messages: aiMessages,
       stream: false,
     };
 
     if (useToolCalling) {
-      requestBody.tools = tools;
-      requestBody.tool_choice = toolChoice;
+      baseRequestBody.tools = tools;
+      baseRequestBody.tool_choice = toolChoice;
     }
 
-    // Use Google Gemini OpenAI-compatible endpoint
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Try multiple models in order — each Gemini model has its own rate-limit bucket,
+    // so on 429 we automatically fall back to another model with separate quota.
+    const modelChain = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash-lite"];
+    let response: Response | null = null;
+    let lastStatus = 0;
+    let lastErrText = "";
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later.", reply: "AI is busy right now. Please try again in a moment." }), {
+    for (const model of modelChain) {
+      const requestBody = { ...baseRequestBody, model };
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GEMINI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+      if (r.ok) { response = r; break; }
+      lastStatus = r.status;
+      lastErrText = await r.text();
+      console.error(`[AI] Model ${model} failed: ${r.status} ${lastErrText.slice(0, 200)}`);
+      if (r.status !== 429 && r.status !== 503) break; // only retry on rate limit / overloaded
+    }
+
+    if (!response) {
+      if (lastStatus === 429 || lastStatus === 503) {
+        return new Response(JSON.stringify({ error: "All AI models are rate-limited. Please wait a minute and try again, or upgrade your Gemini API plan.", reply: "AI is busy right now (free-tier quota reached). Please wait a minute and try again." }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 401 || response.status === 403) {
+      if (lastStatus === 401 || lastStatus === 403) {
         return new Response(JSON.stringify({ error: "Invalid Gemini API key. Go to Admin → Settings → AI Settings to update it.", reply: "AI service unavailable. The API key may be invalid." }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const t = await response.text();
-      console.error("Gemini API error:", response.status, t);
-      return new Response(JSON.stringify({ error: `AI service error: ${response.status}`, reply: "AI service encountered an error. Please try again." }), {
+      console.error("Gemini API error:", lastStatus, lastErrText);
+      return new Response(JSON.stringify({ error: `AI service error: ${lastStatus}`, reply: "AI service encountered an error. Please try again." }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
