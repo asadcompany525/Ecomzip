@@ -150,9 +150,11 @@ Return ONLY a JSON object with no markdown:
       }
 
       const trackingId = `nl_${Date.now()}`;
+      const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL || '').replace(/\/$/, '');
+      const trackPixel = `<img src="${supabaseUrl}/functions/v1/track-open?id=${trackingId}" width="1" height="1" style="display:none" />`;
       const trackedHtml = htmlBody.includes('</body>')
-        ? htmlBody.replace('</body>', `<img src="https://lhdxqwvgrbjywjiixioc.supabase.co/functions/v1/track-open?id=${trackingId}" width="1" height="1" style="display:none" /></body>`)
-        : htmlBody + `<img src="https://lhdxqwvgrbjywjiixioc.supabase.co/functions/v1/track-open?id=${trackingId}" width="1" height="1" style="display:none" />`;
+        ? htmlBody.replace('</body>', `${trackPixel}</body>`)
+        : htmlBody + trackPixel;
 
       const { error: fnError } = await supabase.functions.invoke('send-newsletter', {
         body: { emails, subject, html: trackedHtml, tracking_id: trackingId },
