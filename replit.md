@@ -288,3 +288,9 @@ ON CONFLICT (id) DO UPDATE SET public = true;
 - Products page: compact header with back button (no main site header)
 - SecretDevDashboard: "Back" button added to every tab
 - ErrorModal component added (`src/components/ui/ErrorModal.tsx`) for styled error dialogs
+
+### Virtual Try-On — Free Preview Mode (April 30, 2026)
+- Real AI try-on (Replicate IDM-VTON / FashnAI) requires paid Replicate billing ($5 min credit). Without billing, all paid AI image services return 402.
+- Both customer (`VirtualTryOn.tsx`) and admin (`AdminAiVirtualTryon.tsx`) pages now use a shared canvas-overlay fallback (`src/lib/tryonCanvas.ts`) that always works for free.
+- Admin page shows a clear "Preview Mode (Free)" notice with link to enable Replicate billing.
+- Flow: try AI → on any failure (start error, poll fail, or timeout) → instantly fall back to canvas preview. User always gets a result.

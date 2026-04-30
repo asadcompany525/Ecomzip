@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from '@/hooks/use-toast';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { supabase } from '@/integrations/supabase/client';
+import { createCanvasTryOn } from '@/lib/tryonCanvas';
 
 export type TryOnCategory = 'shoes' | 'clothing' | 'bags' | 'generic';
 
@@ -51,70 +52,13 @@ async function uploadToStorage(dataUrl: string): Promise<string> {
   return dataUrl;
 }
 
-function loadCanvasImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
 async function createFallbackTryOn(userImageUrl: string, productImageUrl: string, categoryType: TryOnCategory): Promise<string> {
-  try {
-    const [userImg, productImg] = await Promise.all([
-      loadCanvasImage(userImageUrl),
-      loadCanvasImage(productImageUrl),
-    ]);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 900;
-    canvas.height = 1200;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return userImageUrl;
-
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const userScale = Math.max(canvas.width / userImg.width, canvas.height / userImg.height);
-    const userW = userImg.width * userScale;
-    const userH = userImg.height * userScale;
-    ctx.drawImage(userImg, (canvas.width - userW) / 2, (canvas.height - userH) / 2, userW, userH);
-
-    const layout = {
-      shoes: { w: 520, y: 820, opacity: 0.92 },
-      bags: { w: 360, y: 430, opacity: 0.9 },
-      clothing: { w: 520, y: 330, opacity: 0.78 },
-      generic: { w: 430, y: 560, opacity: 0.86 },
-    }[categoryType];
-    const productW = layout.w;
-    const productH = productImg.height * (productW / productImg.width);
-    const productX = (canvas.width - productW) / 2;
-
-    ctx.save();
-    ctx.globalAlpha = layout.opacity;
-    ctx.shadowColor = 'rgba(0,0,0,0.45)';
-    ctx.shadowBlur = 24;
-    ctx.shadowOffsetY = 12;
-    ctx.drawImage(productImg, productX, layout.y, productW, productH);
-    ctx.restore();
-
-    ctx.fillStyle = 'rgba(0,0,0,0.52)';
-    ctx.fillRect(0, canvas.height - 74, canvas.width, 74);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillText('Virtual Try-On Preview', 28, canvas.height - 32);
-
-    return canvas.toDataURL('image/jpeg', 0.9);
-  } catch {
-    return userImageUrl;
-  }
+  return createCanvasTryOn(userImageUrl, productImageUrl, categoryType);
 }
 
-async function startVTON(userImageUrl: string, productImageUrl: string, categoryType: TryOnCategory) {
+async function startVTON(userImageUrl: string, productImageUrl: string, categoryType: TryOnCategory, productTitle?: string) {
   const { data, error } = await supabase.functions.invoke('ai-assistant', {
-    body: { type: 'virtual-tryon-start', userImageUrl, productImageUrl, categoryType },
+    body: { type: 'virtual-tryon-start', userImageUrl, productImageUrl, categoryType, productTitle },
   });
   if (error) throw new Error(error.message || 'Failed to start AI generation');
   if (data?.error) throw new Error(data.error);
@@ -233,7 +177,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
 
         let predictionId: string | null = null;
         try {
-          const started = await startVTON(userImageUrl, productImage, categoryType);
+          const started = await startVTON(userImageUrl, productImage, categoryType, productName);
           predictionId = started.predictionId;
         } catch {
           const fallback = await createFallbackTryOn(userImageUrl, productImage, categoryType);

@@ -317,26 +317,43 @@ serve(async (req) => {
 
       const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
       if (!REPLICATE_API_KEY) return jsonResp({ error: "Try-on not configured" }, 500);
-      const { userImageUrl, productImageUrl, categoryType } = body;
+      const { userImageUrl, productImageUrl, categoryType, productTitle } = body;
       if (!userImageUrl || !productImageUrl) return jsonResp({ error: "Missing images" }, 400);
 
-      let tryonCategory = "tops";
-      if (categoryType === "shoes" || categoryType === "generic") tryonCategory = "bottoms";
+      // Map our category to IDM-VTON category enum: upper_body | lower_body | dresses
+      // shoes -> lower_body (closest), bags -> upper_body (held/worn on upper), default upper_body
+      let idmCategory = "upper_body";
+      if (categoryType === "shoes") idmCategory = "lower_body";
+      else if (categoryType === "dresses") idmCategory = "dresses";
+      else if (categoryType === "bottoms" || categoryType === "pants") idmCategory = "lower_body";
 
-      const predRes = await fetch("https://api.replicate.com/v1/models/fashn/tryon/predictions", {
+      const description = safeStr(productTitle, 100) || (categoryType === "shoes" ? "footwear" : categoryType === "bags" ? "handbag accessory" : "garment");
+
+      const IDM_VTON_VERSION = "0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985";
+      const predRes = await fetch("https://api.replicate.com/v1/predictions", {
         method: "POST",
         headers: { Authorization: `Token ${REPLICATE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
+          version: IDM_VTON_VERSION,
           input: {
-            model_image: userImageUrl,
-            garment_image: productImageUrl,
-            category: tryonCategory,
-            num_inference_steps: 30,
-            guidance_scale: 2.0,
+            human_img: userImageUrl,
+            garm_img: productImageUrl,
+            garment_des: description,
+            category: idmCategory,
+            crop: true,
+            steps: 25,
+            seed: Math.floor(Math.random() * 1000000),
           },
         }),
       });
-      if (!predRes.ok) return jsonResp({ error: "Try-on service error" }, 500);
+      if (!predRes.ok) {
+        const errBody = await predRes.text();
+        console.error(`[tryon-start] Replicate ${predRes.status}: ${errBody.slice(0, 500)}`);
+        if (predRes.status === 402 || /payment|billing/i.test(errBody)) {
+          return jsonResp({ error: "Replicate billing required", reply: "Virtual try-on requires a paid Replicate account. Add credit at replicate.com/account/billing." });
+        }
+        return jsonResp({ error: "Try-on service error", detail: errBody.slice(0, 200), status: predRes.status });
+      }
       const prediction = await predRes.json();
       return jsonResp({ predictionId: prediction.id, status: prediction.status });
     }

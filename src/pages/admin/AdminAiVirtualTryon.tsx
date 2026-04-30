@@ -7,9 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Upload, Loader2, Sparkles, Download, RefreshCw, User,
-  ShoppingBag, Camera, CheckCircle2, AlertCircle, Search, Package
+  ShoppingBag, Camera, CheckCircle2, AlertCircle, Search, Package, Info
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { createCanvasTryOn, type TryOnCategory } from '@/lib/tryonCanvas';
 
 type TryonStatus = 'idle' | 'uploading' | 'processing' | 'polling' | 'done' | 'error';
 
@@ -53,13 +54,22 @@ export default function AdminAiVirtualTryon() {
     return supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
   };
 
+  const fallbackOnPollFail = async () => {
+    if (!personPreview || !selectedProduct?.images?.[0]) return;
+    await tryCanvasFallback(personPreview, selectedProduct.images[0]);
+  };
+
   const startPoll = (predId: string) => {
     setStatus('polling');
     setStatusMsg('AI is rendering your try-on… This may take 30–60 seconds');
     let attempts = 0;
     pollTimer.current = setInterval(async () => {
       attempts++;
-      if (attempts > 60) { clearInterval(pollTimer.current!); setStatus('error'); setStatusMsg('Timed out. Please try again.'); return; }
+      if (attempts > 30) {
+        clearInterval(pollTimer.current!);
+        await fallbackOnPollFail();
+        return;
+      }
       const { data } = await supabase.functions.invoke('ai-assistant', { body: { type: 'virtual-tryon-poll', predictionId: predId } });
       if (!data) return;
       if (data.status === 'succeeded' && data.outputUrl) {
@@ -67,10 +77,23 @@ export default function AdminAiVirtualTryon() {
         setResultUrl(data.outputUrl); setStatus('done'); setStatusMsg('');
         toast({ title: '✅ Virtual Try-On complete!' });
       } else if (data.status === 'failed') {
-        clearInterval(pollTimer.current!); setStatus('error');
-        setStatusMsg(data.error || 'AI generation failed. Please try again.');
+        clearInterval(pollTimer.current!);
+        await fallbackOnPollFail();
       }
     }, 3000);
+  };
+
+  const tryCanvasFallback = async (personUrl: string, productImage: string) => {
+    setStatus('processing');
+    setStatusMsg('Generating preview…');
+    const tryonCat: TryOnCategory =
+      category === 'bottoms' ? 'shoes' :
+      category === 'one-pieces' ? 'clothing' : 'clothing';
+    const dataUrl = await createCanvasTryOn(personUrl, productImage, tryonCat);
+    setResultUrl(dataUrl);
+    setStatus('done');
+    setStatusMsg('');
+    toast({ title: '✨ Preview generated', description: 'Free preview mode. For photo-realistic AI, enable Replicate billing.' });
   };
 
   const handleGenerate = async () => {
@@ -85,25 +108,36 @@ export default function AdminAiVirtualTryon() {
     setResultUrl('');
     setStatus('uploading');
     setStatusMsg('Uploading your photo…');
+
+    let personUrl = '';
     try {
-      const personUrl = await uploadPersonImage();
-      setStatus('processing');
-      setStatusMsg('Sending to AI… Starting virtual try-on');
+      personUrl = await uploadPersonImage();
+    } catch (e: any) {
+      setStatus('error'); setStatusMsg(e.message);
+      toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
+      return;
+    }
+
+    setStatus('processing');
+    setStatusMsg('Trying AI service…');
+    try {
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
           type: 'virtual-tryon-start',
           userImageUrl: personUrl,
           productImageUrl: productImage,
           categoryType: category === 'bottoms' ? 'shoes' : 'tops',
+          productTitle: selectedProduct.title,
         },
       });
-      if (error || !data) throw new Error(error?.message || 'Failed to start try-on');
-      if (data.error) throw new Error(data.error);
+      if (error || !data || data.error) {
+        await tryCanvasFallback(personUrl, productImage);
+        return;
+      }
       if (data.predictionId) startPoll(data.predictionId);
-      else throw new Error('No prediction ID received');
-    } catch (e: any) {
-      setStatus('error'); setStatusMsg(e.message);
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      else await tryCanvasFallback(personUrl, productImage);
+    } catch {
+      await tryCanvasFallback(personUrl, productImage);
     }
   };
 
@@ -134,8 +168,20 @@ export default function AdminAiVirtualTryon() {
           <Sparkles className="h-5 w-5 text-primary" /> AI Virtual Try-On
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Select a product from your catalog + upload a person's photo. AI will realistically apply the product.
+          Select a product from your catalog + upload a person's photo to generate a try-on preview.
         </p>
+      </div>
+
+      <div className="flex items-start gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-xl px-4 py-3">
+        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+        <div className="text-xs text-blue-900 dark:text-blue-200 space-y-1">
+          <p className="font-semibold">Preview Mode (Free)</p>
+          <p>
+            Photo-realistic AI try-on (FashnAI / IDM-VTON) requires a paid Replicate account ($5 minimum credit). To enable real AI, add billing at{' '}
+            <a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer" className="underline font-medium">replicate.com/account/billing</a>.
+            Until then, we'll generate a free canvas-based preview.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
