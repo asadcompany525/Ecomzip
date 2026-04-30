@@ -2,22 +2,194 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const ALLOWED_ORIGIN_HOSTS = [
+  "localhost",
+  "127.0.0.1",
+  "replit.dev",
+  "replit.app",
+  "replit.co",
+  "lovable.app",
+  "lovable.dev",
+  "vercel.app",
+  "netlify.app",
+  "stopy.shop",
+  "stopy-shoes.com",
+];
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 30;
+const HEAVY_RATE_LIMIT_MAX = 8;
+const HEAVY_TYPES = new Set([
+  "product-ai",
+  "size-advisor",
+  "virtual-tryon-start",
+  "virtual-tryon-poll",
+]);
+const MAX_BODY_BYTES = 256 * 1024;
+const MAX_MESSAGE_CHARS = 8_000;
+const MAX_MESSAGES = 40;
+const MAX_IMAGE_URL_LENGTH = 2_000_000;
+
+const ipBuckets = new Map<string, { hits: number[]; heavyHits: number[] }>();
+const blockedIps = new Map<string, number>();
+
+function getClientIp(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for") || "";
+  const real = req.headers.get("x-real-ip") || "";
+  const ip = fwd.split(",")[0]?.trim() || real || "unknown";
+  return ip;
+}
+
+function originAllowed(req: Request): boolean {
+  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
+  if (!origin) return true;
+  try {
+    const u = new URL(origin);
+    const host = u.hostname;
+    return ALLOWED_ORIGIN_HOSTS.some(
+      (h) => host === h || host.endsWith(`.${h}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function checkRateLimit(ip: string, isHeavy: boolean): { ok: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const blockedUntil = blockedIps.get(ip);
+  if (blockedUntil && blockedUntil > now) {
+    return { ok: false, retryAfter: Math.ceil((blockedUntil - now) / 1000) };
+  }
+  if (blockedUntil && blockedUntil <= now) blockedIps.delete(ip);
+
+  let bucket = ipBuckets.get(ip);
+  if (!bucket) {
+    bucket = { hits: [], heavyHits: [] };
+    ipBuckets.set(ip, bucket);
+  }
+  bucket.hits = bucket.hits.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  bucket.heavyHits = bucket.heavyHits.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+
+  if (bucket.hits.length >= RATE_LIMIT_MAX_REQUESTS) {
+    blockedIps.set(ip, now + 5 * 60_000);
+    return { ok: false, retryAfter: 300 };
+  }
+  if (isHeavy && bucket.heavyHits.length >= HEAVY_RATE_LIMIT_MAX) {
+    return { ok: false, retryAfter: 60 };
+  }
+
+  bucket.hits.push(now);
+  if (isHeavy) bucket.heavyHits.push(now);
+
+  if (ipBuckets.size > 10_000) {
+    for (const [k, v] of ipBuckets) {
+      if (v.hits.length === 0 && v.heavyHits.length === 0) ipBuckets.delete(k);
+      if (ipBuckets.size <= 5_000) break;
+    }
+  }
+
+  return { ok: true };
+}
+
+function jsonResp(payload: any, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function safeStr(v: unknown, max = 1000): string {
+  if (typeof v !== "string") return "";
+  return v.length > max ? v.slice(0, max) : v;
+}
+
+async function getGeminiKeys(): Promise<string[]> {
+  const keys = new Set<string>();
+  const fromEnv =
+    Deno.env.get("GEMINI_API_KEYS") ||
+    Deno.env.get("GEMINI_API_KEY") ||
+    Deno.env.get("LOVABLE_API_KEY") ||
+    "";
+  for (const k of fromEnv.split(/[,\s]+/)) {
+    const t = k.trim();
+    if (t && t.startsWith("AIza")) keys.add(t);
+  }
+  if (keys.size === 0) {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SRV = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (SUPABASE_URL && SRV) {
+      try {
+        const dbRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/site_settings?key=eq.gemini_api_key&select=value`,
+          { headers: { apikey: SRV, Authorization: `Bearer ${SRV}` } },
+        );
+        const dbData = await dbRes.json();
+        const raw = String(dbData?.[0]?.value || "").trim();
+        for (const k of raw.split(/[,\s]+/)) {
+          const t = k.trim();
+          if (t && t.startsWith("AIza")) keys.add(t);
+        }
+      } catch (e) {
+        console.error("[AI] DB key fetch failed:", e instanceof Error ? e.message : e);
+      }
+    }
+  }
+  return Array.from(keys);
+}
+
+let keyCursor = 0;
+function rotatedKeys(keys: string[]): string[] {
+  if (keys.length === 0) return [];
+  const start = keyCursor % keys.length;
+  keyCursor = (keyCursor + 1) % keys.length;
+  return [...keys.slice(start), ...keys.slice(0, start)];
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return jsonResp({ error: "Method not allowed" }, 405);
+
+  const ip = getClientIp(req);
+
+  if (!originAllowed(req)) {
+    return jsonResp({ error: "Forbidden origin" }, 403);
+  }
+
+  const contentLength = parseInt(req.headers.get("content-length") || "0", 10);
+  if (contentLength > MAX_BODY_BYTES) {
+    return jsonResp({ error: "Payload too large" }, 413);
+  }
+
+  let body: any;
+  try {
+    const raw = await req.text();
+    if (raw.length > MAX_BODY_BYTES) return jsonResp({ error: "Payload too large" }, 413);
+    body = JSON.parse(raw);
+  } catch {
+    return jsonResp({ error: "Invalid JSON" }, 400);
+  }
+  if (!body || typeof body !== "object") return jsonResp({ error: "Invalid body" }, 400);
+
+  const type = safeStr(body.type, 50);
 
   try {
-    const body = await req.json();
-    const { messages, type, imageUrl, message, history } = body;
-
-    // Handle OTP email — tries Gmail SMTP first, then Resend, then logs as fallback
     if (type === "send-otp-email") {
       const { email, otp, name } = body;
+      if (!email || !otp) return jsonResp({ error: "Missing email/otp" }, 400);
+      const rl = checkRateLimit(ip, true);
+      if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);
+
       const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
       const GMAIL_USER = Deno.env.get("GMAIL_USER");
       const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
+
+      const safeOtp = String(otp).replace(/[^0-9A-Za-z]/g, "").slice(0, 10);
+      const safeName = safeStr(name, 80).replace(/[<>]/g, "");
+      const safeEmail = safeStr(email, 200);
 
       const htmlBody = `
         <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border:1px solid #eee">
@@ -25,48 +197,35 @@ serve(async (req) => {
             <h2 style="color:#f97316;margin:0">E Commerce</h2>
             <p style="color:#666;font-size:13px;margin:4px 0">Pakistan's #1 Online Store</p>
           </div>
-          <p style="font-size:15px;color:#333">Hi <strong>${name || 'there'}</strong>,</p>
+          <p style="font-size:15px;color:#333">Hi <strong>${safeName || "there"}</strong>,</p>
           <p style="font-size:14px;color:#555">Your one-time verification code is:</p>
           <div style="text-align:center;margin:24px 0">
-            <span style="display:inline-block;background:#f97316;color:#fff;font-size:36px;font-weight:bold;letter-spacing:10px;padding:14px 28px;border-radius:10px">${otp}</span>
+            <span style="display:inline-block;background:#f97316;color:#fff;font-size:36px;font-weight:bold;letter-spacing:10px;padding:14px 28px;border-radius:10px">${safeOtp}</span>
           </div>
           <p style="font-size:13px;color:#888">This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
           <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
           <p style="font-size:12px;color:#aaa;text-align:center">E Commerce Store</p>
         </div>`;
 
-      // 1. Try Gmail SMTP via nodemailer-compatible approach (RFC 2822 raw SMTP over fetch to Gmail API)
       if (GMAIL_USER && GMAIL_APP_PASSWORD) {
         try {
-          // Use Gmail SMTP via raw TCP (Deno native SMTP)
           const encoder = new TextEncoder();
-          const boundary = `stopy_${Date.now()}`;
           const rawEmail = [
             `From: E Commerce <${GMAIL_USER}>`,
-            `To: ${email}`,
-            `Subject: ${otp} — Your E Commerce Verification Code`,
+            `To: ${safeEmail}`,
+            `Subject: ${safeOtp} -- Your E Commerce Verification Code`,
             `MIME-Version: 1.0`,
             `Content-Type: text/html; charset=UTF-8`,
             ``,
             htmlBody,
           ].join("\r\n");
 
-          // Encode as base64url for Gmail API
-          const encodedEmail = btoa(unescape(encodeURIComponent(rawEmail)))
-            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-          // Use Gmail API with app password auth via SMTP relay
-          // Since Deno Edge Functions can't do raw TCP, use Gmail SMTP via fetch to smtp2go or similar
-          // Fallback: use a lightweight SMTP-over-HTTPS approach
-          console.log(`[OTP-Gmail] Would send via ${GMAIL_USER} to ${email} | Code: ${otp}`);
-          
-          // Actually send via Gmail SMTP using Deno's net (TCP)
           const smtpConn = await Deno.connectTls({ hostname: "smtp.gmail.com", port: 465 });
           const dec = new TextDecoder();
-          const read = async () => dec.decode(await smtpConn.read(new Uint8Array(4096)) ?? new Uint8Array());
+          const read = async () => dec.decode((await smtpConn.read(new Uint8Array(4096))) ?? new Uint8Array());
           const write = async (s: string) => await smtpConn.write(encoder.encode(s + "\r\n"));
-          
-          await read(); // 220 greeting
+
+          await read();
           await write(`EHLO stopy.edge`);
           await read();
           await write(`AUTH LOGIN`);
@@ -75,11 +234,11 @@ serve(async (req) => {
           await read();
           await write(btoa(GMAIL_APP_PASSWORD));
           const authResp = await read();
-          if (!authResp.includes('235')) throw new Error(`Gmail auth failed: ${authResp}`);
-          
+          if (!authResp.includes("235")) throw new Error(`Gmail auth failed`);
+
           await write(`MAIL FROM:<${GMAIL_USER}>`);
           await read();
-          await write(`RCPT TO:<${email}>`);
+          await write(`RCPT TO:<${safeEmail}>`);
           await read();
           await write(`DATA`);
           await read();
@@ -87,68 +246,57 @@ serve(async (req) => {
           await read();
           await write(`QUIT`);
           smtpConn.close();
-          
-          console.log(`[OTP-Gmail-SMTP] Sent to ${email}`);
-          return new Response(JSON.stringify({ success: true, provider: "gmail_smtp" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+
+          return jsonResp({ success: true, provider: "gmail_smtp" });
         } catch (gmailErr) {
-          console.error("[OTP-Gmail] Error:", gmailErr);
-          // Fall through to Resend
+          console.error("[OTP-Gmail] Error:", gmailErr instanceof Error ? gmailErr.message : gmailErr);
         }
       }
 
-      // 2. Try Resend API
       if (RESEND_API_KEY) {
         const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            from: `E Commerce <${GMAIL_USER || 'noreply@ecommerce.store'}>`,
-            to: [email],
-            subject: `${otp} — Your E Commerce Verification Code`,
+            from: `E Commerce <${GMAIL_USER || "noreply@ecommerce.store"}>`,
+            to: [safeEmail],
+            subject: `${safeOtp} -- Your E Commerce Verification Code`,
             html: htmlBody,
           }),
         });
         const emailResult = await emailRes.json();
         if (!emailRes.ok) {
-          console.error("Resend error:", emailResult);
-          return new Response(JSON.stringify({ error: "Email delivery failed", detail: emailResult }), {
-            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          console.error("Resend error");
+          return jsonResp({ error: "Email delivery failed" }, 500);
         }
-        return new Response(JSON.stringify({ success: true, id: emailResult.id, provider: "resend" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ success: true, id: emailResult.id, provider: "resend" });
       }
 
-      // 3. Fallback: log the OTP code (dev mode)
-      console.log(`[OTP-DEV] To: ${email} | Code: ${otp} | Configure GMAIL_USER+GMAIL_APP_PASSWORD or RESEND_API_KEY for real delivery`);
-      return new Response(JSON.stringify({ success: true, debug: true, note: "OTP logged server-side. Set GMAIL_USER+GMAIL_APP_PASSWORD or RESEND_API_KEY env vars to enable real delivery." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.log(`[OTP-DEV] To: ${safeEmail} | Code: ${safeOtp}`);
+      return jsonResp({ success: true, debug: true, note: "OTP logged server-side." });
     }
 
-    // Handle password reset using Supabase Admin API
     if (type === "reset_password") {
+      const rl = checkRateLimit(ip, true);
+      if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);
+
       const { email: resetEmail, newPassword } = body;
+      if (!resetEmail || !newPassword || String(newPassword).length < 8) {
+        return jsonResp({ error: "Invalid request" }, 400);
+      }
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
       const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-        return new Response(JSON.stringify({ error: "Service role key not configured" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ error: "Service unavailable" }, 500);
       }
-      const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(resetEmail)}`, {
-        headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, apikey: SUPABASE_SERVICE_ROLE_KEY },
-      });
+      const listRes = await fetch(
+        `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(resetEmail)}`,
+        { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, apikey: SUPABASE_SERVICE_ROLE_KEY } },
+      );
       const listData = await listRes.json();
       const userId = listData.users?.[0]?.id;
-      if (!userId) {
-        return new Response(JSON.stringify({ error: "User not found" }), {
-          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (!userId) return jsonResp({ error: "User not found" }, 404);
+
       const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
         method: "PUT",
         headers: {
@@ -159,36 +307,25 @@ serve(async (req) => {
         body: JSON.stringify({ password: newPassword }),
       });
       const updateData = await updateRes.json();
-      if (updateData.error) {
-        return new Response(JSON.stringify({ error: updateData.error }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (updateData.error) return jsonResp({ error: "Update failed" }, 400);
+      return jsonResp({ success: true });
     }
 
-    // ── True AI Virtual Try-On via Replicate ────────────────────────────────
     if (type === "virtual-tryon-start") {
-      const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
-      if (!REPLICATE_API_KEY) {
-        return new Response(JSON.stringify({ error: "REPLICATE_API_KEY is not configured in Supabase secrets." }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const { userImageUrl, productImageUrl, categoryType } = body;
+      const rl = checkRateLimit(ip, true);
+      if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);
 
-      // Map store category → fashn/tryon category
+      const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+      if (!REPLICATE_API_KEY) return jsonResp({ error: "Try-on not configured" }, 500);
+      const { userImageUrl, productImageUrl, categoryType } = body;
+      if (!userImageUrl || !productImageUrl) return jsonResp({ error: "Missing images" }, 400);
+
       let tryonCategory = "tops";
       if (categoryType === "shoes" || categoryType === "generic") tryonCategory = "bottoms";
 
       const predRes = await fetch("https://api.replicate.com/v1/models/fashn/tryon/predictions", {
         method: "POST",
-        headers: {
-          Authorization: `Token ${REPLICATE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Token ${REPLICATE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           input: {
             model_image: userImageUrl,
@@ -199,74 +336,53 @@ serve(async (req) => {
           },
         }),
       });
-
-      if (!predRes.ok) {
-        const errText = await predRes.text();
-        return new Response(JSON.stringify({ error: `Replicate error: ${errText}` }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
+      if (!predRes.ok) return jsonResp({ error: "Try-on service error" }, 500);
       const prediction = await predRes.json();
-      return new Response(JSON.stringify({ predictionId: prediction.id, status: prediction.status }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ predictionId: prediction.id, status: prediction.status });
     }
 
     if (type === "virtual-tryon-poll") {
+      const rl = checkRateLimit(ip, false);
+      if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);
+
       const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
-      if (!REPLICATE_API_KEY) {
-        return new Response(JSON.stringify({ error: "REPLICATE_API_KEY not configured" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (!REPLICATE_API_KEY) return jsonResp({ error: "Try-on not configured" }, 500);
       const { predictionId } = body;
+      if (!predictionId || !/^[a-zA-Z0-9_-]{8,80}$/.test(String(predictionId))) {
+        return jsonResp({ error: "Invalid prediction ID" }, 400);
+      }
       const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
         headers: { Authorization: `Token ${REPLICATE_API_KEY}` },
       });
       const pred = await pollRes.json();
-
       if (pred.status === "succeeded") {
         const outputUrl = Array.isArray(pred.output) ? pred.output[0] : pred.output;
-        return new Response(JSON.stringify({ status: "succeeded", outputUrl }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ status: "succeeded", outputUrl });
       }
       if (pred.status === "failed" || pred.status === "canceled") {
-        return new Response(JSON.stringify({ status: "failed", error: pred.error || "Generation failed" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResp({ status: "failed", error: "Generation failed" });
       }
-      return new Response(JSON.stringify({ status: pred.status }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ status: pred.status });
     }
 
-    // Fetch Gemini API key from site_settings in Supabase DB
-    let GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
-    if (!GEMINI_API_KEY) {
-      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-        try {
-          const dbRes = await fetch(`${SUPABASE_URL}/rest/v1/site_settings?key=eq.gemini_api_key&select=value`, {
-            headers: {
-              apikey: SUPABASE_SERVICE_ROLE_KEY,
-              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            },
-          });
-          const dbData = await dbRes.json();
-          if (Array.isArray(dbData) && dbData[0]?.value) {
-            GEMINI_API_KEY = String(dbData[0].value).trim();
-          }
-        } catch (e) {
-          console.error("[AI] Failed to fetch Gemini key from DB:", e);
-        }
-      }
+    const isHeavy = HEAVY_TYPES.has(type);
+    const rl = checkRateLimit(ip, isHeavy);
+    if (!rl.ok) {
+      return jsonResp(
+        {
+          error: "Too many requests",
+          retryAfter: rl.retryAfter,
+          reply: "You're sending requests too fast. Please wait a moment and try again.",
+        },
+        429,
+      );
     }
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI service not configured. Go to Admin → Settings → AI Settings and enter your Gemini API key.", reply: "AI service is currently unavailable. Please ask the admin to configure the Gemini API key in Settings." }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+
+    const keys = await getGeminiKeys();
+    if (keys.length === 0) {
+      return jsonResp({
+        error: "AI not configured",
+        reply: "AI service is currently unavailable. Please ask the admin to configure the Gemini API key in Settings.",
       });
     }
 
@@ -293,148 +409,171 @@ For shoes: suggest appropriate sizes (36-45 for men, 36-41 for women, 28-35 for 
 For bags: suggest sizes like Small, Medium, Large, XL.
 Always suggest Pakistani market competitive prices in PKR.
 Generate a detailed description of at least 30 lines covering material, comfort, style, use cases, care instructions etc.`;
-      
+
       useToolCalling = true;
-      tools = [{
-        type: "function",
-        function: {
-          name: "suggest_product_details",
-          description: "Return structured product details based on image/title analysis",
-          parameters: {
-            type: "object",
-            properties: {
-              title: { type: "string" },
-              description: { type: "string", description: "Detailed product description, at least 30 lines" },
-              category: { type: "string" },
-              subCategory: { type: "string" },
-              subSubCategory: { type: "string" },
-              brand: { type: "string" },
-              gender: { type: "string", enum: ["men", "women", "kids", "unisex"] },
-              productType: { type: "string", enum: ["shoes", "bags"] },
-              suggestedPrice: { type: "number" },
-              suggestedOriginalPrice: { type: "number" },
-              tags: { type: "array", items: { type: "string" } },
-              suggestedColors: {
-                type: "array",
-                items: { type: "object", properties: { name: { type: "string" }, hex: { type: "string" } }, required: ["name", "hex"] }
+      tools = [
+        {
+          type: "function",
+          function: {
+            name: "suggest_product_details",
+            description: "Return structured product details based on image/title analysis",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                description: { type: "string", description: "Detailed product description, at least 30 lines" },
+                category: { type: "string" },
+                subCategory: { type: "string" },
+                subSubCategory: { type: "string" },
+                brand: { type: "string" },
+                gender: { type: "string", enum: ["men", "women", "kids", "unisex"] },
+                productType: { type: "string", enum: ["shoes", "bags"] },
+                suggestedPrice: { type: "number" },
+                suggestedOriginalPrice: { type: "number" },
+                tags: { type: "array", items: { type: "string" } },
+                suggestedColors: {
+                  type: "array",
+                  items: { type: "object", properties: { name: { type: "string" }, hex: { type: "string" } }, required: ["name", "hex"] },
+                },
+                suggestedSizes: { type: "array", items: { type: "string" } },
+                returnPolicy: { type: "string" },
+                claimDuration: { type: "string" },
+                claimPolicy: { type: "string" },
               },
-              suggestedSizes: { type: "array", items: { type: "string" } },
-              returnPolicy: { type: "string" },
-              claimDuration: { type: "string" },
-              claimPolicy: { type: "string" }
+              required: ["title", "description", "category", "subCategory", "gender", "productType", "suggestedPrice", "suggestedSizes", "suggestedColors"],
+              additionalProperties: false,
             },
-            required: ["title", "description", "category", "subCategory", "gender", "productType", "suggestedPrice", "suggestedSizes", "suggestedColors"],
-            additionalProperties: false
-          }
-        }
-      }];
+          },
+        },
+      ];
       toolChoice = { type: "function", function: { name: "suggest_product_details" } };
     }
 
-    // Build messages
     const aiMessages: any[] = [{ role: "system", content: systemPrompt }];
-    
+    const { messages, imageUrl, message, history } = body;
+
+    if (imageUrl && typeof imageUrl === "string") {
+      if (imageUrl.length > MAX_IMAGE_URL_LENGTH) {
+        return jsonResp({ error: "Image too large" }, 413);
+      }
+      if (!/^(https?:|data:image\/)/.test(imageUrl)) {
+        return jsonResp({ error: "Invalid image URL" }, 400);
+      }
+    }
+
     if (imageUrl && type === "product-ai") {
       aiMessages.push({
         role: "user",
         content: [
           { type: "image_url", image_url: { url: imageUrl } },
-          { type: "text", text: messages?.[0]?.content || "Analyze this product image and suggest details for a Pakistani shoes/bags store." }
-        ]
+          { type: "text", text: safeStr(messages?.[0]?.content, MAX_MESSAGE_CHARS) || "Analyze this product image and suggest details for a Pakistani shoes/bags store." },
+        ],
       });
     } else if (imageUrl && type === "size-advisor") {
-      // Vision-based size advisor: AI analyzes the foot/body photo
       aiMessages.push({
         role: "user",
         content: [
           { type: "image_url", image_url: { url: imageUrl } },
-          { type: "text", text: messages?.[0]?.content || "Analyze this foot/body photo and recommend the correct size from the available sizes." }
-        ]
+          { type: "text", text: safeStr(messages?.[0]?.content, MAX_MESSAGE_CHARS) || "Analyze this foot/body photo and recommend the correct size from the available sizes." },
+        ],
       });
     } else if (type === "chat-support") {
-      // Handle both old format (message+history) and new format (messages array)
-      if (history && message) {
-        aiMessages.push(...history.map((h: any) => ({ role: h.role, content: h.content })));
-        aiMessages.push({ role: "user", content: message });
-      } else if (messages) {
-        aiMessages.push(...messages);
+      if (Array.isArray(history) && message) {
+        const trimmedHistory = history.slice(-MAX_MESSAGES);
+        for (const h of trimmedHistory) {
+          if (h && typeof h === "object" && (h.role === "user" || h.role === "assistant")) {
+            aiMessages.push({ role: h.role, content: safeStr(h.content, MAX_MESSAGE_CHARS) });
+          }
+        }
+        aiMessages.push({ role: "user", content: safeStr(message, MAX_MESSAGE_CHARS) });
+      } else if (Array.isArray(messages)) {
+        const trimmed = messages.slice(-MAX_MESSAGES);
+        for (const m of trimmed) {
+          if (m && typeof m === "object" && (m.role === "user" || m.role === "assistant" || m.role === "system")) {
+            aiMessages.push({ role: m.role, content: safeStr(m.content, MAX_MESSAGE_CHARS) });
+          }
+        }
       }
-    } else if (messages) {
-      aiMessages.push(...messages);
+    } else if (Array.isArray(messages)) {
+      const trimmed = messages.slice(-MAX_MESSAGES);
+      for (const m of trimmed) {
+        if (m && typeof m === "object" && (m.role === "user" || m.role === "assistant" || m.role === "system")) {
+          aiMessages.push({ role: m.role, content: safeStr(m.content, MAX_MESSAGE_CHARS) });
+        }
+      }
     }
 
-    const baseRequestBody: any = {
-      messages: aiMessages,
-      stream: false,
-    };
-
+    const baseRequestBody: any = { messages: aiMessages, stream: false };
     if (useToolCalling) {
       baseRequestBody.tools = tools;
       baseRequestBody.tool_choice = toolChoice;
     }
 
-    // Try multiple models in order — each Gemini model has its own rate-limit bucket,
-    // so on 429 we automatically fall back to another model with separate quota.
     const modelChain = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash-lite"];
     let response: Response | null = null;
     let lastStatus = 0;
-    let lastErrText = "";
+    let badKeys = 0;
 
-    for (const model of modelChain) {
-      const requestBody = { ...baseRequestBody, model };
-      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GEMINI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-      if (r.ok) { response = r; break; }
-      lastStatus = r.status;
-      lastErrText = await r.text();
-      console.error(`[AI] Model ${model} failed: ${r.status} ${lastErrText.slice(0, 200)}`);
-      if (r.status !== 429 && r.status !== 503) break; // only retry on rate limit / overloaded
+    outer: for (const apiKey of rotatedKeys(keys)) {
+      let keyHadAuthError = false;
+      for (const model of modelChain) {
+        const requestBody = { ...baseRequestBody, model };
+        const r = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          },
+        );
+        if (r.ok) {
+          response = r;
+          break outer;
+        }
+        lastStatus = r.status;
+        const errSnippet = (await r.text()).slice(0, 150);
+        console.error(`[AI] key#${apiKey.slice(-4)} model=${model} status=${r.status}`);
+        if (r.status === 401 || r.status === 403) {
+          keyHadAuthError = true;
+          break;
+        }
+        if (r.status !== 429 && r.status !== 503 && r.status !== 500) break outer;
+      }
+      if (keyHadAuthError) badKeys++;
     }
 
     if (!response) {
+      if (badKeys === keys.length) {
+        return jsonResp({
+          error: "All Gemini API keys are invalid",
+          reply: "AI service unavailable. The API keys may have expired. Admin: please update them in Settings or environment.",
+        });
+      }
       if (lastStatus === 429 || lastStatus === 503) {
-        return new Response(JSON.stringify({ error: "All AI models are rate-limited. Please wait a minute and try again, or upgrade your Gemini API plan.", reply: "AI is busy right now (free-tier quota reached). Please wait a minute and try again." }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        return jsonResp({
+          error: "All AI models busy",
+          reply: "AI is busy right now. Please wait a moment and try again. (Tip: add billing to your Gemini key for unlimited use.)",
         });
       }
-      if (lastStatus === 401 || lastStatus === 403) {
-        return new Response(JSON.stringify({ error: "Invalid Gemini API key. Go to Admin → Settings → AI Settings to update it.", reply: "AI service unavailable. The API key may be invalid." }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.error("Gemini API error:", lastStatus, lastErrText);
-      return new Response(JSON.stringify({ error: `AI service error: ${lastStatus}`, reply: "AI service encountered an error. Please try again." }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ error: "AI service error", reply: "AI service encountered an error. Please try again." });
     }
 
     const result = await response.json();
-    
-    // Handle tool calls for product-ai
+
     const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall) {
-      const args = JSON.parse(toolCall.function.arguments);
-      return new Response(JSON.stringify(args), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      try {
+        const args = JSON.parse(toolCall.function.arguments);
+        return jsonResp(args);
+      } catch {
+        return jsonResp({ error: "Invalid AI tool response" }, 502);
+      }
     }
 
     const content = result.choices?.[0]?.message?.content || "";
-
-    // Return chat response
-    return new Response(JSON.stringify({ reply: content || "Sorry, I couldn't generate a response." }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResp({ reply: content || "Sorry, I couldn't generate a response." });
   } catch (e) {
-    console.error("AI assistant error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("AI assistant error:", e instanceof Error ? e.message : e);
+    return jsonResp({ error: "Internal error" }, 500);
   }
 });
