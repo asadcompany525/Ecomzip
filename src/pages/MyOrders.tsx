@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import Header from '@/components/layout/Header';
+
 import BottomNav from '@/components/layout/BottomNav';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -126,11 +126,11 @@ const MyOrders = () => {
     return daysDiff <= claimDays;
   };
 
-  if (!user) return <div className="min-h-screen bg-background"><Header /><div className="container py-20 text-center"><p>Please <Link to="/login" className="text-primary underline">login</Link> to view orders.</p></div><BottomNav /></div>;
+  if (!user) return <div className="min-h-screen bg-background"><div className="container py-20 text-center"><p>Please <Link to="/login" className="text-primary underline">login</Link> to view orders.</p></div><BottomNav /></div>;
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-5">
         <h1 className="text-2xl font-bold mb-6">My Orders ({orders.length})</h1>
         {orders.length === 0 ? (

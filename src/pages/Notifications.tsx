@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Tag, Zap, Package, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import Header from '@/components/layout/Header';
+
 import BottomNav from '@/components/layout/BottomNav';
 
 interface Notification {
@@ -48,7 +48,7 @@ const Notifications = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-5">
         <div className="flex items-center gap-2 mb-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="h-5 w-5" /></Button>

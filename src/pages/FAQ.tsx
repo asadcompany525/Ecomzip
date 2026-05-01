@@ -1,5 +1,5 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import Header from '@/components/layout/Header';
+
 
 import BottomNav from '@/components/layout/BottomNav';
 
@@ -17,7 +17,7 @@ const faqs = [
 const FAQ = () => {
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-8 max-w-3xl">
         <h1 className="text-2xl md:text-3xl font-bold mb-2">Frequently Asked Questions</h1>
         <p className="text-muted-foreground mb-8">Find answers to common questions about our store.</p>

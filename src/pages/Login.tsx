@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, KeyRound } from 'lucide-react';
-import Header from '@/components/layout/Header';
+
 import BottomNav from '@/components/layout/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -137,7 +137,7 @@ const Login = () => {
   if (showForgot) {
     return (
       <div className="min-h-screen bg-background pb-16 md:pb-0">
-        <Header />
+        
         <main className="container py-10">
           <div className="max-w-md mx-auto">
             <div className="bg-card rounded-2xl border p-8 shadow-sm">
@@ -263,7 +263,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-10">
         <div className="max-w-md mx-auto">
           <div className="bg-card rounded-2xl border p-8 shadow-sm">

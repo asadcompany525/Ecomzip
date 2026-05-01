@@ -1,10 +1,10 @@
-import Header from '@/components/layout/Header';
+
 
 import BottomNav from '@/components/layout/BottomNav';
 
 const ReturnPolicy = () => (
   <div className="min-h-screen bg-background pb-16 md:pb-0">
-    <Header />
+    
     <main className="container py-8 max-w-3xl mx-auto">
       <h1 className="text-2xl md:text-3xl font-bold mb-6">Return & Refund Policy</h1>
       <div className="bg-card rounded-xl border p-6 space-y-6 text-sm leading-relaxed">

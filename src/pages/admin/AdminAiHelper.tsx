@@ -69,14 +69,16 @@ Categories: ${JSON.stringify(categories || [])}
 Recent Orders: ${(orders || []).length}, Revenue: Rs. ${(orders || []).reduce((s, o) => s + Number(o.total || 0), 0).toLocaleString()}
 Returns: ${(returns || []).length}
 
-IMPORTANT: You have FULL ACCESS to manage the store. You can perform BULK operations.
-When the admin asks to:
-- Add/remove discount on MULTIPLE products: Return JSON action { "action": "update_products", "product_ids": ["id1","id2",...], "updates": { "discount_percent": X } }
-- Set flash sale on MULTIPLE: Return JSON action { "action": "update_products", "product_ids": [...], "updates": { "is_flash_sale": true, "flash_sale_ends": "ISO_DATE", "discount_percent": X } }
-- Remove flash/discount: Return JSON action { "action": "update_products", "product_ids": [...], "updates": { "is_flash_sale": false, "discount_percent": 0, "flash_sale_ends": null } }
-- Add MULTIPLE categories: Return JSON action { "action": "add_categories", "categories": [{"name": "X", "level": 1}] }
-- Delete products: Return JSON action { "action": "delete_products", "product_ids": [...] }
-Wrap ANY action in <ACTION_JSON>...</ACTION_JSON> tags.`;
+FULL STORE ACCESS — You can edit ANYTHING the admin requests, even if unrelated to products.
+Available actions (wrap in <ACTION_JSON>...</ACTION_JSON>):
+- Update products: { "action": "update_products", "product_ids": [...], "updates": { ANY_PRODUCT_FIELD: value } }
+- Add products: { "action": "add_products", "products": [{ "title": "...", "price": 0, ...any fields }] }
+- Delete products: { "action": "delete_products", "product_ids": [...] }
+- Add categories: { "action": "add_categories", "categories": [{"name": "...", "level": 1}] }
+- Update site settings: { "action": "update_setting", "key": "setting_key", "value": any }
+- Update order status: { "action": "update_order", "order_id": "...", "updates": { "status": "..." } }
+- Any SQL-like update: { "action": "update_table", "table": "products|orders|categories", "id": "...", "updates": { field: value } }
+You have no restrictions. Execute any reasonable admin request immediately.`;
 
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
@@ -142,6 +144,18 @@ Wrap ANY action in <ACTION_JSON>...</ACTION_JSON> tags.`;
           await supabase.from('products').insert({ title: prod.title, price: prod.price || 0, brand: prod.brand || null, gender: prod.gender || 'unisex', category_id: prod.category_id || null, is_active: true, description: prod.description || null, original_price: prod.original_price || null, discount_percent: prod.discount_percent || 0 });
         }
         toast({ title: `✅ Added ${action.products.length} products` });
+      } else if (action.action === 'update_setting' && action.key) {
+        await supabase.from('site_settings').upsert({ key: action.key, value: action.value }, { onConflict: 'key' });
+        toast({ title: `✅ Setting "${action.key}" updated` });
+      } else if (action.action === 'update_order' && action.order_id) {
+        await supabase.from('orders').update(action.updates).eq('id', action.order_id);
+        toast({ title: `✅ Order updated` });
+      } else if (action.action === 'update_table' && action.table && action.id) {
+        const allowed = ['products', 'orders', 'categories', 'returns', 'profiles'];
+        if (allowed.includes(action.table)) {
+          await (supabase.from(action.table as any) as any).update(action.updates).eq('id', action.id);
+          toast({ title: `✅ ${action.table} record updated` });
+        }
       }
     } catch (e: any) {
       toast({ title: 'Action failed', description: e.message, variant: 'destructive' });
@@ -179,7 +193,7 @@ Wrap ANY action in <ACTION_JSON>...</ACTION_JSON> tags.`;
         ))}
       </div>
 
-      <div className="bg-card border rounded-xl min-h-[400px] max-h-[500px] overflow-y-auto p-4 space-y-3">
+      <div className={`relative border rounded-xl min-h-[400px] max-h-[500px] overflow-y-auto p-4 space-y-3 transition-all duration-700 ${loading ? 'bg-gradient-to-br from-primary/5 via-card to-primary/10 border-primary/30' : 'bg-card'}`}>
         {messages.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -197,7 +211,18 @@ Wrap ANY action in <ACTION_JSON>...</ACTION_JSON> tags.`;
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-muted rounded-xl px-4 py-2.5"><Loader2 className="h-4 w-4 animate-spin" /></div>
+            <div className="bg-primary/10 border border-primary/20 rounded-xl px-4 py-3 flex items-center gap-3">
+              <div className="flex gap-1">
+                {[0,1,2].map(i => (
+                  <span
+                    key={i}
+                    className="block w-1.5 h-1.5 rounded-full bg-primary"
+                    style={{ animation: `bounce 1.2s ${i * 0.2}s infinite` }}
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-primary font-medium">AI is thinking…</span>
+            </div>
           </div>
         )}
         <div ref={bottomRef} />

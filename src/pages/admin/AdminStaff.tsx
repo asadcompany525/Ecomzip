@@ -31,31 +31,54 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const PAGE_PERMISSIONS = [
-  { key: 'page_dashboard',  label: '📊 Dashboard',      group: 'Core' },
-  { key: 'page_orders',     label: '🛒 Orders',         group: 'Core' },
-  { key: 'page_products',   label: '👟 Products',        group: 'Core' },
-  { key: 'page_customers',  label: '👥 Customers',       group: 'Core' },
-  { key: 'page_reviews',    label: '⭐ Reviews',         group: 'Core' },
-  { key: 'page_returns',    label: '↩️ Returns',         group: 'Core' },
-  { key: 'page_chat',       label: '💬 Chat Support',    group: 'Core' },
-  { key: 'page_deliveries', label: '🚚 Deliveries',      group: 'Core' },
-  { key: 'page_analytics',  label: '📈 Analytics',       group: 'Reports' },
-  { key: 'page_banners',    label: '🖼️ Banners',        group: 'Marketing' },
-  { key: 'page_promos',     label: '🎟️ Promotions',     group: 'Marketing' },
-  { key: 'page_newsletter', label: '📧 Newsletter',      group: 'Marketing' },
+  { key: 'page_full_access',          label: '🔓 Full Admin Access (All Pages)', group: 'Special' },
+  { key: 'page_dashboard',            label: '📊 Dashboard',                group: 'Core' },
+  { key: 'page_orders',               label: '🛒 Orders',                   group: 'Core' },
+  { key: 'page_products',             label: '👟 Products & Categories',    group: 'Core' },
+  { key: 'page_customers',            label: '👥 Customers',                group: 'Core' },
+  { key: 'page_reviews',              label: '⭐ Reviews',                  group: 'Core' },
+  { key: 'page_returns',              label: '↩️ Returns / Claims',         group: 'Core' },
+  { key: 'page_chat',                 label: '💬 Chat & Contact',           group: 'Core' },
+  { key: 'page_deliveries',           label: '🚚 Deliveries',               group: 'Core' },
+  { key: 'page_payments',             label: '💳 Payments',                 group: 'Core' },
+  { key: 'page_staff',                label: '👤 Staff Management',         group: 'Core' },
+  { key: 'page_settings',             label: '⚙️ Settings',                group: 'Core' },
+  { key: 'page_analytics',            label: '📈 Analytics & Reports',      group: 'Reports' },
+  { key: 'page_inventory',            label: '📦 Inventory & Stock',        group: 'Reports' },
+  { key: 'page_activity',             label: '📋 Activity Log',             group: 'Reports' },
+  { key: 'page_banners',              label: '🖼️ Banners',                 group: 'Marketing' },
+  { key: 'page_promos',               label: '🎟️ Promo Codes',             group: 'Marketing' },
+  { key: 'page_newsletter',           label: '📧 Newsletter',               group: 'Marketing' },
+  { key: 'page_ai_helper',            label: '🤖 AI Helper',               group: 'AI Features' },
+  { key: 'page_ai_site_manager',      label: '🌐 AI Site Manager',         group: 'AI Features' },
+  { key: 'page_ai_global_manager',    label: '🌍 AI Global Manager',       group: 'AI Features' },
+  { key: 'page_ai_discounts',         label: '💸 AI Discounts',            group: 'AI Features' },
+  { key: 'page_ai_fraud',             label: '🛡️ AI Fraud Detector',       group: 'AI Features' },
+  { key: 'page_ai_sales',             label: '📊 AI Sales Predictor',      group: 'AI Features' },
+  { key: 'page_ai_marketing',         label: '📣 AI Marketing Hub',        group: 'AI Features' },
+  { key: 'page_ai_feedback',          label: '👍 AI Feedback Analyzer',    group: 'AI Features' },
+  { key: 'page_ai_price',             label: '💰 AI Price Intelligence',   group: 'AI Features' },
+  { key: 'page_ai_banners',           label: '🖼️ AI Banner Creator',       group: 'AI Features' },
+  { key: 'page_ai_bulk',              label: '⚡ AI Bulk Creator',         group: 'AI Features' },
+  { key: 'page_ai_claim',             label: '✅ AI Claim Validator',      group: 'AI Features' },
+  { key: 'page_ai_tryon',             label: '👗 AI Virtual Try-On',       group: 'AI Features' },
+  { key: 'page_ai_voice',             label: '🎙️ AI Voice',               group: 'AI Features' },
+  { key: 'page_intelligence',         label: '🔮 Intelligence (Trends/Pricing/Loyalty)', group: 'Intelligence' },
 ];
+
+const ALL_PERM_KEYS = PAGE_PERMISSIONS.filter(p => p.key !== 'page_full_access').map(p => p.key);
 
 const DEFAULT_PERMS: Record<string, string[]> = {
   staff:    ['page_dashboard', 'page_orders', 'page_customers', 'page_chat'],
   sales:    ['page_orders', 'page_customers', 'page_dashboard', 'page_analytics'],
   support:  ['page_chat', 'page_returns', 'page_reviews', 'page_customers', 'page_orders'],
   delivery: ['page_orders', 'page_deliveries', 'page_dashboard'],
-  manager:  ['page_dashboard', 'page_orders', 'page_products', 'page_customers', 'page_reviews', 'page_returns', 'page_chat', 'page_deliveries', 'page_analytics', 'page_banners', 'page_promos'],
-  editor:   ['page_products', 'page_banners', 'page_promos', 'page_newsletter'],
+  manager:  ['page_dashboard', 'page_orders', 'page_products', 'page_customers', 'page_reviews', 'page_returns', 'page_chat', 'page_deliveries', 'page_analytics', 'page_banners', 'page_promos', 'page_newsletter', 'page_activity'],
+  editor:   ['page_products', 'page_banners', 'page_promos', 'page_newsletter', 'page_ai_banners'],
   viewer:   ['page_dashboard', 'page_analytics'],
 };
 
-const GROUPS = ['Core', 'Reports', 'Marketing'];
+const GROUPS = ['Special', 'Core', 'Reports', 'Marketing', 'AI Features', 'Intelligence'];
 
 const PERMS_KEY  = 'staff_permissions_v3';
 const ROLES_KEY  = 'staff_roles_v3';
@@ -455,7 +478,16 @@ export default function AdminStaff() {
 
   const togglePerm = (s: StaffMember, permKey: string) => {
     const current = staffPerms[s.id] || s.permissions || [];
-    const updated = current.includes(permKey) ? current.filter(p => p !== permKey) : [...current, permKey];
+    let updated: string[];
+    if (permKey === 'page_full_access') {
+      if (current.includes('page_full_access')) {
+        updated = current.filter(p => p !== 'page_full_access');
+      } else {
+        updated = ['page_full_access', ...ALL_PERM_KEYS];
+      }
+    } else {
+      updated = current.includes(permKey) ? current.filter(p => p !== permKey) : [...current, permKey];
+    }
     saveAccessState(s, updated);
   };
 

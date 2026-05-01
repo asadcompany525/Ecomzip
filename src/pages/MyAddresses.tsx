@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import Header from '@/components/layout/Header';
+
 import BottomNav from '@/components/layout/BottomNav';
 
 const PROVINCES: Record<string, Record<string, string[]>> = {
@@ -201,7 +201,7 @@ const MyAddresses = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-5 max-w-xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">My Addresses</h1>

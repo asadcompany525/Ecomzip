@@ -2,13 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ShoppingCart, X, ArrowRight } from 'lucide-react';
+import { ShoppingCart, X, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const IDLE_TIMEOUT = 3 * 60 * 1000; // 3 minutes idle
-const ABANDON_DELAY = 30 * 1000; // 30 seconds after cart has items and user navigates away
+const IDLE_TIMEOUT = 3 * 60 * 1000;
+const ABANDON_DELAY = 30 * 1000;
+
+const AI_MESSAGES = [
+  (name: string, total: number) => `"${name}" is still waiting for you! Don't let it sell out — grab it before someone else does.`,
+  (_: string, total: number) => `You're Rs. ${total.toLocaleString()} away from completing your order. Your cart misses you!`,
+  (name: string) => `Psst — "${name}" and your other items are still saved. Ready to check out?`,
+  (_: string, total: number) => `Quick reminder: Rs. ${total.toLocaleString()} worth of items are sitting in your cart. Complete your order now!`,
+  (name: string) => `Your cart is getting lonely! "${name}" is waiting for you.`,
+];
 
 export default function AbandonedCartRecovery() {
   const { cartItems, cartCount } = useCart();
@@ -16,6 +24,7 @@ export default function AbandonedCartRecovery() {
   const location = useLocation();
   const [showReminder, setShowReminder] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [aiMessage, setAiMessage] = useState('');
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abandonTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCartPath = useRef<string>('');
@@ -23,7 +32,6 @@ export default function AbandonedCartRecovery() {
 
   const isCartPage = location.pathname === '/cart' || location.pathname === '/checkout';
 
-  // Log to DB for abandoned cart tracking
   const logAbandonedCart = async () => {
     if (!cartItems.length || savedRef.current) return;
     savedRef.current = true;
@@ -42,20 +50,26 @@ export default function AbandonedCartRecovery() {
     } catch {}
   };
 
-  // Track page where cart had items
   useEffect(() => {
     if (cartCount > 0 && !isCartPage) {
       lastCartPath.current = location.pathname;
     }
   }, [location.pathname, cartCount, isCartPage]);
 
-  // Show reminder when idle with items in cart
+  const generateAiMessage = () => {
+    const total = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
+    const topName = cartItems[0]?.name || 'your item';
+    const pick = AI_MESSAGES[Math.floor(Math.random() * AI_MESSAGES.length)];
+    setAiMessage(pick(topName, total));
+  };
+
   useEffect(() => {
     if (cartCount === 0 || isCartPage || dismissed) return;
 
     const resetIdle = () => {
       if (idleTimer.current) clearTimeout(idleTimer.current);
       idleTimer.current = setTimeout(() => {
+        generateAiMessage();
         setShowReminder(true);
         logAbandonedCart();
       }, IDLE_TIMEOUT);
@@ -71,12 +85,12 @@ export default function AbandonedCartRecovery() {
     };
   }, [cartCount, isCartPage, dismissed]);
 
-  // Show after navigating away from cart with items
   useEffect(() => {
     if (cartCount === 0 || isCartPage || dismissed) return;
     if (lastCartPath.current && !isCartPage) {
       if (abandonTimer.current) clearTimeout(abandonTimer.current);
       abandonTimer.current = setTimeout(() => {
+        generateAiMessage();
         setShowReminder(true);
         logAbandonedCart();
       }, ABANDON_DELAY);
@@ -90,12 +104,11 @@ export default function AbandonedCartRecovery() {
     setShowReminder(false);
     setDismissed(true);
     savedRef.current = false;
-    setTimeout(() => setDismissed(false), 10 * 60 * 1000); // Re-enable after 10 min
+    setTimeout(() => setDismissed(false), 10 * 60 * 1000);
   };
 
   if (!showReminder || cartCount === 0 || isCartPage) return null;
 
-  const topItem = cartItems[0];
   const total = cartItems.reduce((s, i) => s + i.price * i.quantity, 0);
 
   return (
@@ -108,9 +121,7 @@ export default function AbandonedCartRecovery() {
         className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm"
       >
         <div className="bg-card border shadow-2xl rounded-2xl p-4 relative overflow-hidden">
-          {/* Accent bar */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-primary/60 rounded-t-2xl" />
-
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/80 to-primary/40 rounded-t-2xl" />
           <button
             onClick={handleDismiss}
             className="absolute top-3 right-3 w-7 h-7 rounded-full hover:bg-accent flex items-center justify-center text-muted-foreground"
@@ -122,28 +133,32 @@ export default function AbandonedCartRecovery() {
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <ShoppingCart className="h-5 w-5 text-primary" />
             </div>
-            <div>
-              <p className="font-bold text-sm">You left something behind!</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {cartCount} item{cartCount > 1 ? 's' : ''} waiting in your cart
-              </p>
+            <div className="flex-1 pr-6">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Sparkles className="h-3 w-3 text-primary" />
+                <p className="font-bold text-sm">Cart Reminder</p>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">{aiMessage}</p>
             </div>
           </div>
 
-          {topItem && (
-            <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-2 mb-3">
-              <img
-                src={topItem.image || '/placeholder.svg'}
-                alt={topItem.name}
-                className="w-10 h-10 rounded object-cover"
-                loading="lazy"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{topItem.name}</p>
-                <p className="text-xs text-primary font-bold">Rs. {topItem.price.toLocaleString()}</p>
-              </div>
-              {cartCount > 1 && (
-                <span className="text-xs text-muted-foreground">+{cartCount - 1} more</span>
+          {cartItems.length > 0 && (
+            <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+              {cartItems.slice(0, 4).map(item => (
+                <div key={item.id} className="shrink-0 text-center">
+                  <img
+                    src={item.image || '/placeholder.svg'}
+                    alt={item.name}
+                    className="w-12 h-12 rounded-lg object-cover border"
+                    loading="lazy"
+                  />
+                  <p className="text-[9px] text-muted-foreground mt-0.5 w-12 truncate">{item.name}</p>
+                </div>
+              ))}
+              {cartItems.length > 4 && (
+                <div className="w-12 h-12 rounded-lg border bg-muted/50 flex items-center justify-center shrink-0 text-xs font-bold text-muted-foreground">
+                  +{cartItems.length - 4}
+                </div>
               )}
             </div>
           )}

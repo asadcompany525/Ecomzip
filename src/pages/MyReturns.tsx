@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import Header from '@/components/layout/Header';
+
 import BottomNav from '@/components/layout/BottomNav';
 import { toast } from '@/hooks/use-toast';
 
@@ -177,7 +177,7 @@ Return JSON: { "decision": "reject" or "review", "reason": "explanation" }`
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-5 max-w-xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Returns & Claims</h1>

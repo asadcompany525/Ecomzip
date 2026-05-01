@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { CheckCircle2, Package, Truck, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import Header from '@/components/layout/Header';
+
 
 import BottomNav from '@/components/layout/BottomNav';
 
@@ -19,7 +19,7 @@ const OrderSuccess = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-10 text-center max-w-lg mx-auto">
         <CheckCircle2 className="h-20 w-20 text-green-500 mx-auto mb-4" />
         <h1 className="text-2xl font-bold mb-2">Order Placed Successfully! 🎉</h1>

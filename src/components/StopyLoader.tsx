@@ -41,25 +41,16 @@ const StopyLoader = ({ size = 'md', fullScreen = false }: StopyLoaderProps) => {
       </div>
 
       {size !== 'sm' && (
-        <div className="text-center space-y-1">
-          <motion.p
-            className={`font-black text-primary tracking-wider ${fontSize[size]}`}
-            animate={{ opacity: [0.6, 1, 0.6] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-          >
-            {(brandName || 'LOADING').toUpperCase()}
-          </motion.p>
-          <motion.div className="flex justify-center gap-1">
-            {[0, 1, 2].map(i => (
-              <motion.div
-                key={i}
-                className="w-1.5 h-1.5 rounded-full bg-primary"
-                animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
-                transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.2 }}
-              />
-            ))}
-          </motion.div>
-        </div>
+        <motion.div className="flex justify-center gap-1.5">
+          {[0, 1, 2].map(i => (
+            <motion.div
+              key={i}
+              className="w-1.5 h-1.5 rounded-full bg-primary"
+              animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.3, 0.8] }}
+              transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.22 }}
+            />
+          ))}
+        </motion.div>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/home/ProductCard';
-import Header from '@/components/layout/Header';
+
 import BottomNav from '@/components/layout/BottomNav';
 import { Product } from '@/types/product';
 
@@ -25,7 +25,7 @@ const DiscountItems = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-5">
         <div className="flex items-center gap-3 mb-6">
           <span className="text-3xl">🏷️</span>

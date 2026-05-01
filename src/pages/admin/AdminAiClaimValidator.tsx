@@ -1,276 +1,321 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Shield, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
-import { useStoreSettings } from '@/hooks/useStoreSettings';
+import { Button } from '@/components/ui/button';
+import { Shield, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw, ChevronRight, Brain } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function AdminAiClaimValidator() {
-  const { brandName } = useStoreSettings();
-  const [returns, setReturns] = useState<any[]>([]);
-  const [selectedReturn, setSelectedReturn] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+const CACHE_KEY = 'ai_claim_cache_v2';
 
-  useEffect(() => {
-    supabase.from('returns').select('*, products(title, claim_policy, claim_duration)').order('created_at', { ascending: false }).limit(50)
-      .then(({ data }) => setReturns(data || []));
-
-    const saved = localStorage.getItem('ai_claim_history');
-    if (saved) setHistory(JSON.parse(saved));
-  }, []);
-
-  const validate = async () => {
-    if (!selectedReturn) {
-      toast({ title: 'Select a return request first', variant: 'destructive' });
-      return;
-    }
-    setLoading(true);
-    setResult(null);
-    try {
-      const allImages = selectedReturn.images || [];
-
-      const claimPolicy = selectedReturn.products?.claim_policy ||
-        'Standard: Manufacturing defects within 30 days qualify for claim. Normal wear and tear does not.';
-      const claimDuration = selectedReturn.products?.claim_duration || 'Not set';
-
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: {
-          type: 'claim-validator',
-          imageUrl: allImages[0] || null,
-          messages: [{
-            role: 'user',
-            content: `You are an AI claim validator for Stopy Shoes, a Pakistani shoe store.
-
-ADMIN CLAIM INSTRUCTIONS (Product Policy):
-${claimPolicy}
-
-STANDARD CLAIM DURATION:
-${claimDuration}
-
-CUSTOMER CLAIM DETAILS:
-- Return Reason: ${selectedReturn.reason || 'Not specified'}
-- Customer Description: ${selectedReturn.description || 'No description'}
-- Product: ${selectedReturn.products?.title || 'Unknown'}
-- Order ID: ${selectedReturn.order_id}
-- Images Provided: ${allImages.length} image(s)
-${allImages.length > 0 ? `- First Image URL: ${allImages[0]}` : ''}
-
-Analyze the claim and return a JSON response:
-{
-  "decision": "APPROVED" | "REJECTED" | "NEEDS_REVIEW",
-  "confidence": 85,
-  "reasoning": "Detailed explanation of decision",
-  "evidenceFound": ["Evidence point 1", "Evidence point 2"],
-  "policyMatch": true,
-  "recommendation": "What action admin should take",
-  "flaggedIssues": ["Any suspicious patterns or missing evidence"],
-  "refundAmount": "full" | "partial" | "none",
-  "partialRefundPercent": 0
+function loadCache(): Record<string, any> {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; }
+}
+function saveCache(c: Record<string, any>) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch {}
 }
 
-Be strict but fair. If images show clear defects matching the claim policy, approve. If images don't match the complaint or show misuse, reject.
-Return ONLY valid JSON.`
-          }],
+function buildPrompt(r: any) {
+  const claimPolicy = r.products?.claim_policy || 'Standard: Manufacturing defects within 30 days qualify. Normal wear does not.';
+  const claimDuration = r.products?.claim_duration || 'Not set';
+  const allImages = r.images || [];
+  return `You are an AI claim validator for ${r.products?.title ? `"${r.products.title}"` : 'a shoe store'} in Pakistan.
+
+PRODUCT CLAIM POLICY: ${claimPolicy}
+CLAIM DURATION: ${claimDuration}
+RETURN REASON: ${r.reason || 'Not specified'}
+CUSTOMER NOTE: ${r.description || 'None'}
+IMAGES PROVIDED: ${allImages.length}
+${allImages[0] ? `EVIDENCE IMAGE: ${allImages[0]}` : ''}
+
+Respond ONLY with valid JSON:
+{"decision":"APPROVED"|"REJECTED"|"NEEDS_REVIEW","confidence":0-100,"reasoning":"brief","recommendation":"admin action","refundAmount":"full"|"partial"|"none","partialRefundPercent":0,"flaggedIssues":[],"aiOpinion":"1-2 sentence plain summary for admin"}`;
+}
+
+function DecisionBadge({ decision }: { decision: string }) {
+  if (decision === 'APPROVED') return <Badge className="bg-green-100 text-green-800 border border-green-200 text-[10px]">✅ APPROVED</Badge>;
+  if (decision === 'REJECTED')  return <Badge className="bg-red-100 text-red-800 border border-red-200 text-[10px]">❌ REJECTED</Badge>;
+  return <Badge className="bg-orange-100 text-orange-800 border border-orange-200 text-[10px]">🔍 NEEDS REVIEW</Badge>;
+}
+
+export default function AdminAiClaimValidator() {
+  const [returns, setReturns] = useState<any[]>([]);
+  const [cache, setCache] = useState<Record<string, any>>(loadCache());
+  const [analyzing, setAnalyzing] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string | null>(null);
+  const [loadingReturns, setLoadingReturns] = useState(true);
+  const queueRef = useRef<any[]>([]);
+  const runningRef = useRef(false);
+
+  const fetchReturns = async () => {
+    setLoadingReturns(true);
+    const { data } = await supabase
+      .from('returns')
+      .select('*, products(title, claim_policy, claim_duration)')
+      .order('created_at', { ascending: false })
+      .limit(40);
+    setLoadingReturns(false);
+    if (!data) return;
+    setReturns(data);
+    const toAnalyze = data.filter(r => !cache[r.id]);
+    queueRef.current = toAnalyze;
+    runQueue();
+  };
+
+  const analyzeOne = async (r: any) => {
+    setAnalyzing(prev => new Set(prev).add(r.id));
+    try {
+      const { data } = await supabase.functions.invoke('ai-assistant', {
+        body: {
+          type: 'claim-validator',
+          imageUrl: r.images?.[0] || null,
+          messages: [{ role: 'user', content: buildPrompt(r) }],
         },
       });
-
-      if (error) throw error;
       let parsed = data;
       if (typeof data === 'string') {
         const m = data.match(/\{[\s\S]*\}/);
         if (m) parsed = JSON.parse(m[0]);
       }
-      setResult(parsed);
+      if (parsed?.decision) {
+        setCache(prev => {
+          const next = { ...prev, [r.id]: parsed };
+          saveCache(next);
+          return next;
+        });
+      }
+    } catch {}
+    setAnalyzing(prev => { const s = new Set(prev); s.delete(r.id); return s; });
+  };
 
-      const entry = {
-        id: selectedReturn.id,
-        returnId: selectedReturn.id,
-        productTitle: selectedReturn.products?.title,
-        decision: parsed.decision,
-        confidence: parsed.confidence,
-        timestamp: new Date().toISOString(),
-        result: parsed,
-      };
-      const newHistory = [entry, ...history].slice(0, 20);
-      setHistory(newHistory);
-      localStorage.setItem('ai_claim_history', JSON.stringify(newHistory));
-
-      toast({ title: `AI Decision: ${parsed.decision}` });
-    } catch (e: any) {
-      toast({ title: 'AI Error', description: e.message, variant: 'destructive' });
+  const runQueue = async () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    while (queueRef.current.length > 0) {
+      const batch = queueRef.current.splice(0, 3);
+      await Promise.all(batch.map(analyzeOne));
     }
-    setLoading(false);
+    runningRef.current = false;
   };
 
-  const getDecisionIcon = (decision: string) => {
-    if (decision === 'APPROVED') return <CheckCircle className="h-5 w-5 text-green-500" />;
-    if (decision === 'REJECTED') return <XCircle className="h-5 w-5 text-destructive" />;
-    return <AlertCircle className="h-5 w-5 text-orange-500" />;
+  const reAnalyze = (r: any) => {
+    setCache(prev => { const n = { ...prev }; delete n[r.id]; saveCache(n); return n; });
+    queueRef.current = [r];
+    runQueue();
   };
 
-  const getDecisionColor = (decision: string) => {
-    if (decision === 'APPROVED') return 'bg-green-100 text-green-800 border-green-200';
-    if (decision === 'REJECTED') return 'bg-red-100 text-red-800 border-red-200';
-    return 'bg-orange-100 text-orange-800 border-orange-200';
-  };
+  useEffect(() => { fetchReturns(); }, []);
+
+  const pendingCount = analyzing.size;
+  const selectedReturn = returns.find(r => r.id === selected);
+  const selectedResult = selected ? cache[selected] : null;
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div>
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Shield className="h-5 w-5 text-primary" /> AI Visual Claim Validator
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          AI reviews customer return photos against your product's claim policy and decides validity automatically.
-        </p>
+    <div className="space-y-5 max-w-5xl">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Brain className="h-5 w-5 text-primary" /> AI Claim Validator
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            AI automatically reviews all claims on load — no button needed.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchReturns} disabled={loadingReturns} className="gap-2">
+          <RefreshCw className={`h-3.5 w-3.5 ${loadingReturns ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Left: Input */}
-        <div className="space-y-4">
-          <div className="bg-card rounded-xl border p-4 space-y-4">
-            <Label className="text-base font-semibold">📋 Select Return Request</Label>
-            <Select onValueChange={v => {
-              const r = returns.find(r => r.id === v);
-              setSelectedReturn(r || null);
-              setResult(null);
-            }}>
-              <SelectTrigger><SelectValue placeholder="Select a return request..." /></SelectTrigger>
-              <SelectContent>
-                {returns.map(r => (
-                  <SelectItem key={r.id} value={r.id}>
-                    #{r.id.slice(0, 8)} — {r.products?.title || 'Unknown'} — {r.status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {pendingCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3"
+        >
+          <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+          <p className="text-sm text-primary font-medium">
+            AI is analyzing {pendingCount} claim{pendingCount !== 1 ? 's' : ''}…
+          </p>
+        </motion.div>
+      )}
 
-            {selectedReturn && (
-              <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
-                <p><span className="text-muted-foreground">Product:</span> {selectedReturn.products?.title}</p>
-                <p><span className="text-muted-foreground">Reason:</span> {selectedReturn.reason}</p>
-                <p><span className="text-muted-foreground">Status:</span> <Badge variant="outline">{selectedReturn.status}</Badge></p>
-                {selectedReturn.description && (
-                  <p><span className="text-muted-foreground">Description:</span> {selectedReturn.description}</p>
-                )}
-                {selectedReturn.images?.length > 0 && (
-                  <div>
-                    <p className="text-muted-foreground mb-1">Customer Photos:</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {selectedReturn.images.map((img: string, i: number) => (
-                        <img key={i} src={img} alt="" className="w-16 h-16 rounded-lg object-cover border" />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {selectedReturn.products?.claim_policy && (
-                  <div className="border-t pt-2">
-                    <p className="text-muted-foreground text-xs font-medium">AI Claim Instructions:</p>
-                    <p className="text-xs">{selectedReturn.products.claim_policy}</p>
-                    {selectedReturn.products?.claim_duration && <p className="text-xs mt-1"><span className="font-medium">Duration:</span> {selectedReturn.products.claim_duration}</p>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {selectedReturn?.images?.length > 0 && (
-              <div className="bg-muted/20 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground font-medium mb-2">Customer's Submitted Evidence ({selectedReturn.images.length} photo{selectedReturn.images.length !== 1 ? 's' : ''}):</p>
-                <div className="flex gap-2 flex-wrap">
-                  {selectedReturn.images.map((img: string, i: number) => (
-                    <a key={i} href={img} target="_blank" rel="noopener">
-                      <img src={img} alt="" className="w-14 h-14 rounded object-cover border hover:opacity-80 transition" />
-                    </a>
-                  ))}
+      <div className="grid lg:grid-cols-5 gap-4">
+        {/* Claims List */}
+        <div className="lg:col-span-2 space-y-2">
+          {loadingReturns ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : returns.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Shield className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No return requests found</p>
+            </div>
+          ) : returns.map(r => {
+            const result = cache[r.id];
+            const isAnalyzing = analyzing.has(r.id);
+            const isSelected = selected === r.id;
+            return (
+              <motion.button
+                key={r.id}
+                layout
+                onClick={() => setSelected(isSelected ? null : r.id)}
+                className={`w-full text-left rounded-xl border p-3 transition-all ${isSelected ? 'border-primary bg-primary/5 shadow-sm' : 'hover:border-primary/40 hover:bg-muted/30'}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  {isAnalyzing ? (
+                    <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+                  ) : result ? (
+                    result.decision === 'APPROVED' ? <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" /> :
+                    result.decision === 'REJECTED' ? <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" /> :
+                    <AlertCircle className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                  ) : (
+                    <Shield className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  )}
+                  <span className="text-xs font-medium truncate flex-1">{r.products?.title || 'Unknown Product'}</span>
+                  <ChevronRight className={`h-3 w-3 text-muted-foreground transition-transform shrink-0 ${isSelected ? 'rotate-90' : ''}`} />
                 </div>
-              </div>
-            )}
-
-            <Button onClick={validate} disabled={loading || !selectedReturn} className="w-full gap-2">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-              {loading ? 'AI Validating...' : 'Validate Claim with AI'}
-            </Button>
-          </div>
+                <div className="flex items-center gap-2 ml-5">
+                  {result ? (
+                    <DecisionBadge decision={result.decision} />
+                  ) : isAnalyzing ? (
+                    <Badge variant="outline" className="text-[10px] text-primary border-primary/30">Analyzing…</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px]">Pending</Badge>
+                  )}
+                  <span className="text-[10px] text-muted-foreground truncate">{r.reason}</span>
+                </div>
+                {result?.aiOpinion && (
+                  <p className="text-[10px] text-muted-foreground ml-5 mt-1 line-clamp-1">{result.aiOpinion}</p>
+                )}
+              </motion.button>
+            );
+          })}
         </div>
 
-        {/* Right: Result */}
-        <div className="space-y-4">
-          {result ? (
-            <div className={`rounded-xl border p-4 space-y-4 ${getDecisionColor(result.decision)}`}>
-              <div className="flex items-center gap-3">
-                {getDecisionIcon(result.decision)}
-                <div>
-                  <h3 className="font-bold text-lg">{result.decision}</h3>
-                  <p className="text-sm">Confidence: {result.confidence}%</p>
-                </div>
-                <Badge className="ml-auto">
-                  {result.refundAmount === 'full' ? 'Full Refund' : result.refundAmount === 'partial' ? `${result.partialRefundPercent}% Refund` : 'No Refund'}
-                </Badge>
-              </div>
-
-              <div className="bg-white/60 rounded-lg p-3 space-y-3 text-sm">
-                <div>
-                  <p className="font-semibold text-xs uppercase tracking-wide mb-1">Reasoning</p>
-                  <p>{result.reasoning}</p>
-                </div>
-
-                {result.evidenceFound?.length > 0 && (
-                  <div>
-                    <p className="font-semibold text-xs uppercase tracking-wide mb-1">Evidence Found</p>
-                    <ul className="space-y-0.5">
-                      {result.evidenceFound.map((e: string, i: number) => (
-                        <li key={i} className="flex items-start gap-1 text-xs"><span>•</span>{e}</li>
+        {/* Detail Panel */}
+        <div className="lg:col-span-3">
+          <AnimatePresence mode="wait">
+            {selected && selectedReturn ? (
+              <motion.div
+                key={selected}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="space-y-4"
+              >
+                {/* Claim Info */}
+                <div className="bg-card border rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-sm">{selectedReturn.products?.title}</h3>
+                    <Badge variant="outline" className="text-[10px]">{selectedReturn.status}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-muted-foreground">Reason:</span> {selectedReturn.reason}</div>
+                    <div><span className="text-muted-foreground">Order:</span> #{selectedReturn.order_id?.slice(0, 8)}</div>
+                  </div>
+                  {selectedReturn.description && (
+                    <p className="text-xs bg-muted/30 rounded-lg p-2">{selectedReturn.description}</p>
+                  )}
+                  {selectedReturn.images?.length > 0 && (
+                    <div className="flex gap-2 flex-wrap">
+                      {selectedReturn.images.map((img: string, i: number) => (
+                        <a key={i} href={img} target="_blank" rel="noopener">
+                          <img src={img} alt="" className="w-14 h-14 rounded-lg object-cover border hover:opacity-80 transition" />
+                        </a>
                       ))}
-                    </ul>
+                    </div>
+                  )}
+                  {selectedReturn.products?.claim_policy && (
+                    <div className="text-[11px] bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-lg p-2">
+                      <span className="font-semibold text-blue-700 dark:text-blue-300">Policy: </span>
+                      <span className="text-blue-900 dark:text-blue-200">{selectedReturn.products.claim_policy}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Result */}
+                {analyzing.has(selected) ? (
+                  <div className="flex flex-col items-center justify-center gap-3 py-10 bg-card border rounded-xl">
+                    <motion.div
+                      animate={{ scale: [1, 1.15, 1] }}
+                      transition={{ repeat: Infinity, duration: 1.4 }}
+                    >
+                      <Brain className="h-8 w-8 text-primary" />
+                    </motion.div>
+                    <p className="text-sm text-muted-foreground">AI is reviewing this claim…</p>
+                  </div>
+                ) : selectedResult ? (
+                  <div className={`rounded-xl border p-4 space-y-4 ${
+                    selectedResult.decision === 'APPROVED' ? 'bg-green-50 dark:bg-green-950/20 border-green-200' :
+                    selectedResult.decision === 'REJECTED' ? 'bg-red-50 dark:bg-red-950/20 border-red-200' :
+                    'bg-orange-50 dark:bg-orange-950/20 border-orange-200'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      {selectedResult.decision === 'APPROVED' ? <CheckCircle className="h-6 w-6 text-green-600" /> :
+                       selectedResult.decision === 'REJECTED' ? <XCircle className="h-6 w-6 text-red-600" /> :
+                       <AlertCircle className="h-6 w-6 text-orange-600" />}
+                      <div className="flex-1">
+                        <p className="font-bold text-lg">{selectedResult.decision}</p>
+                        <p className="text-xs text-muted-foreground">AI Confidence: {selectedResult.confidence}%</p>
+                      </div>
+                      <Badge className={
+                        selectedResult.refundAmount === 'full' ? 'bg-green-600 text-white' :
+                        selectedResult.refundAmount === 'partial' ? 'bg-orange-500 text-white' : 'bg-gray-400 text-white'
+                      }>
+                        {selectedResult.refundAmount === 'full' ? 'Full Refund' :
+                         selectedResult.refundAmount === 'partial' ? `${selectedResult.partialRefundPercent}% Refund` : 'No Refund'}
+                      </Badge>
+                    </div>
+
+                    {selectedResult.aiOpinion && (
+                      <div className="bg-white/60 dark:bg-black/20 rounded-lg p-3 text-sm font-medium">
+                        💬 {selectedResult.aiOpinion}
+                      </div>
+                    )}
+
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <p className="font-semibold text-xs uppercase tracking-wide mb-1 text-muted-foreground">Reasoning</p>
+                        <p>{selectedResult.reasoning}</p>
+                      </div>
+                      {selectedResult.flaggedIssues?.length > 0 && (
+                        <div>
+                          <p className="font-semibold text-xs uppercase tracking-wide mb-1 text-orange-700">⚠ Flagged</p>
+                          <ul className="space-y-0.5">{selectedResult.flaggedIssues.map((f: string, i: number) => <li key={i} className="text-xs text-orange-700">• {f}</li>)}</ul>
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-semibold text-xs uppercase tracking-wide mb-1 text-muted-foreground">Recommendation</p>
+                        <p className="text-xs">{selectedResult.recommendation}</p>
+                      </div>
+                    </div>
+
+                    <Button variant="outline" size="sm" className="gap-2" onClick={() => reAnalyze(selectedReturn)}>
+                      <RefreshCw className="h-3.5 w-3.5" /> Re-analyze
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-10 bg-card border rounded-xl text-muted-foreground">
+                    <Shield className="h-8 w-8 mb-2 opacity-30" />
+                    <p className="text-sm">Analysis not available yet</p>
+                    <Button size="sm" variant="outline" className="mt-3 gap-2" onClick={() => reAnalyze(selectedReturn)}>
+                      <Brain className="h-3.5 w-3.5" /> Analyze Now
+                    </Button>
                   </div>
                 )}
-
-                {result.flaggedIssues?.length > 0 && (
-                  <div>
-                    <p className="font-semibold text-xs uppercase tracking-wide mb-1 text-orange-700">Flagged Issues</p>
-                    <ul className="space-y-0.5">
-                      {result.flaggedIssues.map((f: string, i: number) => (
-                        <li key={i} className="flex items-start gap-1 text-xs text-orange-700"><span>⚠</span>{f}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div>
-                  <p className="font-semibold text-xs uppercase tracking-wide mb-1">Recommendation</p>
-                  <p className="text-xs">{result.recommendation}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-muted/20 rounded-xl border-2 border-dashed p-12 text-center text-muted-foreground">
-              <Shield className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">AI validation result will appear here</p>
-            </div>
-          )}
-
-          {/* History */}
-          {history.length > 0 && (
-            <div className="bg-card rounded-xl border p-4 space-y-2">
-              <Label className="text-sm font-semibold">Recent Validations</Label>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {history.map((h, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs border rounded-lg p-2">
-                    {getDecisionIcon(h.decision)}
-                    <span className="flex-1 truncate">{h.productTitle}</span>
-                    <Badge variant="outline" className="text-[10px]">{h.decision}</Badge>
-                    <span className="text-muted-foreground">{h.confidence}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center h-48 text-muted-foreground"
+              >
+                <Shield className="h-10 w-10 mb-3 opacity-20" />
+                <p className="text-sm">Select a claim to see AI analysis</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

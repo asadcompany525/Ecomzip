@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { products } from '@/data/demo-data';
 import ProductCard from '@/components/home/ProductCard';
-import Header from '@/components/layout/Header';
+
 
 import BottomNav from '@/components/layout/BottomNav';
 
@@ -15,7 +15,7 @@ const Cart = () => {
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background pb-16 md:pb-0">
-        <Header />
+        
         <div className="container py-20 text-center">
           <ShoppingBag className="h-20 w-20 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-2xl font-bold mb-2">Your cart is empty</h2>
@@ -37,7 +37,7 @@ const Cart = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-5">
         <h1 className="text-2xl font-bold mb-6">Shopping Cart ({items.length})</h1>
         <div className="grid lg:grid-cols-3 gap-6">

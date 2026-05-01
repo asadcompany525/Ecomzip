@@ -37,12 +37,40 @@ const PATH_TO_PERM: Record<string, string> = {
   '/admin/chat': 'page_chat',
   '/admin/contact-messages': 'page_chat',
   '/admin/delivery': 'page_deliveries',
+  '/admin/payments': 'page_payments',
+  '/admin/payment-methods': 'page_payments',
+  '/admin/staff': 'page_staff',
+  '/admin/staff-performance': 'page_staff',
+  '/admin/settings': 'page_settings',
   '/admin/product-analytics': 'page_analytics',
   '/admin/reports': 'page_analytics',
-  '/admin/activity': 'page_analytics',
+  '/admin/stock-alerts': 'page_inventory',
+  '/admin/inventory': 'page_inventory',
+  '/admin/city-manager': 'page_inventory',
+  '/admin/activity': 'page_activity',
   '/admin/banners': 'page_banners',
   '/admin/promos': 'page_promos',
   '/admin/newsletter': 'page_newsletter',
+  '/admin/ai-helper': 'page_ai_helper',
+  '/admin/ai-site-manager': 'page_ai_site_manager',
+  '/admin/ai-global-manager': 'page_ai_global_manager',
+  '/admin/ai-voice': 'page_ai_voice',
+  '/admin/ai-discounts': 'page_ai_discounts',
+  '/admin/ai-fraud-detector': 'page_ai_fraud',
+  '/admin/ai-sales-predictor': 'page_ai_sales',
+  '/admin/ai-marketing-hub': 'page_ai_marketing',
+  '/admin/ai-feedback-analyzer': 'page_ai_feedback',
+  '/admin/ai-price-intelligence': 'page_ai_price',
+  '/admin/ai-banner-creator': 'page_ai_banners',
+  '/admin/ai-bulk-creator': 'page_ai_bulk',
+  '/admin/ai-claim-validator': 'page_ai_claim',
+  '/admin/ai-virtual-tryon': 'page_ai_tryon',
+  '/admin/ai-size-advisor': 'page_ai_tryon',
+  '/admin/form-generator': 'page_ai_bulk',
+  '/admin/trend-predictor': 'page_intelligence',
+  '/admin/pricing-engine': 'page_intelligence',
+  '/admin/loyalty-heatmap': 'page_intelligence',
+  '/admin/search-logs': 'page_intelligence',
 };
 
 const sidebarGroups = [
@@ -88,6 +116,9 @@ const sidebarGroups = [
       { icon: ImagePlus,       label: 'AI Banner Creator',      path: '/admin/ai-banner-creator',     adminOnly: true },
       { icon: Sparkles,        label: 'AI Bulk Creator',        path: '/admin/ai-bulk-creator',       adminOnly: true },
       { icon: FileSpreadsheet, label: 'AI Report Generator',    path: '/admin/form-generator',        adminOnly: true },
+      { icon: Shield,          label: 'AI Claim Validator',     path: '/admin/ai-claim-validator',    adminOnly: true },
+      { icon: Sparkles,        label: 'AI Virtual Try-On',      path: '/admin/ai-virtual-tryon',      adminOnly: true },
+      { icon: Bot,             label: 'AI Size Advisor',        path: '/admin/ai-size-advisor',       adminOnly: true },
     ],
   },
   {
@@ -215,9 +246,12 @@ const AdminLayout = () => {
     }
   };
 
+  const hasFullAccess = staffPermissions?.includes('page_full_access') ?? false;
+
   const isItemDisabled = (item: any): boolean => {
     if (isMainAdmin) return false;
     if (!isStaff) return false;
+    if (hasFullAccess) return false;
     if (item.adminOnly) return true;
     const perm = PATH_TO_PERM[item.path];
     if (perm && staffPermissions !== null && !staffPermissions.includes(perm)) return true;
@@ -227,6 +261,7 @@ const AdminLayout = () => {
   const canAccessCurrentPath = (): boolean => {
     if (isMainAdmin) return true;
     if (!isStaff) return true;
+    if (hasFullAccess) return true;
     const perm = PATH_TO_PERM[location.pathname];
     if (!perm) {
       const item = allItems.find(i => i.path === location.pathname);
@@ -326,7 +361,7 @@ const AdminLayout = () => {
           )}
           <Badge variant="outline" className="text-[10px] hidden md:inline-flex max-w-[160px] truncate">{user?.email}</Badge>
         </header>
-        <main className="flex-1 p-3 md:p-5 overflow-auto">
+        <main className="flex-1 p-3 md:p-5 overflow-auto max-h-[calc(100dvh-49px)]">
           {hasAccess ? (
             <Outlet />
           ) : (

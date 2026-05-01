@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import Header from '@/components/layout/Header';
+
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 import BottomNav from '@/components/layout/BottomNav';
@@ -44,7 +44,7 @@ const MyPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-5">
         <h1 className="text-2xl font-bold mb-6">My Account</h1>
 

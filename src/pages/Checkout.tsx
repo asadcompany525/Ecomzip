@@ -12,7 +12,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import Header from '@/components/layout/Header';
+
 import BottomNav from '@/components/layout/BottomNav';
 
 const PROVINCES: Record<string, Record<string, string[]>> = {
@@ -433,7 +433,7 @@ const Checkout = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header />
+      
       <main className="container py-5">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1 p-0 h-auto"><ArrowLeft className="h-4 w-4" /> Back</Button>
