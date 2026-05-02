@@ -60,7 +60,6 @@ const PAGE_PERMISSIONS = [
   { key: 'page_ai_price',             label: '💰 AI Price Intelligence',   group: 'AI Features' },
   { key: 'page_ai_banners',           label: '🖼️ AI Banner Creator',       group: 'AI Features' },
   { key: 'page_ai_bulk',              label: '⚡ AI Bulk Creator',         group: 'AI Features' },
-  { key: 'page_ai_claim',             label: '✅ AI Claim Validator',      group: 'AI Features' },
   { key: 'page_ai_tryon',             label: '👗 AI Virtual Try-On',       group: 'AI Features' },
   { key: 'page_ai_voice',             label: '🎙️ AI Voice',               group: 'AI Features' },
   { key: 'page_intelligence',         label: '🔮 Intelligence (Trends/Pricing/Loyalty)', group: 'Intelligence' },

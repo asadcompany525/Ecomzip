@@ -46,7 +46,7 @@ const AdminOrders         = lazy(() => import("./pages/admin/AdminOrders"));
 const AdminCustomers      = lazy(() => import("./pages/admin/AdminCustomers"));
 const AdminBanners        = lazy(() => import("./pages/admin/AdminBanners"));
 const AdminPromos         = lazy(() => import("./pages/admin/AdminPromos"));
-const AdminReturns        = lazy(() => import("./pages/admin/AdminReturns"));
+const AdminReturns        = lazy(() => import("./pages/admin/AdminClaimsReturns"));
 const AdminChat           = lazy(() => import("./pages/admin/AdminChat"));
 const AdminReviews        = lazy(() => import("./pages/admin/AdminReviews"));
 const AdminReports        = lazy(() => import("./pages/admin/AdminReports"));
@@ -81,7 +81,7 @@ const AdminLoyaltyHeatmap = lazy(() => import("./pages/admin/AdminLoyaltyHeatmap
 const AdminSearchLogs     = lazy(() => import("./pages/admin/AdminSearchLogs"));
 const AdminNewsletter     = lazy(() => import("./pages/admin/AdminNewsletter"));
 const AdminContactMessages = lazy(() => import("./pages/admin/AdminContactMessages"));
-const AdminAiClaimValidator = lazy(() => import("./pages/admin/AdminAiClaimValidator"));
+const AdminClaimsReturns  = lazy(() => import("./pages/admin/AdminClaimsReturns"));
 const AdminAiVirtualTryon = lazy(() => import("./pages/admin/AdminAiVirtualTryon"));
 const AdminAiVoice        = lazy(() => import("./pages/admin/AdminAiVoice"));
 const AdminAiSizeAdvisor  = lazy(() => import("./pages/admin/AdminAiSizeAdvisor"));
@@ -179,6 +179,7 @@ const App = () => (
                   <Route path="promos" element={<AdminPromos />} />
                   <Route path="reviews" element={<AdminReviews />} />
                   <Route path="returns" element={<AdminReturns />} />
+                  <Route path="claims-returns" element={<AdminClaimsReturns />} />
                   <Route path="contact-messages" element={<AdminContactMessages />} />
                   <Route path="chat" element={<AdminChat />} />
                   <Route path="reports" element={<AdminReports />} />
@@ -200,7 +201,7 @@ const App = () => (
                   <Route path="ai-price-intelligence" element={<AdminAiPriceIntelligence />} />
                   <Route path="ai-global-manager" element={<AdminAiGlobalManager />} />
                   <Route path="ai-voice" element={<AdminAiVoice />} />
-                  <Route path="ai-claim-validator" element={<AdminAiClaimValidator />} />
+                  <Route path="ai-claim-validator" element={<AdminClaimsReturns />} />
                   <Route path="ai-virtual-tryon" element={<AdminAiVirtualTryon />} />
                   <Route path="ai-size-advisor" element={<AdminAiSizeAdvisor />} />
                   <Route path="inventory" element={<AdminInventoryInsights />} />
