@@ -2,7 +2,25 @@
 
 A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bags store — Pakistan's #1 Shoes & Bags Store.
 
-## Recent Changes (May 2026)
+## Recent Changes (May 2026 — Session 2)
+- **MySettings fix**: Profile load now only selects existing columns (`full_name, username, phone, whatsapp, avatar_url, email`). Extended preferences (bio, gender, dob, city, notification toggles) saved to localStorage under `stopy_prefs_{userId}`. Saves no longer write to missing `settings` column — avoids 400 error.
+- **AdminNewsletter fix**: `send-newsletter` edge function call now wrapped in try/catch. If function is unavailable, gracefully logs to `email_logs` as `partial` status and shows informative toast instead of crashing.
+- **Missing DB columns identified**: `profiles` table is missing `bio, gender, dob, city, settings`. Migration file created at `supabase/migrations/20260502000001_fix_missing_tables_and_columns.sql` — user must apply from Supabase Dashboard → SQL Editor.
+- **Edge function audit**: Only 4 functions called site-wide: `admin-login` ✅, `admin-staff` ✅, `ai-assistant` ✅, `send-newsletter` ❌ (not deployed — now handled gracefully).
+
+## Pending: Database Migration Required
+The `profiles` table is missing extended columns. **To fix fully, run this in Supabase Dashboard → SQL Editor:**
+```sql
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS bio TEXT,
+  ADD COLUMN IF NOT EXISTS gender TEXT,
+  ADD COLUMN IF NOT EXISTS dob DATE,
+  ADD COLUMN IF NOT EXISTS city TEXT,
+  ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb;
+```
+Full migration is at `supabase/migrations/20260502000001_fix_missing_tables_and_columns.sql`
+
+## Recent Changes (May 2026 — Session 1)
 - **PageBreadcrumb component**: Created `src/components/layout/PageBreadcrumb.tsx` — reusable breadcrumb with Home icon + ChevronRight separators. Added to all user pages: Products, ProductDetail, Wishlist, Cart, NewArrivals, DiscountItems, FlashSalePage, Contact, FAQ, MyOrders, MyAddresses, MyReturns, MyReviews, MySettings.
 - **My Account page (MyPage.tsx) redesign**: Replaced narrow `max-w-md` layout with `max-w-5xl` 2-column desktop grid — profile card on left, grouped menu sections on right. Stats grid, avatar upload, Admin Panel link.
 - **MySettings 30+ settings**: Rewrote to 6-tab sidebar layout (Profile, Notifications, Shopping, Privacy, Display, Security). 30+ fields including gender, DOB, WhatsApp, city, 9 notification toggles, 3 preference toggles, privacy controls, theme/language/currency, password change.

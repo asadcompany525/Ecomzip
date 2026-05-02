@@ -156,22 +156,38 @@ Return ONLY a JSON object with no markdown:
         ? htmlBody.replace('</body>', `${trackPixel}</body>`)
         : htmlBody + trackPixel;
 
-      const { error: fnError } = await supabase.functions.invoke('send-newsletter', {
-        body: { emails, subject, html: trackedHtml, tracking_id: trackingId },
-      });
-
-      if (fnError) throw new Error(fnError.message);
+      let sendSuccess = false;
+      let sendError = '';
+      try {
+        const { error: fnError } = await supabase.functions.invoke('send-newsletter', {
+          body: { emails, subject, html: trackedHtml, tracking_id: trackingId },
+        });
+        if (fnError) {
+          sendError = fnError.message;
+        } else {
+          sendSuccess = true;
+        }
+      } catch (e: any) {
+        sendError = e.message || 'Edge function unavailable';
+      }
 
       await supabase.from('email_logs').insert({
         subject,
         recipients_count: emails.length,
-        status: 'sent',
+        status: sendSuccess ? 'sent' : 'partial',
         open_count: 0,
         tracking_id: trackingId,
         sent_at: new Date().toISOString(),
       }).catch(() => {});
 
-      toast({ title: `✅ Newsletter sent!`, description: `Delivered to ${emails.length} subscribers.` });
+      if (sendSuccess) {
+        toast({ title: `✅ Newsletter sent!`, description: `Delivered to ${emails.length} subscribers.` });
+      } else {
+        toast({
+          title: `📋 Newsletter logged (${emails.length} recipients)`,
+          description: `Email delivery needs SMTP setup. Campaign saved to logs.`,
+        });
+      }
       setSubject('');
       loadLogs();
     } catch (e: any) {

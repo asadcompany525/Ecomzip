@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.admin-staff]
 verify_jwt = false
+
+[functions.send-newsletter]
+verify_jwt = false

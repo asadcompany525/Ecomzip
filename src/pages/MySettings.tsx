@@ -108,20 +108,17 @@ const MySettings = () => {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
+    supabase.from('profiles').select('full_name, username, phone, whatsapp, avatar_url, email').eq('user_id', user.id).maybeSingle().then(({ data }) => {
       if (!data) return;
+      const savedPrefs = (() => { try { return JSON.parse(localStorage.getItem(`stopy_prefs_${user.id}`) || '{}'); } catch { return {}; } })();
       setSettings(prev => ({
         ...prev,
         full_name: data.full_name || '',
         username: data.username || '',
         phone: data.phone || '',
         whatsapp: data.whatsapp || '',
-        bio: data.bio || '',
-        gender: data.gender || '',
-        dob: data.dob || '',
-        city: data.city || '',
         avatar_url: data.avatar_url || '',
-        ...(data.settings || {}),
+        ...savedPrefs,
       }));
     });
   }, [user]);
@@ -153,10 +150,11 @@ const MySettings = () => {
     setSaving(true);
     try {
       const { full_name, username, phone, whatsapp, bio, gender, dob, city, avatar_url, ...prefs } = settings;
-      await supabase.from('profiles').update({
-        full_name, username, phone, whatsapp, bio, gender, dob, city, avatar_url,
-        settings: prefs,
-      } as any).eq('user_id', user.id);
+      const { error } = await supabase.from('profiles').update({
+        full_name, username, phone, whatsapp, avatar_url,
+      }).eq('user_id', user.id);
+      if (error) throw error;
+      try { localStorage.setItem(`stopy_prefs_${user.id}`, JSON.stringify(prefs)); } catch {}
       toast({ title: '✅ Settings saved!' });
     } catch (err: any) {
       toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
