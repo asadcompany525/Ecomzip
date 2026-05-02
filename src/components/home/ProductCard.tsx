@@ -70,32 +70,18 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
   }, [product.id, product.isFlashSale, flashSaleEnds]);
 
   useEffect(() => {
-    const fetchRating = async () => {
-      const { data } = await supabase
-        .from('reviews')
-        .select('rating')
-        .eq('product_id', product.id);
-      if (data && data.length > 0) {
+    let cancelled = false;
+    supabase
+      .from('reviews')
+      .select('rating')
+      .eq('product_id', product.id)
+      .then(({ data }) => {
+        if (cancelled || !data || data.length === 0) return;
         const avg = data.reduce((s: number, r: any) => s + (r.rating || 0), 0) / data.length;
         setLiveRating(Math.round(avg * 10) / 10);
         setLiveReviews(data.length);
-      }
-    };
-    fetchRating();
-
-    const channel = supabase
-      .channel(`reviews-card-${product.id}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'reviews',
-        filter: `product_id=eq.${product.id}`,
-      }, () => {
-        fetchRating();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+      });
+    return () => { cancelled = true; };
   }, [product.id]);
 
   const timerEnd = dbFlashEnd || flashSaleEnds;
