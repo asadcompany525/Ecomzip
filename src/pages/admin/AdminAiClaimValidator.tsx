@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw, ChevronRight, Brain } from 'lucide-react';
+import { Shield, Loader2, CheckCircle, XCircle, AlertCircle, RefreshCw, ChevronRight, Brain, Check, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from '@/hooks/use-toast';
 
 const CACHE_KEY = 'ai_claim_cache_v2';
 
@@ -37,10 +38,18 @@ function DecisionBadge({ decision }: { decision: string }) {
   return <Badge className="bg-orange-100 text-orange-800 border border-orange-200 text-[10px]">🔍 NEEDS REVIEW</Badge>;
 }
 
+const DECISION_TO_STATUS: Record<string, string> = {
+  'APPROVED': 'approved',
+  'REJECTED': 'rejected',
+  'NEEDS_REVIEW': 'pending',
+};
+
 export default function AdminAiClaimValidator() {
   const [returns, setReturns] = useState<any[]>([]);
   const [cache, setCache] = useState<Record<string, any>>(loadCache());
   const [analyzing, setAnalyzing] = useState<Set<string>>(new Set());
+  const [applying, setApplying] = useState<Set<string>>(new Set());
+  const [applied, setApplied] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string | null>(null);
   const [loadingReturns, setLoadingReturns] = useState(true);
   const queueRef = useRef<any[]>([]);
@@ -77,6 +86,14 @@ export default function AdminAiClaimValidator() {
         if (m) parsed = JSON.parse(m[0]);
       }
       if (parsed?.decision) {
+        const newStatus = DECISION_TO_STATUS[parsed.decision] || r.status;
+        const adminNote = `AI Decision: ${parsed.decision} (${parsed.confidence}% confidence) — ${parsed.aiOpinion || parsed.reasoning}`;
+        await supabase.from('returns').update({
+          status: newStatus as any,
+          admin_notes: adminNote,
+        }).eq('id', r.id);
+        setReturns(prev => prev.map(ret => ret.id === r.id ? { ...ret, status: newStatus, admin_notes: adminNote } : ret));
+        setApplied(prev => new Set(prev).add(r.id));
         setCache(prev => {
           const next = { ...prev, [r.id]: parsed };
           saveCache(next);
@@ -99,8 +116,28 @@ export default function AdminAiClaimValidator() {
 
   const reAnalyze = (r: any) => {
     setCache(prev => { const n = { ...prev }; delete n[r.id]; saveCache(n); return n; });
+    setApplied(prev => { const n = new Set(prev); n.delete(r.id); return n; });
     queueRef.current = [r];
     runQueue();
+  };
+
+  const applyDecision = async (r: any, result: any) => {
+    if (!result?.decision) return;
+    setApplying(prev => new Set(prev).add(r.id));
+    const newStatus = DECISION_TO_STATUS[result.decision] || r.status;
+    const adminNote = `AI Decision: ${result.decision} (${result.confidence}% confidence) — ${result.aiOpinion || result.reasoning}`;
+    const { error } = await supabase.from('returns').update({
+      status: newStatus as any,
+      admin_notes: adminNote,
+    }).eq('id', r.id);
+    if (!error) {
+      setReturns(prev => prev.map(ret => ret.id === r.id ? { ...ret, status: newStatus, admin_notes: adminNote } : ret));
+      setApplied(prev => new Set(prev).add(r.id));
+      toast({ title: `✅ Decision Applied: ${result.decision}`, description: `Status updated to "${newStatus}" in database` });
+    } else {
+      toast({ title: 'Failed to apply decision', variant: 'destructive' });
+    }
+    setApplying(prev => { const s = new Set(prev); s.delete(r.id); return s; });
   };
 
   useEffect(() => { fetchReturns(); }, []);
@@ -117,7 +154,7 @@ export default function AdminAiClaimValidator() {
             <Brain className="h-5 w-5 text-primary" /> AI Claim Validator
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            AI automatically reviews all claims on load — no button needed.
+            AI auto-analyzes claims and updates status in database.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchReturns} disabled={loadingReturns} className="gap-2">
@@ -133,13 +170,12 @@ export default function AdminAiClaimValidator() {
         >
           <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
           <p className="text-sm text-primary font-medium">
-            AI is analyzing {pendingCount} claim{pendingCount !== 1 ? 's' : ''}…
+            AI is analyzing {pendingCount} claim{pendingCount !== 1 ? 's' : ''} and updating database…
           </p>
         </motion.div>
       )}
 
       <div className="grid lg:grid-cols-5 gap-4">
-        {/* Claims List */}
         <div className="lg:col-span-2 space-y-2">
           {loadingReturns ? (
             <div className="flex items-center justify-center py-16">
@@ -153,6 +189,7 @@ export default function AdminAiClaimValidator() {
           ) : returns.map(r => {
             const result = cache[r.id];
             const isAnalyzing = analyzing.has(r.id);
+            const isApplied = applied.has(r.id);
             const isSelected = selected === r.id;
             return (
               <motion.button
@@ -172,6 +209,7 @@ export default function AdminAiClaimValidator() {
                     <Shield className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   )}
                   <span className="text-xs font-medium truncate flex-1">{r.products?.title || 'Unknown Product'}</span>
+                  {isApplied && <Check className="h-3 w-3 text-green-500 shrink-0" title="Applied to DB" />}
                   <ChevronRight className={`h-3 w-3 text-muted-foreground transition-transform shrink-0 ${isSelected ? 'rotate-90' : ''}`} />
                 </div>
                 <div className="flex items-center gap-2 ml-5">
@@ -187,12 +225,15 @@ export default function AdminAiClaimValidator() {
                 {result?.aiOpinion && (
                   <p className="text-[10px] text-muted-foreground ml-5 mt-1 line-clamp-1">{result.aiOpinion}</p>
                 )}
+                <div className="ml-5 mt-1 flex items-center gap-1.5">
+                  <Badge variant="outline" className="text-[9px] px-1 py-0">{r.status}</Badge>
+                  {isApplied && <span className="text-[9px] text-green-600 font-medium">✓ DB Updated</span>}
+                </div>
               </motion.button>
             );
           })}
         </div>
 
-        {/* Detail Panel */}
         <div className="lg:col-span-3">
           <AnimatePresence mode="wait">
             {selected && selectedReturn ? (
@@ -203,10 +244,9 @@ export default function AdminAiClaimValidator() {
                 exit={{ opacity: 0, x: -10 }}
                 className="space-y-4"
               >
-                {/* Claim Info */}
                 <div className="bg-card border rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm">{selectedReturn.products?.title}</h3>
+                    <h3 className="font-semibold text-sm">{selectedReturn.products?.title || 'Unknown Product'}</h3>
                     <Badge variant="outline" className="text-[10px]">{selectedReturn.status}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
@@ -231,18 +271,20 @@ export default function AdminAiClaimValidator() {
                       <span className="text-blue-900 dark:text-blue-200">{selectedReturn.products.claim_policy}</span>
                     </div>
                   )}
+                  {selectedReturn.admin_notes && (
+                    <div className="text-[11px] bg-green-50 border border-green-100 rounded-lg p-2">
+                      <span className="font-semibold text-green-700">DB Note: </span>
+                      <span className="text-green-900">{selectedReturn.admin_notes}</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* AI Result */}
                 {analyzing.has(selected) ? (
                   <div className="flex flex-col items-center justify-center gap-3 py-10 bg-card border rounded-xl">
-                    <motion.div
-                      animate={{ scale: [1, 1.15, 1] }}
-                      transition={{ repeat: Infinity, duration: 1.4 }}
-                    >
+                    <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.4 }}>
                       <Brain className="h-8 w-8 text-primary" />
                     </motion.div>
-                    <p className="text-sm text-muted-foreground">AI is reviewing this claim…</p>
+                    <p className="text-sm text-muted-foreground">AI is reviewing this claim and updating database…</p>
                   </div>
                 ) : selectedResult ? (
                   <div className={`rounded-xl border p-4 space-y-4 ${
@@ -290,9 +332,26 @@ export default function AdminAiClaimValidator() {
                       </div>
                     </div>
 
-                    <Button variant="outline" size="sm" className="gap-2" onClick={() => reAnalyze(selectedReturn)}>
-                      <RefreshCw className="h-3.5 w-3.5" /> Re-analyze
-                    </Button>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => applyDecision(selectedReturn, selectedResult)}
+                        disabled={applying.has(selected) || applied.has(selected)}
+                      >
+                        {applying.has(selected) ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : applied.has(selected) ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          <Database className="h-3.5 w-3.5" />
+                        )}
+                        {applied.has(selected) ? 'Applied to DB ✓' : 'Apply Decision to DB'}
+                      </Button>
+                      <Button variant="outline" size="sm" className="gap-2" onClick={() => reAnalyze(selectedReturn)}>
+                        <RefreshCw className="h-3.5 w-3.5" /> Re-analyze
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-10 bg-card border rounded-xl text-muted-foreground">

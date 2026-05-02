@@ -64,6 +64,8 @@ const PAGE_PERMISSIONS = [
   { key: 'page_ai_tryon',             label: '👗 AI Virtual Try-On',       group: 'AI Features' },
   { key: 'page_ai_voice',             label: '🎙️ AI Voice',               group: 'AI Features' },
   { key: 'page_intelligence',         label: '🔮 Intelligence (Trends/Pricing/Loyalty)', group: 'Intelligence' },
+  { key: 'page_finance',              label: '💰 Finance & Staff Salary',          group: 'Finance' },
+  { key: 'page_tech',                 label: '🖥️ Tech & Error Logs',              group: 'Finance' },
 ];
 
 const ALL_PERM_KEYS = PAGE_PERMISSIONS.filter(p => p.key !== 'page_full_access').map(p => p.key);

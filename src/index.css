@@ -87,10 +87,17 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
+  }
+  html {
+    overflow-x: hidden;
+    max-width: 100%;
   }
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+    max-width: 100%;
   }
   .font-urdu {
     font-family: 'Noto Nastaliq Urdu', serif;

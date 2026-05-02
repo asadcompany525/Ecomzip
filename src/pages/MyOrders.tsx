@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Truck, RotateCcw, XCircle, ShieldCheck, Camera, X as XIcon } from 'lucide-react';
+import { Package, Truck, RotateCcw, XCircle, ShieldCheck, Camera, X as XIcon, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-
 import BottomNav from '@/components/layout/BottomNav';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -18,6 +17,51 @@ const STATUS_COLORS: Record<string, string> = {
   delivered: 'bg-green-100 text-green-800', received: 'bg-emerald-100 text-emerald-800',
   cancelled: 'bg-red-100 text-red-800', returned: 'bg-orange-100 text-orange-800',
 };
+
+const ORDER_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+const STEP_LABELS = ['Ordered', 'Confirmed', 'Processing', 'Shipped', 'Delivered'];
+
+function OrderStepper({ status }: { status: string }) {
+  const isCancelled = status === 'cancelled';
+  const isReturned = status === 'returned';
+  const isReceived = status === 'received';
+  const effectiveStatus = isReceived ? 'delivered' : status;
+  const activeIndex = ORDER_STEPS.indexOf(effectiveStatus);
+  if (isCancelled || isReturned) {
+    return (
+      <div className={`text-xs font-medium text-center py-2 rounded-lg ${isCancelled ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
+        {isCancelled ? '❌ Order Cancelled' : '🔄 Return Requested'}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start mt-3 mb-1">
+      {ORDER_STEPS.map((step, i) => {
+        const isDone = i < activeIndex || (activeIndex === ORDER_STEPS.length - 1 && i === ORDER_STEPS.length - 1);
+        const isActive = i === activeIndex;
+        return (
+          <div key={step} className="flex items-center flex-1">
+            <div className="flex flex-col items-center min-w-0">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 flex-shrink-0 transition-all ${
+                isDone ? 'bg-primary border-primary text-white' :
+                isActive ? 'border-primary text-primary bg-primary/10' :
+                'border-muted-foreground/30 bg-muted text-muted-foreground/50'
+              }`}>
+                {isDone ? <CheckCircle2 className="w-3 h-3" /> : <span className="text-[8px] font-bold">{i + 1}</span>}
+              </div>
+              <span className={`text-[8px] mt-0.5 text-center leading-tight px-0.5 ${isActive ? 'text-primary font-semibold' : isDone ? 'text-primary/70' : 'text-muted-foreground/50'}`}>
+                {STEP_LABELS[i]}
+              </span>
+            </div>
+            {i < ORDER_STEPS.length - 1 && (
+              <div className={`h-0.5 flex-1 mb-4 mx-0.5 rounded ${i < activeIndex ? 'bg-primary' : 'bg-muted'}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 const MyOrders = () => {
   const { user } = useAuth();
@@ -33,6 +77,7 @@ const MyOrders = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [returnDays, setReturnDays] = useState(7);
   const [claimDays, setClaimDays] = useState(30);
+  const [expandedStepper, setExpandedStepper] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from('site_settings').select('value').eq('key', 'return_policy').maybeSingle().then(({ data }) => {
@@ -59,9 +104,7 @@ const MyOrders = () => {
   const submitReturn = async () => {
     if (!reason.trim() || !returnDialog || !user) return;
     setSubmitting(true);
-    await supabase.from('returns').insert({
-      order_id: returnDialog.id, user_id: user.id, reason: reason.trim(),
-    });
+    await supabase.from('returns').insert({ order_id: returnDialog.id, user_id: user.id, reason: reason.trim() });
     toast({ title: 'Return request submitted!' });
     setReturnDialog(null); setReason(''); setSubmitting(false);
   };
@@ -104,35 +147,36 @@ const MyOrders = () => {
     setCancelDialog(null); setSubmitting(false);
   };
 
-  // 24h cancel window from creation
   const canCancel = (order: any) => {
     if (!['pending', 'confirmed'].includes(order.status)) return false;
-    const created = new Date(order.created_at);
-    const hoursDiff = (Date.now() - created.getTime()) / (1000 * 60 * 60);
-    return hoursDiff <= 24;
+    return (Date.now() - new Date(order.created_at).getTime()) / (1000 * 60 * 60) <= 24;
   };
-  // Configurable return window (default 7 days from admin settings)
   const canReturn = (order: any) => {
     if (!['delivered', 'received'].includes(order.status)) return false;
-    const delivered = new Date(order.updated_at);
-    const daysDiff = (Date.now() - delivered.getTime()) / (1000 * 60 * 60 * 24);
-    return daysDiff <= returnDays;
+    return (Date.now() - new Date(order.updated_at).getTime()) / (1000 * 60 * 60 * 24) <= returnDays;
   };
-  // Configurable claim window (default 30 days from admin settings)
   const canClaim = (order: any) => {
     if (!['delivered', 'received'].includes(order.status)) return false;
-    const delivered = new Date(order.updated_at);
-    const daysDiff = (Date.now() - delivered.getTime()) / (1000 * 60 * 60 * 24);
-    return daysDiff <= claimDays;
+    return (Date.now() - new Date(order.updated_at).getTime()) / (1000 * 60 * 60 * 24) <= claimDays;
   };
 
-  if (!user) return <div className="min-h-screen bg-background"><div className="container py-20 text-center"><p>Please <Link to="/login" className="text-primary underline">login</Link> to view orders.</p></div><BottomNav /></div>;
+  if (!user) return (
+    <div className="min-h-screen bg-background">
+      <div className="container py-20 text-center"><p>Please <Link to="/login" className="text-primary underline">login</Link> to view orders.</p></div>
+      <BottomNav />
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
-      
-      <main className="container py-5">
-        <h1 className="text-2xl font-bold mb-6">My Orders ({orders.length})</h1>
+    <div className="min-h-screen bg-background pb-20 md:pb-4">
+      <main className="container py-5 max-w-2xl mx-auto">
+        <div className="flex items-center gap-2 mb-1 text-xs text-muted-foreground">
+          <Link to="/" className="hover:text-primary">Home</Link>
+          <span>/</span>
+          <span className="text-foreground font-medium">My Orders</span>
+        </div>
+        <h1 className="text-2xl font-bold mb-5">My Orders ({orders.length})</h1>
+
         {orders.length === 0 ? (
           <div className="text-center py-16">
             <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
@@ -142,19 +186,41 @@ const MyOrders = () => {
         ) : (
           <div className="space-y-4">
             {orders.map(order => (
-              <div key={order.id} className="bg-card rounded-xl border p-4">
+              <div key={order.id} className="bg-card rounded-xl border p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className="font-bold text-sm">{order.order_number}</p>
                     <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                   </div>
-                  <Badge className={STATUS_COLORS[order.status] || 'bg-muted'}>{order.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={STATUS_COLORS[order.status] || 'bg-muted'}>{order.status}</Badge>
+                    <button
+                      onClick={() => setExpandedStepper(expandedStepper === order.id ? null : order.id)}
+                      className="text-[10px] text-primary underline underline-offset-2"
+                    >
+                      {expandedStepper === order.id ? 'Hide' : 'Track'}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2 overflow-x-auto mb-3">
+
+                {expandedStepper === order.id && (
+                  <div className="mb-3 bg-muted/30 rounded-xl p-3">
+                    <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Order Progress</p>
+                    <OrderStepper status={order.status} />
+                  </div>
+                )}
+
+                <div className="flex gap-2 overflow-x-auto mb-3 pb-1">
                   {(items[order.id] || []).map(item => (
                     <img key={item.id} src={item.image || '/placeholder.svg'} alt={item.title} className="w-14 h-14 rounded-lg object-cover shrink-0 border" />
                   ))}
+                  {!(items[order.id]) && (
+                    <div className="flex gap-2">
+                      {[1,2].map(i => <div key={i} className="w-14 h-14 rounded-lg bg-muted animate-pulse shrink-0" />)}
+                    </div>
+                  )}
                 </div>
+
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm">
                     <span className="text-muted-foreground">Total: </span>
@@ -166,14 +232,13 @@ const MyOrders = () => {
                     </Link>
                   )}
                 </div>
-                {order.tracking_id && <p className="text-xs text-muted-foreground mb-2">🚚 Tracking: {order.tracking_id}</p>}
-                
-                {/* Action buttons */}
+                {order.tracking_id && <p className="text-xs text-muted-foreground mb-2">🚚 {order.tracking_id}</p>}
+
                 <div className="flex gap-2 flex-wrap pt-2 border-t">
                   {canCancel(order) && (() => {
                     const hoursLeft = 24 - (Date.now() - new Date(order.created_at).getTime()) / (1000 * 60 * 60);
                     return (
-                      <Button size="sm" variant="outline" className="text-destructive gap-1" onClick={() => setCancelDialog(order)} title={`${hoursLeft.toFixed(1)}h left to cancel`}>
+                      <Button size="sm" variant="outline" className="text-destructive gap-1" onClick={() => setCancelDialog(order)}>
                         <XCircle className="h-3 w-3" /> Cancel ({hoursLeft.toFixed(0)}h left)
                       </Button>
                     );
@@ -195,7 +260,6 @@ const MyOrders = () => {
         )}
       </main>
 
-      {/* Return Dialog */}
       <Dialog open={!!returnDialog} onOpenChange={() => setReturnDialog(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Return Request</DialogTitle></DialogHeader>
@@ -209,14 +273,13 @@ const MyOrders = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Claim Dialog */}
       <Dialog open={!!claimDialog} onOpenChange={() => { setClaimDialog(null); setReason(''); setClaimPhotos([]); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> File a Claim</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="bg-muted/30 rounded-lg p-3 text-sm">
               <p className="font-medium">{claimDialog?.order_number}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">You can claim within 30 days of delivery.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">You can claim within {claimDays} days of delivery.</p>
             </div>
             <div>
               <Label>Describe the issue *</Label>
@@ -224,7 +287,7 @@ const MyOrders = () => {
             </div>
             <div>
               <Label className="flex items-center gap-1.5"><Camera className="h-4 w-4" /> Attach Evidence Photos</Label>
-              <p className="text-xs text-muted-foreground mb-2">Photos of the defect help your claim get approved faster.</p>
+              <p className="text-xs text-muted-foreground mb-2">Photos speed up approval.</p>
               <label className="flex items-center gap-2 border-2 border-dashed rounded-lg p-3 cursor-pointer hover:bg-accent text-sm text-muted-foreground transition-colors">
                 <Camera className="h-4 w-4" />
                 {uploadingPhoto ? 'Uploading...' : 'Tap to add photos'}
@@ -235,10 +298,7 @@ const MyOrders = () => {
                   {claimPhotos.map((img, i) => (
                     <div key={i} className="relative">
                       <img src={img} alt="" className="w-16 h-16 rounded-lg object-cover border" />
-                      <button
-                        onClick={() => setClaimPhotos(prev => prev.filter((_, j) => j !== i))}
-                        className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center"
-                      >
+                      <button onClick={() => setClaimPhotos(prev => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center">
                         <XIcon className="h-2.5 w-2.5" />
                       </button>
                     </div>
@@ -254,12 +314,11 @@ const MyOrders = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Dialog */}
       <Dialog open={!!cancelDialog} onOpenChange={() => setCancelDialog(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Cancel Order</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm">Are you sure you want to cancel order <strong>{cancelDialog?.order_number}</strong>?</p>
+            <p className="text-sm">Are you sure you want to cancel <strong>{cancelDialog?.order_number}</strong>?</p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setCancelDialog(null)} className="flex-1">No, Keep</Button>
               <Button variant="destructive" onClick={submitCancel} disabled={submitting} className="flex-1">

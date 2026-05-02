@@ -247,7 +247,29 @@ VALUES ('logos', 'logos', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 ```
 
-## Recent Changes (2026-04-10)
+## Recent Changes (May 2026 — Big System Overhaul)
+
+### Critical Fixes
+- **AI Claim Validator**: Now auto-updates `returns` table status (approved/rejected/pending) in Supabase after AI decision. "Apply Decision to DB" button also available for manual confirmation. Shows "DB Updated" badge on each claim.
+- **Global Landscape Fix**: `overflow-x: hidden` added to `html` and `body`. `box-sizing: border-box` on all elements. Zero horizontal scroll across all screen sizes.
+- **Profile Pic Uploader**: `MySettings.tsx` and `MyPage.tsx` now have functional camera icon → uploads to `avatars` Supabase storage bucket → instantly updates `profiles.avatar_url`.
+- **Order Tracking Stepper**: `MyOrders.tsx` has visual 5-step timeline (Ordered → Confirmed → Processing → Shipped → Delivered) toggled per order. Skeleton loaders for item images.
+- **Breadcrumbs**: Added to `MyOrders`, `MySettings`, and other pages.
+
+### New Admin Pages
+- **Finance & Profit/Loss Ledger** (`/admin/finance-ledger`): Monthly revenue vs expenses, P&L summary, 6-month chart, expense CRUD (stored in `site_settings.finance_expenses`).
+- **Staff Salary Management** (`/admin/staff-salary`): Set monthly salary per staff member, track 12-month payment status (green = paid, red = unpaid), totals and disbursement tracking (stored in `site_settings.staff_salaries`).
+- **Tech & Error Logs** (`/admin/tech-logs`): System health check (counts from all DB tables), error/warn/info log viewer with filter/search/clear, manual JSON database backup export.
+
+### Sidebar Cleanup
+- **Removed from sidebar**: "AI Virtual Try-On" and "AI Size Advisor" (routes still work, just not in sidebar)
+- **Moved "AI Claim Validator"** to Operations group (near Returns)
+- **Added Finance group**: Profit/Loss Ledger + Staff Salary
+- **Added Tech Logs**: to Operations group
+- **Renamed sidebar entry**: "Returns/Claims" → "Claims & Returns"
+
+### Staff Permissions
+- Added `page_finance` (Finance & Staff Salary) and `page_tech` (Tech & Error Logs) to `AdminStaff.tsx` PAGE_PERMISSIONS
 
 ## System Reconnect (2026-04-14)
 

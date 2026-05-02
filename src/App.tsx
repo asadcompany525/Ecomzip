@@ -85,6 +85,9 @@ const AdminAiClaimValidator = lazy(() => import("./pages/admin/AdminAiClaimValid
 const AdminAiVirtualTryon = lazy(() => import("./pages/admin/AdminAiVirtualTryon"));
 const AdminAiVoice        = lazy(() => import("./pages/admin/AdminAiVoice"));
 const AdminAiSizeAdvisor  = lazy(() => import("./pages/admin/AdminAiSizeAdvisor"));
+const AdminFinanceLedger  = lazy(() => import("./pages/admin/AdminFinanceLedger"));
+const AdminStaffSalary    = lazy(() => import("./pages/admin/AdminStaffSalary"));
+const AdminTechLogs       = lazy(() => import("./pages/admin/AdminTechLogs"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -208,6 +211,9 @@ const App = () => (
                   <Route path="loyalty-heatmap" element={<AdminLoyaltyHeatmap />} />
                   <Route path="search-logs" element={<AdminSearchLogs />} />
                   <Route path="newsletter" element={<AdminNewsletter />} />
+                  <Route path="finance-ledger" element={<AdminFinanceLedger />} />
+                  <Route path="staff-salary" element={<AdminStaffSalary />} />
+                  <Route path="tech-logs" element={<AdminTechLogs />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />

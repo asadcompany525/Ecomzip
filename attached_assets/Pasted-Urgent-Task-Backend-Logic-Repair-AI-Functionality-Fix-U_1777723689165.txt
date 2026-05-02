@@ -1,0 +1,86 @@
+Urgent Task: Backend Logic Repair, AI Functionality Fix & UI Overhaul
+
+1. Fix AI Backend Logic (Critical):
+
+AI Claim Validator: Fix the logic so it actually processes the claim and updates the status in Firestore. Currently, it runs but doesn't change anything. Ensure the "AI Claim Instruction" box data is correctly passed to the AI prompt.
+
+AI Global Manager: This module is currently unresponsive. Fix the backend connection so that changes made here (Global settings/updates) are reflected across the entire platform in real-time.
+
+Virtual Try-on: Remove the "AI Not Available" error. Fix the image processing logic to overlay product images onto user-uploaded photos accurately.
+
+2. Super AI Bulk Uploader & Edit Mode:
+
+Synchronize with Single Product Upload. Every row must have its own AI Claim Instruction box.
+
+Interactive Review Table: After file upload, show a table to edit Price, Discount, Sizes, and Colors. Data MUST save correctly to the database from this table.
+
+3. UI & Responsive Repair (Zero Drift):
+
+Landscape Fix: Remove all horizontal scrollbars. Use max-width: 100% and overflow-x: hidden globally. Fix element overlapping in landscape mode.
+
+Breadcrumbs: Add transparent navigation (Home / Category / Page) as seen in image_044e78.png.
+
+Loaders: Replace the global loader with Skeleton Loaders only for database-heavy tables to improve perceived speed.
+
+4. Admin Consolidation & Profile Upgrade:
+
+Merge Pages: Combine AI Claim Validator, Claims, and Returns into one robust page.
+
+Sidebar Cleanup: Remove "AI Size Advisor" and "AI Virtual Try-on" from the Admin sidebar.
+
+Profile (image_036997.png): Make the User Pic Uploader functional (instant update) and add a visual Order Tracking Stepper in "My Orders".
+
+Search by Image: Add a camera icon in the search bar with AI image similarity logic.
+
+5. Expansion ():
+
+Implement full functional modules for: Finance (Profit/Loss), Marketplace (Vendor Management), Logistics (Shipping Zones & Courier API), and Tech Support (Error Logs & DB Backup).
+📝 Final "Page Expansion & Logic Fix" Master Prompt
+
+Task: System-Wide Update & Module Expansion (Stopy Shoes) Logic Rule: For every feature/page listed below, if it exists, UPDATE and FIX its logic. If it does not exist, ADD it as a new page.
+
+1. Critical Functionality Repair (Priority):
+
+AI Claim Validator: Fix the backend connection; it must process claims and update Firestore status based on the AI Claim Instruction.
+
+AI Global Manager: Restore real-time global syncing; changes here must reflect site-wide instantly.
+
+Virtual Try-On: Fix the "AI Not Available" error and ensure the shoe overlay logic works on user photos.
+
+Bulk Uploader: Sync with Single Product Upload fields, add a row-wise AI Claim Instruction box, and implement a Review Table before saving.
+
+2. 30 New/Updated Functional Pages (Reach 80+ Pages):
+
+AI & Intelligence: Visual Merchandiser, Predictive Inventory Planner, Dynamic Pricing Engine, Customer Sentiment Radar, AI Content Studio (Descriptions/Posts), Fraud Pattern Detection, Trend Forecasting Map, Automated Image Background Remover.
+
+Finance & Accounting: Comprehensive Profit/Loss Ledger, Tax (GST/VAT) Manager, Daily Expense Tracker, Invoicing & Billing Center, Currency Exchange Manager, Subscription/Membership Plans.
+
+Logistics & Supply Chain: Shipping Zone & Rates Matrix (Area-wise), Courier API Integration Hub (TCS/Leopard/PostEx), Warehouse Shelf/Bin Manager, Bulk Manifest Generator, RTO (Return to Origin) Analytics, Packaging Material Inventory.
+
+Marketplace & CRM: Vendor Onboarding, Commission Manager, Seller Payouts, Abandoned Cart Recovery Center, Live Support Ticketing, Customer Lifecycle View, Feedback & Survey Builder.
+
+Tech Maintenance: System Error Logs Dashboard, Database Auto-Backup Center.
+
+3. UI/UX & Structural Refinement:
+
+Zero Drift: Eliminate all horizontal scrollbars; fix overlapping elements in landscape mode globally.
+
+Breadcrumbs: Add transparent navigation (Home / Category / Page) to all headers.
+
+Skeleton Loaders: Replace global loaders with targeted skeleton loaders for data tables.
+
+Sidebar Cleanup: Remove "AI Size Advisor" and "AI Virtual Try-on" from Admin sidebar; Merge Claims & Returns.
+
+4. User Side Upgrades (Ref: image_036997.png):
+
+Search by Image: Add a camera icon with AI-driven image similarity search.
+
+Orders & Profile: Functional User Pic Uploader and a visual Order Tracking Stepper (Timeline) in "My Orders".
+
+Final Note: No Wallet or Coin system is required. Ensure every button and AI action successfully updates the database.
+
+
+
+Note: Priority is on making sure buttons and AI actions actually CHANGE the data in the database, not just show a loading icon.
+is ky lawa pora check kroo system jha eoor aye ya koe chese kam na kr rhi ho tu usse fix kre and  is main is ky alawa joo app ko lga hy k is main our page feature honeye chaye whoo add krde tkeh yeh high level bn gye is main staff ka laeda salery etc all yh bhi chese takeh admin ko aik kism ka sara mnagment mil gye and is main please imprive my website      
+

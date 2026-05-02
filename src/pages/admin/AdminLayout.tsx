@@ -8,7 +8,7 @@ import {
   BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard,
   TrendingUp, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe,
   ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command, Mail, Heart, Search,
-  Clock, Lock, Activity, FileSpreadsheet
+  Clock, Lock, Activity, FileSpreadsheet, Banknote, Server, BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +71,9 @@ const PATH_TO_PERM: Record<string, string> = {
   '/admin/pricing-engine': 'page_intelligence',
   '/admin/loyalty-heatmap': 'page_intelligence',
   '/admin/search-logs': 'page_intelligence',
+  '/admin/finance-ledger': 'page_finance',
+  '/admin/staff-salary': 'page_finance',
+  '/admin/tech-logs': 'page_tech',
 };
 
 const sidebarGroups = [
@@ -116,16 +119,21 @@ const sidebarGroups = [
       { icon: ImagePlus,       label: 'AI Banner Creator',      path: '/admin/ai-banner-creator',     adminOnly: true },
       { icon: Sparkles,        label: 'AI Bulk Creator',        path: '/admin/ai-bulk-creator',       adminOnly: true },
       { icon: FileSpreadsheet, label: 'AI Report Generator',    path: '/admin/form-generator',        adminOnly: true },
-      { icon: Shield,          label: 'AI Claim Validator',     path: '/admin/ai-claim-validator',    adminOnly: true },
-      { icon: Sparkles,        label: 'AI Virtual Try-On',      path: '/admin/ai-virtual-tryon',      adminOnly: true },
-      { icon: Bot,             label: 'AI Size Advisor',        path: '/admin/ai-size-advisor',       adminOnly: true },
+    ],
+  },
+  {
+    label: 'Finance',
+    items: [
+      { icon: BookOpen,        label: 'Profit/Loss Ledger', path: '/admin/finance-ledger',    adminOnly: true },
+      { icon: Banknote,        label: 'Staff Salary',       path: '/admin/staff-salary',      adminOnly: true },
     ],
   },
   {
     label: 'Operations',
     items: [
       { icon: Star,            label: 'Reviews',            path: '/admin/reviews',           adminOnly: false },
-      { icon: RotateCcw,       label: 'Returns/Claims',     path: '/admin/returns',           adminOnly: false },
+      { icon: Shield,          label: 'Claims & Returns',   path: '/admin/returns',           adminOnly: false },
+      { icon: Shield,          label: 'AI Claim Validator', path: '/admin/ai-claim-validator',adminOnly: true },
       { icon: Mail,            label: 'Contact Messages',   path: '/admin/contact-messages',  adminOnly: false },
       { icon: MessageSquare,   label: 'Chat Support',       path: '/admin/chat',              adminOnly: false },
       { icon: BarChart3,       label: 'Reports',            path: '/admin/reports',           adminOnly: false },
@@ -137,6 +145,7 @@ const sidebarGroups = [
       { icon: Tag,             label: 'Delivery',           path: '/admin/delivery',          adminOnly: false },
       { icon: FileText,        label: 'Activity Log',       path: '/admin/activity',          adminOnly: false },
       { icon: Settings,        label: 'Settings',           path: '/admin/settings',          adminOnly: true  },
+      { icon: Server,          label: 'Tech & Error Logs',  path: '/admin/tech-logs',         adminOnly: true  },
     ],
   },
 ];
