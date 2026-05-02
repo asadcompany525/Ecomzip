@@ -296,13 +296,25 @@ Return ONLY valid JSON, no markdown.`
                     <div className="space-y-3">
                       <div>
                         <Label className="text-xs">Selling Price (Rs.)</Label>
-                        <Input type="number" value={item.price} onChange={e => updateItem(item.id, { price: Number(e.target.value) })} className="h-8 text-sm mt-0.5" />
+                        <Input
+                          id={`price-${item.id}`}
+                          type="number" value={item.price}
+                          onChange={e => updateItem(item.id, { price: Number(e.target.value) })}
+                          className="h-8 text-sm mt-0.5"
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById(`discount-${item.id}`)?.focus(); } }}
+                        />
                       </div>
                       <div>
                         <Label className="text-xs">Discount (%)</Label>
-                        <Input type="number" value={item.discount} min={0} max={90} onChange={e => updateItem(item.id, { discount: Number(e.target.value) })} className="h-8 text-sm mt-0.5" />
+                        <Input
+                          id={`discount-${item.id}`}
+                          type="number" value={item.discount} min={0} max={90}
+                          onChange={e => updateItem(item.id, { discount: Number(e.target.value) })}
+                          className="h-8 text-sm mt-0.5"
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById(`save-${item.id}`)?.click(); } }}
+                        />
                       </div>
-                      <Button size="sm" className="w-full text-xs" onClick={() => saveItem(item).then(ok => ok && toast({ title: 'Saved!' }))}>
+                      <Button id={`save-${item.id}`} size="sm" className="w-full text-xs" onClick={() => saveItem(item).then(ok => ok && toast({ title: 'Saved!' }))}>
                         <Save className="h-3 w-3 mr-1.5" />Save This Product
                       </Button>
                     </div>

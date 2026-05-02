@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, Brain, RefreshCw, Search, Eye, ExternalLink, CheckCircle, XCircle,
   AlertCircle, Loader2, Check, Database, RotateCcw, ChevronRight, BarChart3,
-  TrendingUp, Clock, Package, FileText, Star, ArrowUpRight, Filter,
+  TrendingUp, Clock, Package, FileText, Star, Filter, Sparkles, ArrowRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminDateFilter from '@/components/admin/AdminDateFilter';
@@ -22,74 +22,81 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 
-// ─────────────────────────────────────────────
-// AI helpers
-// ─────────────────────────────────────────────
+// ─── AI helpers ──────────────────────────────────────────────────────────────
 const CACHE_KEY = 'ai_claim_cache_v2';
-function loadCache(): Record<string, any> {
-  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; }
-}
-function saveCache(c: Record<string, any>) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch {}
-}
+const loadCache = (): Record<string, any> => { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; } };
+const saveCache = (c: Record<string, any>) => { try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch {} };
+
 function buildAiPrompt(r: any) {
   const policy = r.products?.claim_policy || 'Standard: Manufacturing defects within 30 days qualify.';
-  const duration = r.products?.claim_duration || 'Not set';
-  const imgs = r.images || [];
-  return `You are an AI claim validator for a shoe store in Pakistan.
-PRODUCT: ${r.products?.title || 'Unknown'}
-CLAIM POLICY: ${policy}
-CLAIM DURATION: ${duration}
-REASON: ${r.reason || 'Not specified'}
-CUSTOMER NOTE: ${r.description || 'None'}
-IMAGES: ${imgs.length}
-${imgs[0] ? `EVIDENCE: ${imgs[0]}` : ''}
-Respond ONLY with JSON:
-{"decision":"APPROVED"|"REJECTED"|"NEEDS_REVIEW","confidence":0-100,"reasoning":"brief","recommendation":"action","refundAmount":"full"|"partial"|"none","partialRefundPercent":0,"flaggedIssues":[],"aiOpinion":"1-2 sentence summary"}`;
+  return `You are an AI claim validator for a fashion/shoe store in Pakistan.
+PRODUCT: ${r.products?.title || 'Unknown'} | CLAIM POLICY: ${policy}
+CLAIM DURATION: ${r.products?.claim_duration || 'Not set'} | REASON: ${r.reason || 'Not specified'}
+CUSTOMER NOTE: ${r.description || 'None'} | IMAGES: ${(r.images || []).length}
+${(r.images || [])[0] ? `EVIDENCE: ${r.images[0]}` : ''}
+Respond ONLY with JSON: {"decision":"APPROVED"|"REJECTED"|"NEEDS_REVIEW","confidence":0-100,"reasoning":"brief","recommendation":"action","refundAmount":"full"|"partial"|"none","partialRefundPercent":0,"flaggedIssues":[],"aiOpinion":"1-2 sentence summary"}`;
 }
-const DECISION_TO_STATUS: Record<string, string> = {
-  APPROVED: 'approved', REJECTED: 'rejected', NEEDS_REVIEW: 'pending',
-};
+const DECISION_TO_STATUS: Record<string, string> = { APPROVED: 'approved', REJECTED: 'rejected', NEEDS_REVIEW: 'pending' };
 
-// ─────────────────────────────────────────────
-// Shared helpers
-// ─────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const isClaim = (r: any) => r?.reason?.startsWith('CLAIM:');
-const getImages = (r: any) => {
-  try { return Array.isArray(r?.images) ? r.images : JSON.parse(r?.images || '[]'); } catch { return []; }
+const getImages = (r: any) => { try { return Array.isArray(r?.images) ? r.images : JSON.parse(r?.images || '[]'); } catch { return []; } };
+const focusNext = (currentId: string, nextId: string) => (e: React.KeyboardEvent) => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById(nextId)?.focus(); }
+};
+const submitOnEnter = (fn: () => void) => (e: React.KeyboardEvent) => {
+  if (e.key === 'Enter') { e.preventDefault(); fn(); }
 };
 
-// ─────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    approved: 'bg-green-100 text-green-800 border-green-200',
-    rejected: 'bg-red-100 text-red-800 border-red-200',
-    refunded: 'bg-blue-100 text-blue-800 border-blue-200',
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function StatusPill({ status }: { status: string }) {
+  const variants: Record<string, string> = {
+    pending: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300',
+    approved: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300',
+    rejected: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300',
+    refunded: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300',
   };
   return (
-    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border capitalize ${map[status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-      {status}
+    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize tracking-wide ${variants[status] || 'bg-muted text-muted-foreground border-muted-foreground/20'}`}>
+      {status === 'approved' && '✓'}{status === 'rejected' && '✗'}{status === 'pending' && '○'}{status === 'refunded' && '↩'} {status}
     </span>
   );
 }
-function AiDecisionBadge({ decision }: { decision: string }) {
-  if (decision === 'APPROVED') return <Badge className="bg-green-100 text-green-800 border border-green-200 text-[10px]">✅ APPROVED</Badge>;
-  if (decision === 'REJECTED')  return <Badge className="bg-red-100 text-red-800 border border-red-200 text-[10px]">❌ REJECTED</Badge>;
-  return <Badge className="bg-orange-100 text-orange-800 border border-orange-200 text-[10px]">🔍 NEEDS REVIEW</Badge>;
+
+function TypeChip({ claim }: { claim: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+      claim ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
+    }`}>
+      {claim ? '⚙' : '↩'} {claim ? 'Claim' : 'Return'}
+    </span>
+  );
 }
 
-// ─────────────────────────────────────────────
-// MAIN COMPONENT
-// ─────────────────────────────────────────────
+function AiBadge({ decision }: { decision: string }) {
+  if (decision === 'APPROVED') return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">✅ APPROVED</span>;
+  if (decision === 'REJECTED')  return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">❌ REJECTED</span>;
+  return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">🔍 REVIEW</span>;
+}
+
+function StatCard({ label, value, color, bg, icon }: { label: string; value: number; color: string; bg: string; icon: string }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className={`rounded-2xl border p-3 text-center ${bg}`}>
+      <p className="text-lg mb-0.5">{icon}</p>
+      <p className={`text-2xl font-black ${color}`}>{value}</p>
+      <p className="text-[10px] text-muted-foreground font-medium mt-0.5 uppercase tracking-wide">{label}</p>
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AdminClaimsReturns() {
   const [activeTab, setActiveTab] = useState<'cases' | 'ai' | 'analytics'>('cases');
   const [returns, setReturns] = useState<any[]>([]);
   const [loadingReturns, setLoadingReturns] = useState(true);
 
-  // All Cases tab state
+  // All Cases state
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -103,7 +110,7 @@ export default function AdminClaimsReturns() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [dialogAiChecking, setDialogAiChecking] = useState(false);
 
-  // AI Validator tab state
+  // AI Validator state
   const [aiCache, setAiCache] = useState<Record<string, any>>(loadCache());
   const [analyzing, setAnalyzing] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState<Set<string>>(new Set());
@@ -112,8 +119,8 @@ export default function AdminClaimsReturns() {
   const queueRef = useRef<any[]>([]);
   const runningRef = useRef(false);
 
-  // ── Fetch ──────────────────────────────────
-  const fetchReturns = async () => {
+  // ── Data fetching ──────────────────────────────────────────────────────────
+  const fetchReturns = useCallback(async () => {
     setLoadingReturns(true);
     let q = supabase
       .from('returns')
@@ -130,14 +137,13 @@ export default function AdminClaimsReturns() {
     setLoadingReturns(false);
     if (!data) return;
     setReturns(data);
-    const toAnalyze = data.filter(r => !aiCache[r.id]);
-    queueRef.current = toAnalyze;
-    runQueue(data);
-  };
+    queueRef.current = data.filter(r => !aiCache[r.id]);
+    runQueue();
+  }, [statusFilter, dateFilter]);
 
-  useEffect(() => { fetchReturns(); }, [statusFilter, dateFilter]);
+  useEffect(() => { fetchReturns(); }, [fetchReturns]);
 
-  // ── AI Queue ───────────────────────────────
+  // ── AI queue ──────────────────────────────────────────────────────────────
   const analyzeOne = async (r: any) => {
     setAnalyzing(prev => new Set(prev).add(r.id));
     try {
@@ -148,9 +154,9 @@ export default function AdminClaimsReturns() {
       if (typeof data === 'string') { const m = data.match(/\{[\s\S]*\}/); if (m) parsed = JSON.parse(m[0]); }
       if (parsed?.decision) {
         const newStatus = DECISION_TO_STATUS[parsed.decision] || r.status;
-        const adminNote = `AI: ${parsed.decision} (${parsed.confidence}%) — ${parsed.aiOpinion || parsed.reasoning}`;
-        await supabase.from('returns').update({ status: newStatus as any, admin_notes: adminNote }).eq('id', r.id);
-        setReturns(prev => prev.map(ret => ret.id === r.id ? { ...ret, status: newStatus, admin_notes: adminNote } : ret));
+        const note = `AI: ${parsed.decision} (${parsed.confidence}% confidence) — ${parsed.aiOpinion || parsed.reasoning}`;
+        await supabase.from('returns').update({ status: newStatus as any, admin_notes: note }).eq('id', r.id);
+        setReturns(prev => prev.map(ret => ret.id === r.id ? { ...ret, status: newStatus, admin_notes: note } : ret));
         setApplied(prev => new Set(prev).add(r.id));
         setAiCache(prev => { const n = { ...prev, [r.id]: parsed }; saveCache(n); return n; });
       }
@@ -158,12 +164,11 @@ export default function AdminClaimsReturns() {
     setAnalyzing(prev => { const s = new Set(prev); s.delete(r.id); return s; });
   };
 
-  const runQueue = async (data?: any[]) => {
+  const runQueue = async () => {
     if (runningRef.current) return;
     runningRef.current = true;
     while (queueRef.current.length > 0) {
-      const batch = queueRef.current.splice(0, 3);
-      await Promise.all(batch.map(analyzeOne));
+      await Promise.all(queueRef.current.splice(0, 3).map(analyzeOne));
     }
     runningRef.current = false;
   };
@@ -179,17 +184,17 @@ export default function AdminClaimsReturns() {
     if (!result?.decision) return;
     setApplying(prev => new Set(prev).add(r.id));
     const newStatus = DECISION_TO_STATUS[result.decision] || r.status;
-    const adminNote = `AI: ${result.decision} (${result.confidence}%) — ${result.aiOpinion || result.reasoning}`;
-    const { error } = await supabase.from('returns').update({ status: newStatus as any, admin_notes: adminNote }).eq('id', r.id);
+    const note = `AI: ${result.decision} (${result.confidence}%) — ${result.aiOpinion || result.reasoning}`;
+    const { error } = await supabase.from('returns').update({ status: newStatus as any, admin_notes: note }).eq('id', r.id);
     if (!error) {
-      setReturns(prev => prev.map(ret => ret.id === r.id ? { ...ret, status: newStatus, admin_notes: adminNote } : ret));
+      setReturns(prev => prev.map(ret => ret.id === r.id ? { ...ret, status: newStatus, admin_notes: note } : ret));
       setApplied(prev => new Set(prev).add(r.id));
-      toast({ title: `✅ Decision Applied: ${result.decision}`, description: `Status → "${newStatus}"` });
-    } else { toast({ title: 'Failed to apply decision', variant: 'destructive' }); }
+      toast({ title: `✅ Applied: ${result.decision}`, description: `Status → "${newStatus}"` });
+    } else { toast({ title: 'Failed', variant: 'destructive' }); }
     setApplying(prev => { const s = new Set(prev); s.delete(r.id); return s; });
   };
 
-  // ── View Return Detail ─────────────────────
+  // ── View detail ───────────────────────────────────────────────────────────
   const viewReturn = async (r: any) => {
     setSelected(r);
     setAdminNotes(r.admin_notes || '');
@@ -200,7 +205,7 @@ export default function AdminClaimsReturns() {
     ]);
     setOrder(ord);
     setOrderItems(items || []);
-    if (items && items.length > 0) {
+    if (items?.length) {
       const ids = items.map((i: any) => i.product_id).filter(Boolean);
       if (ids.length) {
         const { data: prods } = await supabase.from('products').select('id,title,images,claim_policy,claim_duration,return_policy,price,brand').in('id', ids);
@@ -211,12 +216,8 @@ export default function AdminClaimsReturns() {
 
   const updateStatus = async (id: string, status: string) => {
     setSavingStatus(true);
-    await supabase.from('returns').update({
-      status: status as any,
-      admin_notes: adminNotes || null,
-      refund_amount: refundAmount ? Number(refundAmount) : null,
-    }).eq('id', id);
-    toast({ title: `✅ Status updated to "${status}"` });
+    await supabase.from('returns').update({ status: status as any, admin_notes: adminNotes || null, refund_amount: refundAmount ? Number(refundAmount) : null }).eq('id', id);
+    toast({ title: `✅ Status → "${status}"` });
     setReturns(prev => prev.map(r => r.id === id ? { ...r, status, admin_notes: adminNotes } : r));
     setSavingStatus(false);
     setSelected(null);
@@ -230,17 +231,7 @@ export default function AdminClaimsReturns() {
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
           type: 'return-review',
-          messages: [{ role: 'user', content: `Review this ${isClaim(selected) ? 'CLAIM' : 'RETURN'}:
-Reason: ${selected.reason}
-Product: ${product?.title || 'Unknown'}
-Claim Duration: ${product?.claim_duration || 'Not set'}
-Claim Policy: ${product?.claim_policy || 'None'}
-Return Policy: ${product?.return_policy || 'None'}
-Order Date: ${order ? format(new Date(order.created_at), 'dd MMM yyyy') : 'Unknown'}
-Return Date: ${format(new Date(selected.created_at), 'dd MMM yyyy')}
-Images: ${getImages(selected).length}
-Admin Notes: ${adminNotes || 'None'}
-Provide: 1) Within policy? 2) Valid reason? 3) Recommendation: approve/reject with explanation.` }],
+          messages: [{ role: 'user', content: `Review this ${isClaim(selected) ? 'CLAIM' : 'RETURN'}:\nReason: ${selected.reason}\nProduct: ${product?.title || 'Unknown'}\nClaim Duration: ${product?.claim_duration || 'Not set'}\nPolicy: ${product?.claim_policy || 'None'}\nReturn Policy: ${product?.return_policy || 'None'}\nOrder: ${order ? format(new Date(order.created_at), 'dd MMM yyyy') : 'Unknown'}\nImages: ${getImages(selected).length}\nProvide: within policy? valid reason? recommendation.` }],
         },
       });
       if (error) throw error;
@@ -248,13 +239,11 @@ Provide: 1) Within policy? 2) Valid reason? 3) Recommendation: approve/reject wi
       await supabase.from('returns').update({ ai_recommendation: rec }).eq('id', selected.id);
       setSelected((s: any) => ({ ...s, ai_recommendation: rec }));
       toast({ title: '🤖 AI Review Complete' });
-    } catch (e: any) {
-      toast({ title: 'AI Error', description: e.message, variant: 'destructive' });
-    }
+    } catch (e: any) { toast({ title: 'AI Error', description: e.message, variant: 'destructive' }); }
     setDialogAiChecking(false);
   };
 
-  // ── Derived State ──────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
   const stats = {
     total: returns.length,
     pending: returns.filter(r => r.status === 'pending').length,
@@ -262,138 +251,118 @@ Provide: 1) Within policy? 2) Valid reason? 3) Recommendation: approve/reject wi
     rejected: returns.filter(r => r.status === 'rejected').length,
     refunded: returns.filter(r => r.status === 'refunded').length,
     claims: returns.filter(r => isClaim(r)).length,
-    returnsCount: returns.filter(r => !isClaim(r)).length,
+    returnsOnly: returns.filter(r => !isClaim(r)).length,
   };
 
-  const filteredReturns = returns.filter(r => {
-    const matchSearch = !search || r.id.includes(search) || r.reason?.toLowerCase().includes(search.toLowerCase()) || r.order_id?.includes(search);
-    const matchType = typeFilter === 'all' || (typeFilter === 'claim' ? isClaim(r) : !isClaim(r));
-    return matchSearch && matchType;
+  const filtered = returns.filter(r => {
+    if (search && !r.id.includes(search) && !r.reason?.toLowerCase().includes(search.toLowerCase()) && !r.order_id?.includes(search)) return false;
+    if (typeFilter === 'claim' && !isClaim(r)) return false;
+    if (typeFilter === 'return' && isClaim(r)) return false;
+    return true;
   });
 
   const aiSelectedReturn = returns.find(r => r.id === aiSelected);
   const aiSelectedResult = aiSelected ? aiCache[aiSelected] : null;
   const pendingAnalysis = analyzing.size;
 
-  // ── Analytics Data ─────────────────────────
-  const reasonCounts: Record<string, number> = {};
-  returns.forEach(r => {
-    const reason = r.reason?.replace('CLAIM: ', '') || 'Unknown';
-    reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
-  });
-  const reasonData = Object.entries(reasonCounts)
-    .sort((a, b) => b[1] - a[1]).slice(0, 6)
-    .map(([name, value]) => ({ name: name.length > 18 ? name.slice(0, 18) + '…' : name, value }));
-
+  // ── Analytics ─────────────────────────────────────────────────────────────
   const pieData = [
-    { name: 'Approved', value: stats.approved, color: '#22c55e' },
+    { name: 'Approved', value: stats.approved, color: '#10b981' },
     { name: 'Rejected', value: stats.rejected, color: '#ef4444' },
     { name: 'Pending', value: stats.pending, color: '#f59e0b' },
     { name: 'Refunded', value: stats.refunded, color: '#3b82f6' },
   ].filter(d => d.value > 0);
 
   const monthlyData = (() => {
-    const map: Record<string, { approved: number; rejected: number; pending: number }> = {};
+    const map: Record<string, any> = {};
     returns.forEach(r => {
       const m = format(new Date(r.created_at), 'MMM yy');
-      if (!map[m]) map[m] = { approved: 0, rejected: 0, pending: 0 };
+      if (!map[m]) map[m] = { name: m, approved: 0, rejected: 0, pending: 0 };
       if (r.status === 'approved') map[m].approved++;
       else if (r.status === 'rejected') map[m].rejected++;
       else map[m].pending++;
     });
-    return Object.entries(map).slice(-6).map(([name, v]) => ({ name, ...v }));
+    return Object.values(map).slice(-6);
   })();
 
-  // ─────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────
+  const reasonMap: Record<string, number> = {};
+  returns.forEach(r => { const k = r.reason?.replace('CLAIM: ', '') || 'Unknown'; reasonMap[k] = (reasonMap[k] || 0) + 1; });
+  const topReasons = Object.entries(reasonMap).sort((a,b) => b[1]-a[1]).slice(0,6);
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5 max-w-6xl">
-      {/* ── Page Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            Claims &amp; Returns Center
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Manage all return requests and warranty claims — with AI-powered auto-validation.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={fetchReturns} disabled={loadingReturns} className="gap-2">
-          <RefreshCw className={`h-3.5 w-3.5 ${loadingReturns ? 'animate-spin' : ''}`} /> Refresh
-        </Button>
-      </div>
 
-      {/* ── Stats Bar ── */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-        {[
-          { label: 'Total', value: stats.total, color: 'text-foreground', bg: '' },
-          { label: 'Pending', value: stats.pending, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-950/20' },
-          { label: 'Approved', value: stats.approved, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-950/20' },
-          { label: 'Rejected', value: stats.rejected, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/20' },
-          { label: 'Refunded', value: stats.refunded, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/20' },
-          { label: 'Claims', value: stats.claims, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/20' },
-          { label: 'Returns', value: stats.returnsCount, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/20' },
-        ].map(s => (
-          <div key={s.label} className={`rounded-xl border p-2.5 text-center ${s.bg}`}>
-            <p className="text-[10px] text-muted-foreground font-medium">{s.label}</p>
-            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+      {/* ── Header ────────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-violet-500 to-purple-600 p-5 text-white shadow-lg">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 70% 50%, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Shield className="h-5 w-5" />
+              <h2 className="text-xl font-black tracking-tight">Claims & Returns Center</h2>
+            </div>
+            <p className="text-violet-200 text-sm">AI-powered claim validation · Instant database updates · Full analytics</p>
           </div>
-        ))}
+          <Button onClick={fetchReturns} disabled={loadingReturns} size="sm"
+            className="bg-white/20 hover:bg-white/30 text-white border border-white/30 gap-2 shrink-0">
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingReturns ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
+        </div>
+        {pendingAnalysis > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="relative mt-3 flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
+            <Sparkles className="h-4 w-4 animate-pulse" />
+            <span className="text-sm font-medium">AI analyzing {pendingAnalysis} case{pendingAnalysis !== 1 ? 's' : ''} and updating database…</span>
+          </motion.div>
+        )}
       </div>
 
-      {/* ── AI Analysis Banner ── */}
-      {pendingAnalysis > 0 && (
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3">
-          <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
-          <p className="text-sm text-primary font-medium">
-            AI is analyzing {pendingAnalysis} claim{pendingAnalysis !== 1 ? 's' : ''} in background and updating database…
-          </p>
-        </motion.div>
-      )}
+      {/* ── Stats Row ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+        <StatCard label="Total" value={stats.total} color="text-foreground" bg="bg-card border" icon="📋" />
+        <StatCard label="Pending" value={stats.pending} color="text-amber-600" bg="bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800" icon="⏳" />
+        <StatCard label="Approved" value={stats.approved} color="text-emerald-600" bg="bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800" icon="✅" />
+        <StatCard label="Rejected" value={stats.rejected} color="text-red-600" bg="bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800" icon="❌" />
+        <StatCard label="Refunded" value={stats.refunded} color="text-sky-600" bg="bg-sky-50 border-sky-200 dark:bg-sky-950/20 dark:border-sky-800" icon="↩️" />
+        <StatCard label="Claims" value={stats.claims} color="text-violet-600" bg="bg-violet-50 border-violet-200 dark:bg-violet-950/20 dark:border-violet-800" icon="⚙️" />
+        <StatCard label="Returns" value={stats.returnsOnly} color="text-orange-600" bg="bg-orange-50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800" icon="📦" />
+      </div>
 
-      {/* ── Tabs ── */}
-      <div className="flex gap-1 bg-muted/50 rounded-xl p-1 w-fit">
+      {/* ── Tab Bar ───────────────────────────────────────────────────────── */}
+      <div className="flex gap-1 p-1 bg-muted/60 rounded-2xl w-fit border">
         {([
-          { key: 'cases', label: 'All Cases', icon: FileText },
-          { key: 'ai', label: 'AI Validator', icon: Brain },
-          { key: 'analytics', label: 'Analytics', icon: BarChart3 },
-        ] as const).map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === tab.key
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <tab.icon className="h-3.5 w-3.5" />
+          { key: 'cases' as const, label: 'All Cases', icon: FileText, count: filtered.length },
+          { key: 'ai' as const, label: 'AI Validator', icon: Brain, count: applied.size },
+          { key: 'analytics' as const, label: 'Analytics', icon: BarChart3, count: null },
+        ]).map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === tab.key ? 'bg-background shadow-md text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            }`}>
+            <tab.icon className="h-4 w-4" />
             {tab.label}
-            {tab.key === 'cases' && <Badge variant="outline" className="text-[10px] ml-0.5 px-1.5 py-0">{filteredReturns.length}</Badge>}
-            {tab.key === 'ai' && applied.size > 0 && (
-              <Badge className="text-[10px] ml-0.5 px-1.5 py-0 bg-green-500 text-white">{applied.size}</Badge>
+            {tab.count !== null && (
+              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                activeTab === tab.key ? (tab.key === 'ai' && tab.count > 0 ? 'bg-emerald-500 text-white' : 'bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300') : 'bg-muted text-muted-foreground'
+              }`}>{tab.count}</span>
             )}
           </button>
         ))}
       </div>
 
-      {/* ══════════════════════════════════════
-          TAB 1 — ALL CASES
-      ══════════════════════════════════════ */}
+      {/* ══ TAB: ALL CASES ═══════════════════════════════════════════════════ */}
       {activeTab === 'cases' && (
         <div className="space-y-4">
           {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2 items-center">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search by ID, reason, order…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
+              <Input placeholder="Search by ID, reason, order…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 rounded-xl" />
             </div>
             <AdminDateFilter date={dateFilter} onDateChange={setDateFilter} />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="w-36 h-9 rounded-xl"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
@@ -403,15 +372,15 @@ Provide: 1) Within policy? 2) Valid reason? 3) Recommendation: approve/reject wi
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-32 h-9"><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectTrigger className="w-32 h-9 rounded-xl"><SelectValue placeholder="Type" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="claim">Claims Only</SelectItem>
-                <SelectItem value="return">Returns Only</SelectItem>
+                <SelectItem value="claim">Claims</SelectItem>
+                <SelectItem value="return">Returns</SelectItem>
               </SelectContent>
             </Select>
             {(search || statusFilter !== 'all' || typeFilter !== 'all' || dateFilter) && (
-              <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-muted-foreground"
+              <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-muted-foreground rounded-xl"
                 onClick={() => { setSearch(''); setStatusFilter('all'); setTypeFilter('all'); setDateFilter(undefined); }}>
                 <RotateCcw className="h-3.5 w-3.5" /> Clear
               </Button>
@@ -421,127 +390,124 @@ Provide: 1) Within policy? 2) Valid reason? 3) Recommendation: approve/reject wi
           {/* Table */}
           {loadingReturns ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative w-12 h-12">
+                  <div className="absolute inset-0 rounded-full border-4 border-violet-200" />
+                  <div className="absolute inset-0 rounded-full border-4 border-violet-600 border-t-transparent animate-spin" />
+                </div>
+                <p className="text-sm text-muted-foreground">Loading cases…</p>
+              </div>
             </div>
           ) : (
-            <div className="bg-card rounded-xl border overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    <th className="text-left p-3 font-medium">Type</th>
-                    <th className="text-left p-3 font-medium">Product</th>
-                    <th className="text-left p-3 font-medium">Reason</th>
-                    <th className="text-left p-3 font-medium">Status</th>
-                    <th className="text-left p-3 font-medium">AI Decision</th>
-                    <th className="text-left p-3 font-medium">Date</th>
-                    <th className="text-left p-3 font-medium">Evidence</th>
-                    <th className="text-left p-3 font-medium">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReturns.map(r => {
-                    const imgs = getImages(r);
-                    const result = aiCache[r.id];
-                    const isAna = analyzing.has(r.id);
-                    return (
-                      <tr key={r.id} className="border-b hover:bg-accent/30 transition-colors">
-                        <td className="p-3">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                            isClaim(r) ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-orange-100 text-orange-800 border-orange-200'
-                          }`}>
-                            {isClaim(r) ? '⚙ Claim' : '↩ Return'}
-                          </span>
-                        </td>
-                        <td className="p-3 max-w-[140px]">
-                          <p className="text-xs font-medium truncate">{r.products?.title || '—'}</p>
-                        </td>
-                        <td className="p-3 max-w-[180px]">
-                          <p className="text-xs truncate text-muted-foreground">{r.reason?.replace('CLAIM: ', '') || '—'}</p>
-                        </td>
-                        <td className="p-3"><StatusBadge status={r.status} /></td>
-                        <td className="p-3">
-                          {isAna ? (
-                            <span className="flex items-center gap-1 text-[10px] text-primary">
-                              <Loader2 className="h-3 w-3 animate-spin" /> Analyzing…
-                            </span>
-                          ) : result ? (
-                            <AiDecisionBadge decision={result.decision} />
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">
-                          {format(new Date(r.created_at), 'dd MMM yy')}
-                        </td>
-                        <td className="p-3">
-                          {imgs.length > 0 ? (
-                            <div className="flex gap-1 items-center">
-                              {imgs.slice(0, 2).map((img: string, i: number) => (
-                                <a key={i} href={img} target="_blank" rel="noopener">
-                                  <img src={img} alt="" className="w-8 h-8 rounded object-cover border hover:opacity-75 transition" />
-                                </a>
-                              ))}
-                              {imgs.length > 2 && <span className="text-[10px] text-muted-foreground">+{imgs.length - 2}</span>}
-                            </div>
-                          ) : <span className="text-xs text-muted-foreground">None</span>}
-                        </td>
-                        <td className="p-3">
-                          <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => viewReturn(r)}>
-                            <Eye className="h-3 w-3" /> View
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredReturns.length === 0 && (
-                    <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">
-                      <Shield className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                      <p className="text-sm">No cases found</p>
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="text-left p-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Type</th>
+                      <th className="text-left p-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Product</th>
+                      <th className="text-left p-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Reason</th>
+                      <th className="text-left p-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Status</th>
+                      <th className="text-left p-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">AI</th>
+                      <th className="text-left p-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Date</th>
+                      <th className="text-left p-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Photos</th>
+                      <th className="text-right p-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filtered.map((r, idx) => {
+                      const imgs = getImages(r);
+                      const result = aiCache[r.id];
+                      const isAna = analyzing.has(r.id);
+                      return (
+                        <motion.tr key={r.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.02 }} className="hover:bg-muted/20 transition-colors group">
+                          <td className="p-3"><TypeChip claim={isClaim(r)} /></td>
+                          <td className="p-3 max-w-[130px]">
+                            <p className="text-xs font-semibold truncate">{r.products?.title || '—'}</p>
+                          </td>
+                          <td className="p-3 max-w-[170px]">
+                            <p className="text-xs text-muted-foreground truncate">{r.reason?.replace('CLAIM: ', '') || '—'}</p>
+                          </td>
+                          <td className="p-3"><StatusPill status={r.status} /></td>
+                          <td className="p-3">
+                            {isAna ? (
+                              <span className="flex items-center gap-1 text-[10px] text-violet-600 font-medium">
+                                <Loader2 className="h-3 w-3 animate-spin" /> AI…
+                              </span>
+                            ) : result ? <AiBadge decision={result.decision} /> : <span className="text-[10px] text-muted-foreground">—</span>}
+                          </td>
+                          <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{format(new Date(r.created_at), 'dd MMM yy')}</td>
+                          <td className="p-3">
+                            {imgs.length > 0 ? (
+                              <div className="flex gap-1 items-center">
+                                {imgs.slice(0,2).map((img: string, i: number) => (
+                                  <a key={i} href={img} target="_blank" rel="noopener">
+                                    <img src={img} alt="" className="w-8 h-8 rounded-lg object-cover border hover:scale-110 transition-transform" />
+                                  </a>
+                                ))}
+                                {imgs.length > 2 && <span className="text-[10px] text-muted-foreground">+{imgs.length-2}</span>}
+                              </div>
+                            ) : <span className="text-xs text-muted-foreground/50">—</span>}
+                          </td>
+                          <td className="p-3 text-right">
+                            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs rounded-lg opacity-70 group-hover:opacity-100 transition-opacity"
+                              onClick={() => viewReturn(r)}>
+                              <Eye className="h-3 w-3" /> View
+                            </Button>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                    {filtered.length === 0 && (
+                      <tr><td colSpan={8} className="text-center py-16 text-muted-foreground">
+                        <Shield className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                        <p className="text-sm font-medium">No cases found</p>
+                        <p className="text-xs mt-1">Try adjusting your filters</p>
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ══════════════════════════════════════
-          TAB 2 — AI VALIDATOR
-      ══════════════════════════════════════ */}
+      {/* ══ TAB: AI VALIDATOR ════════════════════════════════════════════════ */}
       {activeTab === 'ai' && (
         <div className="space-y-4">
-          <div className="bg-gradient-to-r from-primary/5 to-purple-500/5 border border-primary/20 rounded-xl p-4">
+          {/* Info banner */}
+          <div className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30 border border-violet-200 dark:border-violet-800 rounded-2xl p-4">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-                <Brain className="h-5 w-5 text-primary" />
+              <div className="p-2.5 bg-violet-100 dark:bg-violet-900/50 rounded-xl shrink-0">
+                <Brain className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               </div>
-              <div>
-                <p className="font-semibold text-sm">AI Auto-Validator</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  AI automatically analyzes every claim/return against the product policy and instantly updates the database status. 
-                  Select any case to see full AI reasoning, confidence score, and refund recommendation.
+              <div className="flex-1">
+                <p className="font-bold text-sm text-violet-900 dark:text-violet-100">AI Auto-Validator</p>
+                <p className="text-xs text-violet-700 dark:text-violet-300 mt-0.5">
+                  AI analyzes every case against product policies and instantly updates the database. Select any case to see full reasoning.
                 </p>
-                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Check className="h-3 w-3 text-green-500" /> {applied.size} DB Updated</span>
-                  <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 text-primary" /> {pendingAnalysis} In Progress</span>
-                  <span>{returns.length} Total Cases</span>
+                <div className="flex gap-4 mt-2 text-xs text-violet-600 dark:text-violet-400">
+                  <span className="flex items-center gap-1"><Check className="h-3 w-3" /> {applied.size} DB Updated</span>
+                  <span className="flex items-center gap-1"><Loader2 className="h-3 w-3" /> {pendingAnalysis} Analyzing</span>
+                  <span>{returns.length} Total</span>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="grid lg:grid-cols-5 gap-4">
-            {/* Left: case list */}
-            <div className="lg:col-span-2 space-y-1.5 max-h-[600px] overflow-y-auto pr-1">
+            {/* Case list */}
+            <div className="lg:col-span-2 space-y-1.5 max-h-[620px] overflow-y-auto pr-1">
               {loadingReturns ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : returns.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Shield className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">No claims or returns found</p>
+                <div className="text-center py-16 text-muted-foreground">
+                  <Shield className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">No claims or returns</p>
                 </div>
               ) : returns.map(r => {
                 const result = aiCache[r.id];
@@ -550,189 +516,177 @@ Provide: 1) Within policy? 2) Valid reason? 3) Recommendation: approve/reject wi
                 const isSel = aiSelected === r.id;
                 return (
                   <motion.button key={r.id} layout onClick={() => setAiSelected(isSel ? null : r.id)}
-                    className={`w-full text-left rounded-xl border p-3 transition-all ${
-                      isSel ? 'border-primary bg-primary/5 shadow-sm' : 'hover:border-primary/40 hover:bg-muted/30'
+                    className={`w-full text-left rounded-2xl border p-3 transition-all ${
+                      isSel ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/30 shadow-md' : 'hover:border-violet-200 hover:bg-muted/30 bg-card'
                     }`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      {isAna ? (
-                        <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
-                      ) : result ? (
-                        result.decision === 'APPROVED' ? <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" /> :
-                        result.decision === 'REJECTED' ? <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" /> :
-                        <AlertCircle className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-                      ) : <Shield className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                      <span className="text-xs font-medium truncate flex-1">
-                        {r.products?.title || 'Unknown Product'}
-                      </span>
-                      {isApp && <Check className="h-3 w-3 text-green-500 shrink-0" title="Applied to DB" />}
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                        isAna ? 'bg-violet-100' :
+                        result?.decision === 'APPROVED' ? 'bg-emerald-100' :
+                        result?.decision === 'REJECTED' ? 'bg-red-100' :
+                        result ? 'bg-amber-100' : 'bg-muted'
+                      }`}>
+                        {isAna ? <Loader2 className="h-3 w-3 text-violet-600 animate-spin" /> :
+                         result?.decision === 'APPROVED' ? <Check className="h-3 w-3 text-emerald-600" /> :
+                         result?.decision === 'REJECTED' ? <XCircle className="h-3 w-3 text-red-600" /> :
+                         result ? <AlertCircle className="h-3 w-3 text-amber-600" /> :
+                         <Shield className="h-3 w-3 text-muted-foreground" />}
+                      </div>
+                      <span className="text-xs font-semibold truncate flex-1">{r.products?.title || 'Unknown Product'}</span>
+                      {isApp && <Check className="h-3 w-3 text-emerald-500 shrink-0" />}
                       <ChevronRight className={`h-3 w-3 text-muted-foreground shrink-0 transition-transform ${isSel ? 'rotate-90' : ''}`} />
                     </div>
-                    <div className="flex items-center gap-2 ml-5">
-                      {result ? <AiDecisionBadge decision={result.decision} /> :
-                       isAna ? <Badge variant="outline" className="text-[10px] text-primary border-primary/30">Analyzing…</Badge> :
-                       <Badge variant="outline" className="text-[10px]">Queued</Badge>}
-                      <span className={`text-[10px] px-1.5 py-0 rounded-full ${
-                        isClaim(r) ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'
-                      }`}>{isClaim(r) ? 'Claim' : 'Return'}</span>
+                    <div className="flex items-center gap-2 pl-8">
+                      {result ? <AiBadge decision={result.decision} /> :
+                       isAna ? <span className="text-[10px] text-violet-600 font-medium">Analyzing…</span> :
+                       <span className="text-[10px] text-muted-foreground border border-muted-foreground/20 rounded-full px-2 py-0.5">Queued</span>}
+                      <TypeChip claim={isClaim(r)} />
                     </div>
                     {result?.aiOpinion && (
-                      <p className="text-[10px] text-muted-foreground ml-5 mt-1 line-clamp-1">{result.aiOpinion}</p>
+                      <p className="text-[10px] text-muted-foreground pl-8 mt-1 line-clamp-1">{result.aiOpinion}</p>
                     )}
-                    <div className="ml-5 mt-1 flex items-center gap-1.5">
-                      <StatusBadge status={r.status} />
-                      {isApp && <span className="text-[9px] text-green-600 font-medium">✓ DB Updated</span>}
+                    <div className="pl-8 mt-1 flex items-center gap-2">
+                      <StatusPill status={r.status} />
+                      {isApp && <span className="text-[9px] text-emerald-600 font-bold">✓ DB Updated</span>}
                     </div>
                   </motion.button>
                 );
               })}
             </div>
 
-            {/* Right: AI detail panel */}
+            {/* AI detail */}
             <div className="lg:col-span-3">
               <AnimatePresence mode="wait">
                 {aiSelected && aiSelectedReturn ? (
-                  <motion.div key={aiSelected} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-4">
-                    {/* Case info card */}
-                    <div className="bg-card border rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
+                  <motion.div key={aiSelected} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} className="space-y-3">
+                    {/* Case card */}
+                    <div className="bg-card border rounded-2xl p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
                         <div>
-                          <h3 className="font-semibold text-sm">{aiSelectedReturn.products?.title || 'Unknown Product'}</h3>
+                          <p className="font-bold text-sm">{aiSelectedReturn.products?.title || 'Unknown Product'}</p>
                           <p className="text-xs text-muted-foreground">{format(new Date(aiSelectedReturn.created_at), 'dd MMM yyyy')}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={aiSelectedReturn.status} />
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            isClaim(aiSelectedReturn) ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'
-                          }`}>{isClaim(aiSelectedReturn) ? 'Claim' : 'Return'}</span>
+                        <div className="flex gap-2">
+                          <StatusPill status={aiSelectedReturn.status} />
+                          <TypeChip claim={isClaim(aiSelectedReturn)} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div><span className="text-muted-foreground">Reason: </span>{aiSelectedReturn.reason?.replace('CLAIM: ', '') || '—'}</div>
-                        <div><span className="text-muted-foreground">Order: </span>#{aiSelectedReturn.order_id?.slice(0,8)}</div>
-                      </div>
-                      {aiSelectedReturn.description && (
-                        <p className="text-xs bg-muted/30 rounded-lg p-2">{aiSelectedReturn.description}</p>
-                      )}
+                      <p className="text-xs bg-muted/30 rounded-xl p-2.5">{aiSelectedReturn.reason?.replace('CLAIM: ', '') || '—'}{aiSelectedReturn.description && ` · ${aiSelectedReturn.description}`}</p>
                       {getImages(aiSelectedReturn).length > 0 && (
                         <div className="flex gap-2 flex-wrap">
                           {getImages(aiSelectedReturn).map((img: string, i: number) => (
                             <a key={i} href={img} target="_blank" rel="noopener">
-                              <img src={img} alt="" className="w-14 h-14 rounded-lg object-cover border hover:opacity-80 transition" />
+                              <img src={img} alt="" className="w-14 h-14 rounded-xl object-cover border hover:scale-105 transition-transform" />
                             </a>
                           ))}
                         </div>
                       )}
                       {aiSelectedReturn.products?.claim_policy && (
-                        <div className="text-[11px] bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-lg p-2">
-                          <span className="font-semibold text-blue-700">Policy: </span>
-                          <span className="text-blue-900 dark:text-blue-200">{aiSelectedReturn.products.claim_policy}</span>
+                        <div className="text-[11px] bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-xl p-2.5">
+                          <span className="font-bold text-violet-700 dark:text-violet-300">Policy: </span>
+                          <span className="text-violet-900 dark:text-violet-200">{aiSelectedReturn.products.claim_policy}</span>
                         </div>
                       )}
                       {aiSelectedReturn.admin_notes && (
-                        <div className="text-[11px] bg-green-50 dark:bg-green-950/30 border border-green-200 rounded-lg p-2">
-                          <span className="font-semibold text-green-700">📝 DB Note: </span>
-                          <span className="text-green-900 dark:text-green-200">{aiSelectedReturn.admin_notes}</span>
+                        <div className="text-[11px] bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 rounded-xl p-2.5">
+                          <span className="font-bold text-emerald-700">📝 DB: </span>
+                          <span className="text-emerald-900 dark:text-emerald-200">{aiSelectedReturn.admin_notes}</span>
                         </div>
                       )}
                     </div>
 
                     {/* AI result */}
                     {analyzing.has(aiSelected) ? (
-                      <div className="flex flex-col items-center justify-center gap-3 py-10 bg-card border rounded-xl">
-                        <motion.div animate={{ scale: [1,1.15,1] }} transition={{ repeat: Infinity, duration: 1.4 }}>
-                          <Brain className="h-8 w-8 text-primary" />
+                      <div className="flex flex-col items-center justify-center gap-3 py-12 bg-card border rounded-2xl">
+                        <motion.div animate={{ scale: [1,1.2,1], rotate: [0,5,-5,0] }} transition={{ repeat: Infinity, duration: 1.6 }}>
+                          <Brain className="h-10 w-10 text-violet-600" />
                         </motion.div>
-                        <p className="text-sm text-muted-foreground">AI is analyzing this case and updating database…</p>
+                        <p className="text-sm text-muted-foreground font-medium">AI reviewing and updating database…</p>
                       </div>
                     ) : aiSelectedResult ? (
-                      <div className={`rounded-xl border p-4 space-y-4 ${
-                        aiSelectedResult.decision === 'APPROVED' ? 'bg-green-50 dark:bg-green-950/20 border-green-200' :
+                      <div className={`rounded-2xl border p-4 space-y-4 ${
+                        aiSelectedResult.decision === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200' :
                         aiSelectedResult.decision === 'REJECTED' ? 'bg-red-50 dark:bg-red-950/20 border-red-200' :
-                        'bg-orange-50 dark:bg-orange-950/20 border-orange-200'
+                        'bg-amber-50 dark:bg-amber-950/20 border-amber-200'
                       }`}>
-                        {/* Decision header */}
                         <div className="flex items-center gap-3">
-                          {aiSelectedResult.decision === 'APPROVED' ? <CheckCircle className="h-7 w-7 text-green-600 shrink-0" /> :
-                           aiSelectedResult.decision === 'REJECTED' ? <XCircle className="h-7 w-7 text-red-600 shrink-0" /> :
-                           <AlertCircle className="h-7 w-7 text-orange-600 shrink-0" />}
+                          {aiSelectedResult.decision === 'APPROVED' ? <div className="p-2 bg-emerald-100 rounded-xl"><CheckCircle className="h-6 w-6 text-emerald-600" /></div> :
+                           aiSelectedResult.decision === 'REJECTED' ? <div className="p-2 bg-red-100 rounded-xl"><XCircle className="h-6 w-6 text-red-600" /></div> :
+                           <div className="p-2 bg-amber-100 rounded-xl"><AlertCircle className="h-6 w-6 text-amber-600" /></div>}
                           <div className="flex-1">
-                            <p className="font-bold text-lg">{aiSelectedResult.decision}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <div className="flex-1 bg-white/50 dark:bg-black/20 rounded-full h-2 overflow-hidden">
-                                <div className="h-full bg-current rounded-full" style={{ width: `${aiSelectedResult.confidence}%` }} />
+                            <p className="font-black text-xl tracking-tight">{aiSelectedResult.decision}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 h-1.5 bg-black/10 rounded-full overflow-hidden">
+                                <motion.div initial={{ width: 0 }} animate={{ width: `${aiSelectedResult.confidence}%` }}
+                                  className="h-full bg-current rounded-full" />
                               </div>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">{aiSelectedResult.confidence}% confidence</span>
+                              <span className="text-xs font-semibold">{aiSelectedResult.confidence}%</span>
                             </div>
                           </div>
-                          <Badge className={
-                            aiSelectedResult.refundAmount === 'full' ? 'bg-green-600 text-white shrink-0' :
-                            aiSelectedResult.refundAmount === 'partial' ? 'bg-orange-500 text-white shrink-0' : 'bg-gray-400 text-white shrink-0'
-                          }>
-                            {aiSelectedResult.refundAmount === 'full' ? '💯 Full Refund' :
-                             aiSelectedResult.refundAmount === 'partial' ? `${aiSelectedResult.partialRefundPercent}% Refund` : 'No Refund'}
-                          </Badge>
+                          <span className={`text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 ${
+                            aiSelectedResult.refundAmount === 'full' ? 'bg-emerald-600 text-white' :
+                            aiSelectedResult.refundAmount === 'partial' ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {aiSelectedResult.refundAmount === 'full' ? '💯 Full' :
+                             aiSelectedResult.refundAmount === 'partial' ? `${aiSelectedResult.partialRefundPercent}%` : 'No Refund'}
+                          </span>
                         </div>
 
                         {aiSelectedResult.aiOpinion && (
-                          <div className="bg-white/60 dark:bg-black/20 rounded-lg p-3 text-sm font-medium">
-                            💬 {aiSelectedResult.aiOpinion}
-                          </div>
+                          <p className="text-sm bg-white/60 dark:bg-black/20 rounded-xl p-3 font-medium">💬 {aiSelectedResult.aiOpinion}</p>
                         )}
 
-                        <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Reasoning</p>
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          <div className="bg-white/40 dark:bg-black/10 rounded-xl p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Reasoning</p>
                             <p className="text-xs">{aiSelectedResult.reasoning}</p>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Recommendation</p>
+                          <div className="bg-white/40 dark:bg-black/10 rounded-xl p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Recommendation</p>
                             <p className="text-xs">{aiSelectedResult.recommendation}</p>
                           </div>
                         </div>
 
                         {aiSelectedResult.flaggedIssues?.length > 0 && (
-                          <div className="bg-orange-100/60 dark:bg-orange-950/30 rounded-lg p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-orange-700 mb-1">⚠ Flagged Issues</p>
-                            <ul className="space-y-0.5">
-                              {aiSelectedResult.flaggedIssues.map((f: string, i: number) => (
-                                <li key={i} className="text-xs text-orange-700">• {f}</li>
-                              ))}
-                            </ul>
+                          <div className="bg-amber-100/60 dark:bg-amber-950/30 rounded-xl p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-1.5">⚠ Flagged Issues</p>
+                            {aiSelectedResult.flaggedIssues.map((f: string, i: number) => <p key={i} className="text-xs text-amber-800">• {f}</p>)}
                           </div>
                         )}
 
-                        <div className="flex gap-2 flex-wrap pt-1">
-                          <Button size="sm" className="gap-2"
+                        <div className="flex gap-2 flex-wrap">
+                          <Button size="sm" className="gap-2 rounded-xl"
                             onClick={() => applyDecision(aiSelectedReturn, aiSelectedResult)}
                             disabled={applying.has(aiSelected) || applied.has(aiSelected)}>
                             {applying.has(aiSelected) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
                              applied.has(aiSelected) ? <Check className="h-3.5 w-3.5" /> : <Database className="h-3.5 w-3.5" />}
-                            {applied.has(aiSelected) ? 'Applied to DB ✓' : 'Apply to Database'}
+                            {applied.has(aiSelected) ? 'Applied ✓' : 'Apply to DB'}
                           </Button>
-                          <Button variant="outline" size="sm" className="gap-2" onClick={() => reAnalyze(aiSelectedReturn)}>
+                          <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={() => reAnalyze(aiSelectedReturn)}>
                             <RefreshCw className="h-3.5 w-3.5" /> Re-analyze
                           </Button>
-                          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground"
+                          <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-muted-foreground"
                             onClick={() => { viewReturn(aiSelectedReturn); setActiveTab('cases'); }}>
                             <Eye className="h-3.5 w-3.5" /> Full Details
                           </Button>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-10 bg-card border rounded-xl text-muted-foreground">
-                        <Brain className="h-8 w-8 mb-2 opacity-30" />
-                        <p className="text-sm">AI analysis not available yet</p>
-                        <Button size="sm" variant="outline" className="mt-3 gap-2" onClick={() => reAnalyze(aiSelectedReturn)}>
-                          <Brain className="h-3.5 w-3.5" /> Analyze Now
+                      <div className="flex flex-col items-center justify-center py-12 bg-card border rounded-2xl text-muted-foreground">
+                        <Brain className="h-10 w-10 mb-3 opacity-20" />
+                        <p className="text-sm font-medium">Analysis not yet available</p>
+                        <Button size="sm" variant="outline" className="mt-3 gap-2 rounded-xl" onClick={() => reAnalyze(aiSelectedReturn)}>
+                          <Sparkles className="h-3.5 w-3.5" /> Analyze Now
                         </Button>
                       </div>
                     )}
                   </motion.div>
                 ) : (
                   <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="flex flex-col items-center justify-center h-64 text-muted-foreground bg-card border rounded-xl">
-                    <Brain className="h-10 w-10 mb-3 opacity-20" />
-                    <p className="text-sm">Select a case from the list to see AI analysis</p>
+                    className="flex flex-col items-center justify-center h-72 text-muted-foreground bg-card border border-dashed rounded-2xl">
+                    <Brain className="h-12 w-12 mb-3 opacity-15" />
+                    <p className="text-sm font-medium">Select a case to see AI analysis</p>
+                    <p className="text-xs mt-1">AI automatically analyzes all new cases</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -741,238 +695,172 @@ Provide: 1) Within policy? 2) Valid reason? 3) Recommendation: approve/reject wi
         </div>
       )}
 
-      {/* ══════════════════════════════════════
-          TAB 3 — ANALYTICS
-      ══════════════════════════════════════ */}
+      {/* ══ TAB: ANALYTICS ═══════════════════════════════════════════════════ */}
       {activeTab === 'analytics' && (
-        <div className="space-y-5">
-          {/* Summary cards */}
+        <div className="space-y-4">
           <div className="grid sm:grid-cols-3 gap-4">
-            <div className="bg-card border rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-green-100 dark:bg-green-950/40 rounded-lg">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                </div>
-                <p className="text-sm font-medium">Approval Rate</p>
+            {[
+              { icon: '✅', label: 'Approval Rate', value: `${stats.total > 0 ? Math.round(stats.approved/stats.total*100) : 0}%`, sub: `${stats.approved} approved of ${stats.total}`, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200' },
+              { icon: '⏳', label: 'Pending Action', value: String(stats.pending), sub: 'cases require your decision', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20 border-amber-200' },
+              { icon: '🤖', label: 'AI Processed', value: String(applied.size), sub: `of ${returns.length} total cases`, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/20 border-violet-200' },
+            ].map(card => (
+              <div key={card.label} className={`rounded-2xl border p-4 ${card.bg}`}>
+                <p className="text-2xl mb-2">{card.icon}</p>
+                <p className={`text-3xl font-black ${card.color}`}>{card.value}</p>
+                <p className="text-xs font-semibold text-muted-foreground mt-1">{card.label}</p>
+                <p className="text-[10px] text-muted-foreground">{card.sub}</p>
               </div>
-              <p className="text-3xl font-bold text-green-600">
-                {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">{stats.approved} approved of {stats.total} total</p>
-            </div>
-            <div className="bg-card border rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-purple-100 dark:bg-purple-950/40 rounded-lg">
-                  <Shield className="h-4 w-4 text-purple-600" />
-                </div>
-                <p className="text-sm font-medium">Claim vs Return</p>
-              </div>
-              <div className="flex items-end gap-3">
-                <div>
-                  <p className="text-3xl font-bold text-purple-600">{stats.claims}</p>
-                  <p className="text-xs text-muted-foreground">Claims</p>
-                </div>
-                <div className="text-muted-foreground text-xl font-light mb-1">/</div>
-                <div>
-                  <p className="text-3xl font-bold text-orange-600">{stats.returnsCount}</p>
-                  <p className="text-xs text-muted-foreground">Returns</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-card border rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-yellow-100 dark:bg-yellow-950/40 rounded-lg">
-                  <Clock className="h-4 w-4 text-yellow-600" />
-                </div>
-                <p className="text-sm font-medium">Pending Action</p>
-              </div>
-              <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
-              <p className="text-xs text-muted-foreground mt-1">cases require your decision</p>
-            </div>
+            ))}
           </div>
 
-          {/* Charts row */}
           <div className="grid lg:grid-cols-2 gap-4">
-            {/* Monthly bar chart */}
-            <div className="bg-card border rounded-xl p-4">
-              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" /> Monthly Trend
-              </h3>
+            <div className="bg-card border rounded-2xl p-4">
+              <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-violet-600" /> Monthly Trend</h3>
               {monthlyData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={monthlyData} barSize={10}>
+                  <BarChart data={monthlyData} barSize={12}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip contentStyle={{ fontSize: 12 }} />
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 12 }} />
                     <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="approved" fill="#22c55e" radius={[3,3,0,0]} name="Approved" />
-                    <Bar dataKey="rejected" fill="#ef4444" radius={[3,3,0,0]} name="Rejected" />
-                    <Bar dataKey="pending"  fill="#f59e0b" radius={[3,3,0,0]} name="Pending" />
+                    <Bar dataKey="approved" fill="#10b981" radius={[4,4,0,0]} name="Approved" />
+                    <Bar dataKey="rejected" fill="#ef4444" radius={[4,4,0,0]} name="Rejected" />
+                    <Bar dataKey="pending" fill="#f59e0b" radius={[4,4,0,0]} name="Pending" />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">Not enough data</div>
-              )}
+              ) : <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">Not enough data</div>}
             </div>
 
-            {/* Status pie chart */}
-            <div className="bg-card border rounded-xl p-4">
-              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary" /> Status Breakdown
-              </h3>
+            <div className="bg-card border rounded-2xl p-4">
+              <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-violet-600" /> Status Breakdown</h3>
               {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false} style={{ fontSize: 10 }}>
-                      {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false} style={{ fontSize: 10 }}>
+                      {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
                     </Pie>
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No data available</div>
-              )}
+              ) : <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No data</div>}
             </div>
           </div>
 
-          {/* Top reasons */}
-          <div className="bg-card border rounded-xl p-4">
-            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-              <Star className="h-4 w-4 text-primary" /> Top Return/Claim Reasons
-            </h3>
-            <div className="space-y-2">
-              {reasonData.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No data available</p>}
-              {reasonData.map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground w-5 shrink-0">#{i+1}</span>
-                  <span className="text-xs flex-1 truncate">{item.name}</span>
-                  <div className="w-32 bg-muted rounded-full h-2 overflow-hidden shrink-0">
-                    <div className="h-full bg-primary rounded-full" style={{ width: `${(item.value / (reasonData[0]?.value || 1)) * 100}%` }} />
+          <div className="bg-card border rounded-2xl p-4">
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Star className="h-4 w-4 text-violet-600" /> Top Reasons</h3>
+            <div className="space-y-2.5">
+              {topReasons.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No data yet</p>}
+              {topReasons.map(([reason, count], i) => (
+                <div key={reason} className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-muted-foreground w-4">#{i+1}</span>
+                  <span className="text-xs flex-1 truncate font-medium">{reason}</span>
+                  <div className="w-24 bg-muted rounded-full h-2 overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${(count / (topReasons[0]?.[1] || 1)) * 100}%` }}
+                      className="h-full bg-violet-500 rounded-full" />
                   </div>
-                  <span className="text-xs font-semibold w-6 text-right shrink-0">{item.value}</span>
+                  <span className="text-xs font-black w-6 text-right">{count}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Pending list */}
           {stats.pending > 0 && (
-            <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 rounded-xl p-4">
-              <h3 className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-3 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" /> {stats.pending} Cases Need Your Decision
-              </h3>
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-2xl p-4">
+              <h3 className="text-sm font-bold text-amber-800 dark:text-amber-300 mb-3">⏳ {stats.pending} Cases Awaiting Decision</h3>
               <div className="space-y-2">
-                {returns.filter(r => r.status === 'pending').slice(0, 5).map(r => (
-                  <div key={r.id} className="flex items-center gap-3 bg-white/60 dark:bg-black/20 rounded-lg p-2.5">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                      isClaim(r) ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'
-                    }`}>{isClaim(r) ? 'Claim' : 'Return'}</span>
-                    <span className="text-xs flex-1 truncate">{r.reason?.replace('CLAIM: ', '') || '—'}</span>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(r.created_at), 'dd MMM')}</span>
-                    <Button size="sm" variant="outline" className="h-6 text-xs gap-1 shrink-0"
+                {returns.filter(r => r.status === 'pending').slice(0,5).map(r => (
+                  <div key={r.id} className="flex items-center gap-3 bg-white/70 dark:bg-black/20 rounded-xl p-2.5">
+                    <TypeChip claim={isClaim(r)} />
+                    <span className="text-xs flex-1 truncate font-medium">{r.reason?.replace('CLAIM: ', '') || '—'}</span>
+                    <span className="text-xs text-muted-foreground">{format(new Date(r.created_at), 'dd MMM')}</span>
+                    <Button size="sm" variant="outline" className="h-6 text-xs gap-1 rounded-lg shrink-0"
                       onClick={() => { viewReturn(r); setActiveTab('cases'); }}>
                       <Eye className="h-3 w-3" /> Review
                     </Button>
                   </div>
                 ))}
-                {stats.pending > 5 && (
-                  <p className="text-xs text-yellow-700 dark:text-yellow-400 text-center pt-1">
-                    +{stats.pending - 5} more pending — switch to "All Cases" to see all
-                  </p>
-                )}
+                {stats.pending > 5 && <p className="text-xs text-amber-700 text-center pt-1">+{stats.pending-5} more — go to All Cases tab</p>}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ══════════════════════════════════════
-          DETAIL DIALOG
-      ══════════════════════════════════════ */}
+      {/* ══ DETAIL DIALOG ════════════════════════════════════════════════════ */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {isClaim(selected) ? <Shield className="h-5 w-5 text-purple-600" /> : <RotateCcw className="h-5 w-5 text-orange-600" />}
-              {isClaim(selected) ? 'Claim Detail' : 'Return Detail'}
+            <DialogTitle className="flex items-center gap-2 text-base">
+              {isClaim(selected) ? <div className="p-1.5 bg-violet-100 rounded-lg"><Shield className="h-4 w-4 text-violet-700" /></div>
+               : <div className="p-1.5 bg-orange-100 rounded-lg"><RotateCcw className="h-4 w-4 text-orange-700" /></div>}
+              {isClaim(selected) ? 'Warranty Claim' : 'Return Request'} Detail
             </DialogTitle>
           </DialogHeader>
           {selected && (
             <div className="space-y-4">
-              {/* Basic info */}
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="bg-muted/30 rounded-lg p-2.5">
-                  <p className="text-[10px] text-muted-foreground font-medium mb-1">STATUS</p>
-                  <StatusBadge status={selected.status} />
-                </div>
-                <div className="bg-muted/30 rounded-lg p-2.5">
-                  <p className="text-[10px] text-muted-foreground font-medium mb-1">TYPE</p>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    isClaim(selected) ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'
-                  }`}>{isClaim(selected) ? 'Warranty Claim' : 'Return Request'}</span>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-2.5">
-                  <p className="text-[10px] text-muted-foreground font-medium mb-1">DATE</p>
-                  <p className="text-xs font-medium">{format(new Date(selected.created_at), 'dd MMM yyyy')}</p>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-2.5">
-                  <p className="text-[10px] text-muted-foreground font-medium mb-1">ORDER</p>
-                  <p className="text-xs font-medium">{order?.order_number || '#' + selected.order_id?.slice(0,8)}</p>
-                </div>
+              {/* Meta grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: 'Status', content: <StatusPill status={selected.status} /> },
+                  { label: 'Type', content: <TypeChip claim={isClaim(selected)} /> },
+                  { label: 'Date', content: <span className="text-xs font-semibold">{format(new Date(selected.created_at), 'dd MMM yyyy')}</span> },
+                  { label: 'Order', content: <span className="text-xs font-semibold font-mono">#{order?.order_number || selected.order_id?.slice(0,8)}</span> },
+                ].map(m => (
+                  <div key={m.label} className="bg-muted/30 rounded-xl p-2.5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{m.label}</p>
+                    {m.content}
+                  </div>
+                ))}
               </div>
 
               {/* Reason */}
-              <div className="bg-muted/30 rounded-lg p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Reason</p>
-                <p className="text-sm">{selected.reason?.replace('CLAIM: ', '') || '—'}</p>
+              <div className="bg-muted/20 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Reason</p>
+                <p className="text-sm font-medium">{selected.reason?.replace('CLAIM: ', '') || '—'}</p>
                 {selected.description && <p className="text-xs text-muted-foreground mt-1">{selected.description}</p>}
               </div>
 
-              {/* Evidence Images */}
+              {/* Images */}
               {getImages(selected).length > 0 && (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Evidence Photos</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Evidence Photos</p>
                   <div className="flex gap-2 flex-wrap">
                     {getImages(selected).map((img: string, i: number) => (
                       <a key={i} href={img} target="_blank" rel="noopener">
-                        <img src={img} alt="" className="w-24 h-24 object-cover rounded-xl border hover:opacity-80 transition" />
+                        <img src={img} alt="" className="w-24 h-24 object-cover rounded-2xl border hover:scale-105 transition-transform" />
                       </a>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Products in order */}
+              {/* Products */}
               {orderItems.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Products in Order</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Products in Order</p>
                   {orderItems.map((item: any) => {
                     const prod = productDetails?.find((p: any) => p.id === item.product_id);
                     return (
-                      <div key={item.id} className="p-3 bg-muted/20 rounded-xl border mb-2">
+                      <div key={item.id} className="bg-muted/20 rounded-xl p-3 mb-2 border">
                         <div className="flex items-center gap-3">
                           <img src={item.image || (prod?.images as any)?.[0] || '/placeholder.svg'} alt=""
-                            className="w-16 h-16 rounded-lg object-cover border shrink-0" />
+                            className="w-16 h-16 rounded-xl object-cover border shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium truncate">{item.title}</p>
-                              {prod && (
-                                <Link to={`/product/${prod.id}`} target="_blank" className="text-primary shrink-0">
-                                  <ExternalLink className="h-3 w-3" />
-                                </Link>
-                              )}
+                              <p className="text-sm font-semibold truncate">{item.title}</p>
+                              {prod && <Link to={`/product/${prod.id}`} target="_blank" className="text-violet-500 shrink-0"><ExternalLink className="h-3 w-3" /></Link>}
                             </div>
-                            <p className="text-xs text-muted-foreground">Size: {item.size || '-'} | Color: {item.color || '-'} | Qty: {item.quantity}</p>
-                            <p className="text-sm font-semibold text-primary">Rs. {Number(item.price).toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">{[item.size && `Size ${item.size}`, item.color && `Color: ${item.color}`, `Qty: ${item.quantity}`].filter(Boolean).join(' · ')}</p>
+                            <p className="text-sm font-bold text-violet-600">Rs. {Number(item.price).toLocaleString()}</p>
                           </div>
                         </div>
-                        {prod && (
-                          <div className="mt-2 text-xs space-y-1 border-t pt-2 text-muted-foreground">
-                            {prod.return_policy && <p><span className="font-medium text-foreground">Return Policy: </span>{prod.return_policy}</p>}
-                            {prod.claim_duration && <p><span className="font-medium text-foreground">Claim Duration: </span>{prod.claim_duration}</p>}
-                            {prod.claim_policy && <p><span className="font-medium text-foreground">AI Claim Instructions: </span>{prod.claim_policy}</p>}
+                        {prod && (prod.return_policy || prod.claim_duration || prod.claim_policy) && (
+                          <div className="mt-2 pt-2 border-t text-xs space-y-0.5 text-muted-foreground">
+                            {prod.return_policy && <p><span className="font-semibold text-foreground">Return: </span>{prod.return_policy}</p>}
+                            {prod.claim_duration && <p><span className="font-semibold text-foreground">Claim Duration: </span>{prod.claim_duration}</p>}
+                            {prod.claim_policy && <p><span className="font-semibold text-foreground">Policy: </span>{prod.claim_policy}</p>}
                           </div>
                         )}
                       </div>
@@ -981,38 +869,44 @@ Provide: 1) Within policy? 2) Valid reason? 3) Recommendation: approve/reject wi
                 </div>
               )}
 
-              {/* AI Review button */}
-              <Button variant="outline" onClick={dialogAiReview} disabled={dialogAiChecking} className="w-full gap-2">
-                {dialogAiChecking ? <><Loader2 className="h-4 w-4 animate-spin" /> AI Reviewing…</> : <><Brain className="h-4 w-4" /> Get AI Recommendation</>}
+              {/* AI Review */}
+              <Button variant="outline" onClick={dialogAiReview} disabled={dialogAiChecking} className="w-full gap-2 rounded-xl">
+                {dialogAiChecking ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</> : <><Brain className="h-4 w-4" /> Get AI Recommendation</>}
               </Button>
               {selected.ai_recommendation && (
-                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 rounded-xl p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-blue-700 mb-1">🤖 AI Recommendation</p>
-                  <p className="text-sm whitespace-pre-wrap text-blue-900 dark:text-blue-200">{selected.ai_recommendation}</p>
+                <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 rounded-xl p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-violet-700 mb-1.5">🤖 AI Recommendation</p>
+                  <p className="text-sm whitespace-pre-wrap text-violet-900 dark:text-violet-200 leading-relaxed">{selected.ai_recommendation}</p>
                 </div>
               )}
 
-              {/* Admin actions */}
-              <div className="space-y-3 border-t pt-3">
+              {/* Admin actions — Enter key navigation */}
+              <div className="space-y-3 border-t pt-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Admin Decision</p>
                 <div>
-                  <Label className="text-xs">Admin Notes</Label>
-                  <Textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} rows={2} className="mt-1 text-sm" />
+                  <Label className="text-xs font-semibold">Admin Notes</Label>
+                  <Textarea id="dialog-admin-notes" value={adminNotes} onChange={e => setAdminNotes(e.target.value)} rows={2}
+                    placeholder="Optional notes…" className="mt-1 text-sm rounded-xl"
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('dialog-refund-amount')?.focus(); } }} />
                 </div>
                 <div>
-                  <Label className="text-xs">Refund Amount (Rs.)</Label>
-                  <Input value={refundAmount} onChange={e => setRefundAmount(e.target.value)} className="mt-1 h-9" type="number" />
+                  <Label className="text-xs font-semibold">Refund Amount (Rs.)</Label>
+                  <Input id="dialog-refund-amount" value={refundAmount} onChange={e => setRefundAmount(e.target.value)}
+                    className="mt-1 h-9 rounded-xl" type="number" placeholder="0"
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('dialog-approve-btn')?.click(); } }} />
+                  <p className="text-[10px] text-muted-foreground mt-1">Press Enter to approve · Shift+Enter in notes to move here</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <Button disabled={savingStatus} onClick={() => updateStatus(selected.id, 'approved')}
-                    className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+                  <Button id="dialog-approve-btn" disabled={savingStatus} onClick={() => updateStatus(selected.id, 'approved')}
+                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                     <CheckCircle className="h-4 w-4" /> Approve
                   </Button>
                   <Button disabled={savingStatus} variant="destructive" onClick={() => updateStatus(selected.id, 'rejected')}
-                    className="gap-2">
+                    className="gap-1.5 rounded-xl">
                     <XCircle className="h-4 w-4" /> Reject
                   </Button>
                   <Button disabled={savingStatus} variant="outline" onClick={() => updateStatus(selected.id, 'refunded')}
-                    className="gap-2">
+                    className="gap-1.5 rounded-xl">
                     <Package className="h-4 w-4" /> Refunded
                   </Button>
                 </div>
