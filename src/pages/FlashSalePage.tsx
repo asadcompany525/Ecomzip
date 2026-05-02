@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/home/ProductCard';
 
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 import { Product } from '@/types/product';
 import { Zap } from 'lucide-react';
 
@@ -54,6 +55,7 @@ const FlashSalePage = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       
       <main className="container py-5">
+        <PageBreadcrumb items={[{ label: 'Flash Sale' }]} />
         <div className="flex items-center gap-3 mb-6">
           <Zap className="h-8 w-8 text-sale fill-sale" />
           <div className="flex-1">

@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 
 const PROVINCES: Record<string, Record<string, string[]>> = {
   'Punjab': {
@@ -203,6 +204,7 @@ const MyAddresses = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       
       <main className="container py-5 max-w-xl mx-auto">
+        <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'My Addresses' }]} />
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">My Addresses</h1>
           <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-1">

@@ -7,6 +7,7 @@ import ProductCard from '@/components/home/ProductCard';
 
 
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 
 const Cart = () => {
   const { items, removeFromCart, updateQuantity, clearCart, cartTotal } = useCart();
@@ -39,6 +40,7 @@ const Cart = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       
       <main className="container py-5">
+        <PageBreadcrumb items={[{ label: 'Cart' }]} />
         <h1 className="text-2xl font-bold mb-6">Shopping Cart ({items.length})</h1>
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-3">

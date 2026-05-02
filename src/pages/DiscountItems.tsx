@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/home/ProductCard';
 
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 import { Product } from '@/types/product';
 
 const mapProduct = (p: any): Product => ({
@@ -27,6 +28,7 @@ const DiscountItems = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       
       <main className="container py-5">
+        <PageBreadcrumb items={[{ label: 'Sale & Discounts' }]} />
         <div className="flex items-center gap-3 mb-6">
           <span className="text-3xl">🏷️</span>
           <div><h1 className="text-2xl md:text-3xl font-bold">Discount Items</h1><p className="text-muted-foreground text-sm">Best deals on shoes & bags!</p></div>

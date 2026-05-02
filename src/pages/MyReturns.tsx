@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 import { toast } from '@/hooks/use-toast';
 
 const parseClaimDurationDays = (value?: string | null) => {
@@ -179,6 +180,7 @@ Return JSON: { "decision": "reject" or "review", "reason": "explanation" }`
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       
       <main className="container py-5 max-w-xl mx-auto">
+        <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'Returns & Claims' }]} />
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Returns & Claims</h1>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

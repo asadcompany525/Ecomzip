@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 
 const MyReviews = () => {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ const MyReviews = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       
       <main className="container py-5 max-w-xl mx-auto">
+        <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'My Reviews' }]} />
         <h1 className="text-2xl font-bold mb-6">My Reviews</h1>
         {reviews.length === 0 ? (
           <div className="text-center py-16"><Star className="h-16 w-16 mx-auto mb-4 text-muted-foreground" /><p className="text-muted-foreground">No reviews yet</p></div>

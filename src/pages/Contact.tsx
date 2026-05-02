@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -47,6 +48,7 @@ const Contact = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       
       <main className="container py-8">
+        <PageBreadcrumb items={[{ label: 'Contact Us' }]} />
         <h1 className="text-2xl md:text-3xl font-bold mb-8">Contact Us</h1>
         <div className="grid md:grid-cols-2 gap-8">
           <div>

@@ -87,6 +87,7 @@ const AdminAiSizeAdvisor  = lazy(() => import("./pages/admin/AdminAiSizeAdvisor"
 const AdminFinanceLedger  = lazy(() => import("./pages/admin/AdminFinanceLedger"));
 const AdminStaffSalary    = lazy(() => import("./pages/admin/AdminStaffSalary"));
 const AdminTechLogs       = lazy(() => import("./pages/admin/AdminTechLogs"));
+const AdminProductSeeder  = lazy(() => import("./pages/admin/AdminProductSeeder"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -125,6 +126,7 @@ const AdminGuard = ({ children }: { children: React.ReactNode }) => {
 };
 
 const PageLoader = () => <StopyLoader fullScreen />;
+const NoLoader = () => null;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -135,14 +137,14 @@ const App = () => (
           <Sonner />
           <SiteBrandingLoader />
           <BrowserRouter>
-            <Suspense fallback={<PageLoader />}>
+            <Suspense fallback={<NoLoader />}>
               <Routes>
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<Suspense fallback={<PageLoader />}><Index /></Suspense>} />
                 <Route path="/products" element={<Products />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
+                <Route path="/product/:id" element={<Suspense fallback={<PageLoader />}><ProductDetail /></Suspense>} />
                 <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/order-success/:id" element={<OrderSuccess />} />
+                <Route path="/checkout" element={<Suspense fallback={<PageLoader />}><Checkout /></Suspense>} />
+                <Route path="/order-success/:id" element={<Suspense fallback={<PageLoader />}><OrderSuccess /></Suspense>} />
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
@@ -214,6 +216,7 @@ const App = () => (
                   <Route path="finance-ledger" element={<AdminFinanceLedger />} />
                   <Route path="staff-salary" element={<AdminStaffSalary />} />
                   <Route path="tech-logs" element={<AdminTechLogs />} />
+                  <Route path="product-seeder" element={<AdminProductSeeder />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />

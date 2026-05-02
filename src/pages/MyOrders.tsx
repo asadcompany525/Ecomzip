@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800', confirmed: 'bg-blue-100 text-blue-800',
@@ -170,11 +171,7 @@ const MyOrders = () => {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-4">
       <main className="container py-5 max-w-2xl mx-auto">
-        <div className="flex items-center gap-2 mb-1 text-xs text-muted-foreground">
-          <Link to="/" className="hover:text-primary">Home</Link>
-          <span>/</span>
-          <span className="text-foreground font-medium">My Orders</span>
-        </div>
+        <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'My Orders' }]} />
         <h1 className="text-2xl font-bold mb-5">My Orders ({orders.length})</h1>
 
         {orders.length === 0 ? (

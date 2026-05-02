@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/home/ProductCard';
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { Product } from '@/types/product';
@@ -432,13 +433,10 @@ const ProductDetail = () => {
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <CompactHeader />
       <main className="container py-4 md:py-5">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 flex-wrap">
-          <Link to="/" className="hover:text-primary">Home</Link>
-          <ChevronRight className="h-3 w-3" />
-          <Link to="/products" className="hover:text-primary">Products</Link>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground truncate max-w-[150px]">{product.name}</span>
-        </div>
+        <PageBreadcrumb items={[
+          { label: 'Products', href: '/products' },
+          { label: product.name },
+        ]} />
 
         <div className="grid md:grid-cols-2 gap-6 md:gap-8">
           <div>

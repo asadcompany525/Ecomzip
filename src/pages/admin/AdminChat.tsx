@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Send, Image as ImageIcon, RefreshCw, Eye } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { ensureAdminSession } from '@/lib/adminSession';
 
 const AdminChat = () => {
   const { user, isAdmin } = useAuth();
@@ -20,7 +21,12 @@ const AdminChat = () => {
   const [staffList, setStaffList] = useState<any[]>([]);
 
   const fetchConvos = async () => {
-    const { data } = await supabase.from('chat_conversations').select('*').order('updated_at', { ascending: false });
+    try { await ensureAdminSession(); } catch {}
+    const { data, error } = await supabase
+      .from('chat_conversations')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (error) console.error('Chat fetch error:', error.message);
     setConversations(data || []);
   };
 

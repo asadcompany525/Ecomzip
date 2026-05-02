@@ -2,6 +2,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 
 
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 
 const faqs = [
   { q: 'How can I place an order?', a: 'Browse products, add to cart, select your size and color, then proceed to checkout. Choose Cash on Delivery or pay online.' },
@@ -19,6 +20,7 @@ const FAQ = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       
       <main className="container py-8 max-w-3xl">
+        <PageBreadcrumb items={[{ label: 'FAQ' }]} />
         <h1 className="text-2xl md:text-3xl font-bold mb-2">Frequently Asked Questions</h1>
         <p className="text-muted-foreground mb-8">Find answers to common questions about our store.</p>
         <Accordion type="single" collapsible className="bg-card rounded-2xl border p-2">

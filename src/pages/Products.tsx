@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/home/ProductCard';
 import BottomNav from '@/components/layout/BottomNav';
+import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 import { useCart } from '@/contexts/CartContext';
 import { Product } from '@/types/product';
 
@@ -312,6 +313,7 @@ const Products = () => {
       </header>
 
       <main className="container py-5">
+        <PageBreadcrumb items={[{ label: 'All Products' }]} />
         {/* Filter row */}
         <div className="flex items-center gap-2 mb-4">
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>

@@ -2,6 +2,16 @@
 
 A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bags store — Pakistan's #1 Shoes & Bags Store.
 
+## Recent Changes (May 2026)
+- **PageBreadcrumb component**: Created `src/components/layout/PageBreadcrumb.tsx` — reusable breadcrumb with Home icon + ChevronRight separators. Added to all user pages: Products, ProductDetail, Wishlist, Cart, NewArrivals, DiscountItems, FlashSalePage, Contact, FAQ, MyOrders, MyAddresses, MyReturns, MyReviews, MySettings.
+- **My Account page (MyPage.tsx) redesign**: Replaced narrow `max-w-md` layout with `max-w-5xl` 2-column desktop grid — profile card on left, grouped menu sections on right. Stats grid, avatar upload, Admin Panel link.
+- **MySettings 30+ settings**: Rewrote to 6-tab sidebar layout (Profile, Notifications, Shopping, Privacy, Display, Security). 30+ fields including gender, DOB, WhatsApp, city, 9 notification toggles, 3 preference toggles, privacy controls, theme/language/currency, password change.
+- **VirtualTryOn popup fix**: Uses `h-[100dvh]`, `overflow-x-hidden`, proper landscape handling, reduced upload button padding.
+- **AdminChat staff fix**: Added `ensureAdminSession()` before `fetchConvos()` so staff can see all conversations.
+- **Loader on 4 pages only**: Changed from global `<StopyLoader fullScreen />` to targeted Suspense boundaries only on: Index (home), ProductDetail, Checkout, OrderSuccess.
+- **StopyLoader improved**: New design with rotating gradient ring, inner logo circle, animated brand name + 3-dot indicator.
+- **AdminProductSeeder page**: New admin page `/admin/product-seeder` that seeds 100 dummy products in batches of 20 using admin session. Added to admin sidebar.
+
 ## Recent Changes (April 2026)
 - **Edge function security hardening**: `ai-assistant` and `admin-login` now enforce: origin allowlist (replit.dev/.app/.co + custom domains), per-IP rate limiting (30 req/min general, 8/min for AI image work), payload size caps (256 KB body, 8 KB for login, 8 K char per message, 40 messages max), input validation, sanitized error messages (no internal leaks), and brute-force lockout for admin login (6 fails → 15 min IP block).
 - **Gemini API key now in Supabase Secret vault** (env `GEMINI_API_KEYS`, comma-separated for multi-key rotation). Removed from publicly-readable `site_settings` table. Function rotates across all configured keys × 4 model fallback chain (`gemini-2.5-flash` → `2.0-flash` → `2.0-flash-lite` → `2.5-flash-lite`) for maximum free-tier throughput.
