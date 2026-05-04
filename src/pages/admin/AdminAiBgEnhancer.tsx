@@ -70,6 +70,7 @@ export default function AdminAiBgEnhancer() {
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AI service error');
 
       // The function should return a processed image URL
       const processedUrl = data?.processedUrl || data?.url || originalUrl;

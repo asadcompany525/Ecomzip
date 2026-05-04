@@ -53,6 +53,7 @@ Choose appropriate link: /flash-sale, /discount-items, /products?category=X, /ne
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AI service error');
       const reply = typeof data === 'string' ? data : data?.reply || data?.content || '';
       const actionMatch = reply.match(/<ACTION_JSON>([\s\S]*?)<\/ACTION_JSON>/);
       if (actionMatch) {

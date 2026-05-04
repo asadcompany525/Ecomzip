@@ -8,7 +8,7 @@ import {
   BarChart3, MessageSquare, RotateCcw, Bell, Layers, Ticket, Star, FileText, CreditCard,
   TrendingUp, Sparkles, ClipboardList, PieChart, Wallet, MapPin, Bot, PackageSearch, Globe,
   ImagePlus, Shield, DollarSign, Megaphone, ThumbsUp, UserCog, Command, Mail, Heart, Search,
-  Clock, Lock, Activity, FileSpreadsheet, Banknote, Server, BookOpen, Database
+  Clock, Lock, Activity, FileSpreadsheet, Banknote, Server, BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -146,7 +146,6 @@ const sidebarGroups = [
       { icon: FileText,        label: 'Activity Log',       path: '/admin/activity',          adminOnly: false },
       { icon: Settings,        label: 'Settings',           path: '/admin/settings',          adminOnly: true  },
       { icon: Server,          label: 'Tech & Error Logs',  path: '/admin/tech-logs',         adminOnly: true  },
-      { icon: Database,        label: 'Product Seeder',     path: '/admin/product-seeder',    adminOnly: true  },
     ],
   },
 ];

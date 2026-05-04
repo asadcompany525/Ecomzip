@@ -238,6 +238,7 @@ const AdminProducts = () => {
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AI service error');
 
       if (data && typeof data === 'object') {
         setForm(p => ({

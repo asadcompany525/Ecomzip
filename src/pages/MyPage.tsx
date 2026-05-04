@@ -172,13 +172,6 @@ const MyPage = () => {
                 </Button>
               </div>
 
-              {/* Quick promo */}
-              <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl border border-primary/20 p-4 text-center">
-                <Gift className="h-8 w-8 text-primary mx-auto mb-2" />
-                <p className="font-semibold text-sm">Refer & Earn</p>
-                <p className="text-xs text-muted-foreground mt-1">Share your referral link and earn discounts</p>
-                <Button size="sm" variant="outline" className="mt-3 text-xs h-7">Coming Soon</Button>
-              </div>
             </div>
 
             {/* Right: Menu groups */}

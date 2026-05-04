@@ -87,6 +87,7 @@ Check if: 1) Return/claim is within policy time, 2) Claim reason matches the adm
         }
       });
       if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AI service error');
       const recommendation = typeof data === 'string' ? data : data?.reply || data?.content || '';
       await supabase.from('returns').update({ ai_recommendation: recommendation }).eq('id', selected.id);
       setSelected((s: any) => ({ ...s, ai_recommendation: recommendation }));

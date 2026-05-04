@@ -163,6 +163,7 @@ Return ONLY valid JSON inside <RESPONSE_JSON>...</RESPONSE_JSON> and optionally 
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AI service error');
 
       const raw = typeof data === 'string' ? data : JSON.stringify(data);
 

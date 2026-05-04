@@ -111,6 +111,7 @@ Return ONLY valid JSON, no markdown.`
         }
       });
       if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AI service error');
       let parsed = data;
       if (typeof data === 'string') {
         const m = data.match(/\{[\s\S]*\}/);

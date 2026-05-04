@@ -93,6 +93,7 @@ Reply in English or Roman Urdu.` },
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AI service error');
       const reply = typeof data === 'string' ? data : data?.reply || data?.content || 'No response';
 
       const actionMatch = reply.match(/<ACTION_JSON>([\s\S]*?)<\/ACTION_JSON>/);

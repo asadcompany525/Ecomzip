@@ -142,6 +142,7 @@ Format output as clean HTML table(s) with headers, subtotals and grand totals. B
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'AI service error');
       setResult(typeof data === 'string' ? data : data?.reply || data?.content || JSON.stringify(data));
       toast({ title: '✅ Report generated!' });
       const updated = [prompt, ...recentHistory.filter(h => h !== prompt)].slice(0, 15);

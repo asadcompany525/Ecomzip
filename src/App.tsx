@@ -87,7 +87,6 @@ const AdminAiSizeAdvisor  = lazy(() => import("./pages/admin/AdminAiSizeAdvisor"
 const AdminFinanceLedger  = lazy(() => import("./pages/admin/AdminFinanceLedger"));
 const AdminStaffSalary    = lazy(() => import("./pages/admin/AdminStaffSalary"));
 const AdminTechLogs       = lazy(() => import("./pages/admin/AdminTechLogs"));
-const AdminProductSeeder  = lazy(() => import("./pages/admin/AdminProductSeeder"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -216,7 +215,6 @@ const App = () => (
                   <Route path="finance-ledger" element={<AdminFinanceLedger />} />
                   <Route path="staff-salary" element={<AdminStaffSalary />} />
                   <Route path="tech-logs" element={<AdminTechLogs />} />
-                  <Route path="product-seeder" element={<AdminProductSeeder />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
