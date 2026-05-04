@@ -18,6 +18,20 @@ export function detectTryOnCategory(productName: string, productCategory?: strin
   return 'generic';
 }
 
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 export async function createCanvasTryOn(
   userImageUrl: string,
   productImageUrl: string,
@@ -29,52 +43,127 @@ export async function createCanvasTryOn(
       loadCanvasImage(productImageUrl),
     ]);
 
+    // Use the actual user image size for natural output
+    const maxW = 900;
+    const scale = Math.min(1, maxW / userImg.width);
+    const cW = Math.round(userImg.width * scale);
+    const cH = Math.round(userImg.height * scale);
+
     const canvas = document.createElement('canvas');
-    canvas.width = 900;
-    canvas.height = 1200;
-    const ctx = canvas.getContext('2d');
+    canvas.width = cW;
+    canvas.height = cH;
+    const ctx = canvas.getContext('2d')!;
     if (!ctx) return userImageUrl;
 
-    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    grad.addColorStop(0, '#0b0f17');
-    grad.addColorStop(1, '#1a1f2e');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw user photo as full background
+    ctx.drawImage(userImg, 0, 0, cW, cH);
 
-    const userScale = Math.max(canvas.width / userImg.width, canvas.height / userImg.height);
-    const userW = userImg.width * userScale;
-    const userH = userImg.height * userScale;
-    ctx.drawImage(userImg, (canvas.width - userW) / 2, (canvas.height - userH) / 2, userW, userH);
+    // Determine product placement based on category
+    // These are fraction-based positions (relative to canvas size)
+    let productW: number;
+    let productX: number;
+    let productY: number;
+    let productOpacity: number;
+    let blendMode: GlobalCompositeOperation = 'source-over';
+    let rotate = 0;
 
-    const layout = {
-      shoes: { w: 520, y: 820, opacity: 0.95 },
-      bags: { w: 380, y: 430, opacity: 0.92 },
-      clothing: { w: 540, y: 330, opacity: 0.78 },
-      generic: { w: 450, y: 560, opacity: 0.88 },
-    }[categoryType];
+    if (categoryType === 'shoes') {
+      // Bottom of image — feet area (~bottom 20%)
+      productW = cW * 0.45;
+      const aspectRatio = productImg.height / productImg.width;
+      const productH = productW * aspectRatio;
+      productX = (cW - productW) / 2;
+      productY = cH - productH - cH * 0.04;
+      productOpacity = 0.92;
+    } else if (categoryType === 'clothing') {
+      // Center torso area (~20% from top, ~55% width)
+      productW = cW * 0.55;
+      const aspectRatio = productImg.height / productImg.width;
+      const productH = productW * aspectRatio;
+      productX = (cW - productW) / 2;
+      // Place from ~18% down (chest area)
+      productY = cH * 0.18;
+      productOpacity = 0.85;
+      blendMode = 'multiply';
+    } else if (categoryType === 'bags') {
+      // Side of torso area (~right shoulder)
+      productW = cW * 0.32;
+      const aspectRatio = productImg.height / productImg.width;
+      const productH = productW * aspectRatio;
+      productX = cW * 0.55;
+      productY = cH * 0.28;
+      productOpacity = 0.9;
+    } else {
+      // Generic — center of image
+      productW = cW * 0.45;
+      const aspectRatio = productImg.height / productImg.width;
+      const productH = productW * aspectRatio;
+      productX = (cW - productW) / 2;
+      productY = (cH - productH) / 2;
+      productOpacity = 0.88;
+    }
 
-    const productW = layout.w;
-    const productH = productImg.height * (productW / productImg.width);
-    const productX = (canvas.width - productW) / 2;
+    const productH = productW * (productImg.height / productImg.width);
 
+    // Draw a subtle drop shadow under the product
     ctx.save();
-    ctx.globalAlpha = layout.opacity;
-    ctx.shadowColor = 'rgba(0,0,0,0.55)';
-    ctx.shadowBlur = 32;
-    ctx.shadowOffsetY = 14;
-    ctx.drawImage(productImg, productX, layout.y, productW, productH);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur = 28;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 12;
+    ctx.fillStyle = 'transparent';
+    ctx.fillRect(productX, productY, productW, productH);
     ctx.restore();
 
-    const stripeGrad = ctx.createLinearGradient(0, canvas.height - 90, 0, canvas.height);
-    stripeGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    stripeGrad.addColorStop(1, 'rgba(0,0,0,0.7)');
-    ctx.fillStyle = stripeGrad;
-    ctx.fillRect(0, canvas.height - 90, canvas.width, 90);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillText('Virtual Try-On Preview', 28, canvas.height - 32);
+    // Draw product with blend mode
+    ctx.save();
+    ctx.globalAlpha = productOpacity;
+    ctx.globalCompositeOperation = blendMode;
 
-    return canvas.toDataURL('image/jpeg', 0.92);
+    if (rotate !== 0) {
+      ctx.translate(productX + productW / 2, productY + productH / 2);
+      ctx.rotate(rotate);
+      ctx.drawImage(productImg, -productW / 2, -productH / 2, productW, productH);
+    } else {
+      ctx.drawImage(productImg, productX, productY, productW, productH);
+    }
+    ctx.restore();
+
+    // For clothing: add a second lighter layer on top for shine/texture
+    if (categoryType === 'clothing') {
+      ctx.save();
+      ctx.globalAlpha = 0.12;
+      ctx.globalCompositeOperation = 'screen';
+      ctx.drawImage(productImg, productX, productY, productW, productH);
+      ctx.restore();
+    }
+
+    // Bottom strip label
+    const labelH = 46;
+    const grad = ctx.createLinearGradient(0, cH - labelH, 0, cH);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.72)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, cH - labelH, cW, labelH);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.max(12, Math.round(cW / 35))}px sans-serif`;
+    ctx.fillText('Virtual Try-On Preview', 14, cH - 14);
+
+    // Small product thumbnail in corner
+    const thumbSize = Math.round(cW * 0.1);
+    const thumbX = cW - thumbSize - 12;
+    const thumbY = cH - thumbSize - 12;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 8;
+    roundRect(ctx, thumbX, thumbY, thumbSize, thumbSize, 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fill();
+    ctx.restore();
+    ctx.drawImage(productImg, thumbX + 3, thumbY + 3, thumbSize - 6, thumbSize - 6);
+
+    return canvas.toDataURL('image/jpeg', 0.93);
   } catch {
     return userImageUrl;
   }
