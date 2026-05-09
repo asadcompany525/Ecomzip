@@ -276,6 +276,82 @@ serve(async (req) => {
       return jsonResp({ success: true, debug: true, note: "OTP logged server-side." });
     }
 
+    if (type === "send-newsletter") {
+      const rl = checkRateLimit(ip, true);
+      if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);
+
+      const { emails, subject, html, tracking_id, from_name } = body;
+      if (!emails || !Array.isArray(emails) || emails.length === 0) return jsonResp({ error: "No recipients" }, 400);
+      if (!subject || !html) return jsonResp({ error: "Missing subject or html" }, 400);
+
+      const safeEmails = (emails as string[]).filter((e) => typeof e === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+      if (safeEmails.length === 0) return jsonResp({ error: "No valid emails" }, 400);
+
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      const GMAIL_USER = Deno.env.get("GMAIL_USER");
+      const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
+      const safeSubject = String(subject).slice(0, 300);
+      const safeHtml = String(html);
+      const senderName = String(from_name || "Stopy Shoes").slice(0, 80);
+
+      if (RESEND_API_KEY) {
+        let sent = 0; let failed = 0;
+        const batchSize = 50;
+        for (let i = 0; i < safeEmails.length; i += batchSize) {
+          const batch = safeEmails.slice(i, i + batchSize);
+          try {
+            const res = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                from: GMAIL_USER ? `${senderName} <${GMAIL_USER}>` : `${senderName} <noreply@stopy.shop>`,
+                to: batch, subject: safeSubject, html: safeHtml,
+              }),
+            });
+            if (res.ok) sent += batch.length; else failed += batch.length;
+          } catch { failed += batch.length; }
+        }
+        return jsonResp({ success: true, provider: "resend", sent, failed, tracking_id });
+      }
+
+      if (GMAIL_USER && GMAIL_APP_PASSWORD) {
+        const encoder = new TextEncoder();
+        const dec = new TextDecoder();
+        let sent = 0; let failed = 0;
+
+        for (const email of safeEmails) {
+          try {
+            const rawEmail = [
+              `From: ${senderName} <${GMAIL_USER}>`, `To: ${email}`,
+              `Subject: ${safeSubject}`, `MIME-Version: 1.0`,
+              `Content-Type: text/html; charset=UTF-8`, ``, safeHtml,
+            ].join("\r\n");
+
+            const smtpConn = await Deno.connectTls({ hostname: "smtp.gmail.com", port: 465 });
+            const read = async () => dec.decode((await smtpConn.read(new Uint8Array(4096))) ?? new Uint8Array());
+            const write = async (s: string) => smtpConn.write(encoder.encode(s + "\r\n"));
+            await read();
+            await write(`EHLO stopy.edge`); await read();
+            await write(`AUTH LOGIN`); await read();
+            await write(btoa(GMAIL_USER)); await read();
+            await write(btoa(GMAIL_APP_PASSWORD));
+            const authResp = await read();
+            if (!authResp.includes("235")) throw new Error("Gmail auth failed");
+            await write(`MAIL FROM:<${GMAIL_USER}>`); await read();
+            await write(`RCPT TO:<${email}>`); await read();
+            await write(`DATA`); await read();
+            await write(rawEmail + "\r\n."); await read();
+            await write(`QUIT`); smtpConn.close();
+            sent++;
+          } catch { failed++; }
+        }
+        return jsonResp({ success: true, provider: "gmail_smtp", sent, failed, tracking_id });
+      }
+
+      console.log(`[NEWSLETTER-DEV] Subject: ${safeSubject} | Recipients: ${safeEmails.length}`);
+      return jsonResp({ success: true, provider: "dev_log", sent: safeEmails.length, failed: 0, tracking_id, note: "No email provider configured. Set RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD in Supabase secrets." });
+    }
+
     if (type === "reset_password") {
       const rl = checkRateLimit(ip, true);
       if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);

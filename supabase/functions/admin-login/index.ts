@@ -111,22 +111,35 @@ serve(async (req) => {
       return data.session;
     };
 
-    if (emailLower === ADMIN_EMAIL) {
-      let session = await signInAndReturn(ADMIN_EMAIL, ADMIN_PASS, "admin");
-      if (!session && pwd === ADMIN_PASS) {
+    // Check DB for overridden admin credentials first
+    let effectiveAdminEmail = ADMIN_EMAIL;
+    let effectiveAdminPass = ADMIN_PASS;
+    try {
+      const { data: credData } = await supabaseAdmin
+        .from("site_settings").select("value").eq("key", "admin_credentials").maybeSingle();
+      if (credData?.value && typeof credData.value === "object") {
+        const v = credData.value as any;
+        if (v.email) effectiveAdminEmail = String(v.email).toLowerCase();
+        if (v.password) effectiveAdminPass = String(v.password);
+      }
+    } catch {}
+
+    if (emailLower === effectiveAdminEmail) {
+      let session = await signInAndReturn(effectiveAdminEmail, effectiveAdminPass, "admin");
+      if (!session && pwd === effectiveAdminPass) {
         const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        const existing = users?.find((u) => u.email?.toLowerCase() === ADMIN_EMAIL);
+        const existing = users?.find((u) => u.email?.toLowerCase() === effectiveAdminEmail);
         if (existing) {
-          await supabaseAdmin.auth.admin.updateUserById(existing.id, { password: ADMIN_PASS, email_confirm: true });
+          await supabaseAdmin.auth.admin.updateUserById(existing.id, { email: effectiveAdminEmail, password: effectiveAdminPass, email_confirm: true });
         } else {
           await supabaseAdmin.auth.admin.createUser({
-            email: ADMIN_EMAIL, password: ADMIN_PASS, email_confirm: true,
+            email: effectiveAdminEmail, password: effectiveAdminPass, email_confirm: true,
             user_metadata: { full_name: "Admin" },
           });
         }
-        session = await signInAndReturn(ADMIN_EMAIL, ADMIN_PASS, "admin");
+        session = await signInAndReturn(effectiveAdminEmail, effectiveAdminPass, "admin");
       }
-      if (!session || pwd !== ADMIN_PASS) {
+      if (!session || pwd !== effectiveAdminPass) {
         recordFailure(ip);
         return json({ error: "Invalid credentials" }, 401);
       }

@@ -158,18 +158,27 @@ Return ONLY a JSON object with no markdown:
         : htmlBody + trackPixel;
 
       let sendSuccess = false;
-      let sendError = '';
+      let provider = 'unknown';
+      let sentCount = 0;
       try {
-        const { error: fnError } = await supabase.functions.invoke('send-newsletter', {
-          body: { emails, subject, html: trackedHtml, tracking_id: trackingId },
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('ai-assistant', {
+          body: {
+            type: 'send-newsletter',
+            emails,
+            subject,
+            html: trackedHtml,
+            tracking_id: trackingId,
+            from_name: brandName || 'Stopy Shoes',
+          },
         });
-        if (fnError) {
-          sendError = fnError.message;
-        } else {
+        if (fnError) throw new Error(fnError.message);
+        if (fnData?.success) {
           sendSuccess = true;
+          provider = fnData.provider || 'sent';
+          sentCount = fnData.sent || emails.length;
         }
       } catch (e: any) {
-        sendError = e.message || 'Edge function unavailable';
+        console.warn('[Newsletter] send failed:', e.message);
       }
 
       await supabase.from('email_logs').insert({
@@ -181,12 +190,17 @@ Return ONLY a JSON object with no markdown:
         sent_at: new Date().toISOString(),
       }).catch(() => {});
 
-      if (sendSuccess) {
-        toast({ title: `✅ Newsletter sent!`, description: `Delivered to ${emails.length} subscribers.` });
+      if (sendSuccess && provider !== 'dev_log') {
+        toast({ title: `✅ Newsletter sent!`, description: `Delivered to ${sentCount} subscribers via ${provider}.` });
+      } else if (sendSuccess && provider === 'dev_log') {
+        toast({
+          title: `📋 Campaign logged (${emails.length} recipients)`,
+          description: `No email provider configured. Set GMAIL_USER + GMAIL_APP_PASSWORD or RESEND_API_KEY in Supabase → Project Settings → Edge Functions → Secrets.`,
+        });
       } else {
         toast({
-          title: `📋 Newsletter logged (${emails.length} recipients)`,
-          description: `Email delivery needs SMTP setup. Campaign saved to logs.`,
+          title: `⚠️ Delivery issue`,
+          description: `Campaign saved. Check Supabase secrets: GMAIL_USER, GMAIL_APP_PASSWORD, or RESEND_API_KEY.`,
         });
       }
       setSubject('');

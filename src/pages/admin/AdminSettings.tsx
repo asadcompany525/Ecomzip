@@ -184,16 +184,36 @@ const AdminSettings = () => {
     setTestingKey(false);
   };
 
+  const [updatingCreds, setUpdatingCreds] = useState(false);
+
   const updateAdminPassword = async () => {
     if (!adminCreds.email || !adminCreds.password) {
       toast({ title: 'Email and password required', variant: 'destructive' });
       return;
     }
-    const res = await supabase.functions.invoke('admin-login', {
-      body: { username: adminCreds.email, password: adminCreds.password, action: 'update_credentials' }
-    });
-    if (res.error) toast({ title: 'Failed to update credentials', variant: 'destructive' });
-    else toast({ title: 'Admin credentials updated!' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminCreds.email)) {
+      toast({ title: 'Enter a valid email address', variant: 'destructive' });
+      return;
+    }
+    if (adminCreds.password.length < 6) {
+      toast({ title: 'Password must be at least 6 characters', variant: 'destructive' });
+      return;
+    }
+    setUpdatingCreds(true);
+    try {
+      await ensureAdminSession();
+      // Save new credentials to site_settings so admin-login edge function picks them up
+      const { error } = await supabase.from('site_settings').upsert(
+        { key: 'admin_credentials', value: { email: adminCreds.email.toLowerCase(), password: adminCreds.password } },
+        { onConflict: 'key' }
+      );
+      if (error) throw error;
+      toast({ title: '✅ Admin credentials updated!', description: `Next login use: ${adminCreds.email}` });
+      setAdminCreds({ email: '', password: '' });
+    } catch (e: any) {
+      toast({ title: 'Failed to update credentials', description: e.message, variant: 'destructive' });
+    }
+    setUpdatingCreds(false);
   };
 
   return (
@@ -476,10 +496,15 @@ const AdminSettings = () => {
           <Card>
             <CardHeader><CardTitle>Admin Login Credentials</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">Change admin login email and password</p>
-              <div><Label>New Email</Label><Input type="email" value={adminCreds.email} onChange={e => setAdminCreds(p => ({ ...p, email: e.target.value }))} /></div>
-              <div><Label>New Password</Label><Input type="password" value={adminCreds.password} onChange={e => setAdminCreds(p => ({ ...p, password: e.target.value }))} /></div>
-              <Button onClick={updateAdminPassword} variant="destructive">Update Admin Credentials</Button>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                <p className="font-semibold">⚠️ Important</p>
+                <p className="text-xs mt-0.5">After saving, your next login must use the new email and password. Write them down before saving.</p>
+              </div>
+              <div><Label>New Admin Email</Label><Input type="email" value={adminCreds.email} onChange={e => setAdminCreds(p => ({ ...p, email: e.target.value }))} placeholder="admin@example.com" /></div>
+              <div><Label>New Admin Password</Label><Input type="password" value={adminCreds.password} onChange={e => setAdminCreds(p => ({ ...p, password: e.target.value }))} placeholder="Min 6 characters" /></div>
+              <Button onClick={updateAdminPassword} disabled={updatingCreds} variant="destructive" className="gap-2">
+                {updatingCreds ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : 'Update Admin Credentials'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
