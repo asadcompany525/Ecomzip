@@ -517,7 +517,7 @@ const ProductDetail = () => {
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold">Size: <span className="font-normal text-muted-foreground">{selectedSize || 'Select'}</span></h4>
-                  {product?.gender !== 'unisex' && (
+                  {(getCategoryType() === 'shoes' || getCategoryType() === 'clothing') && (
                     <button
                       onClick={() => { setSizeAdvisorOpen(true); setAdvisorResult(null); }}
                       className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
@@ -567,9 +567,11 @@ const ProductDetail = () => {
               </Button>
               <Button variant="outline" size="icon" className="h-11 w-11" onClick={handleShare}><Share2 className="h-5 w-5" /></Button>
             </div>
-            <div className="mb-4">
-              <VirtualTryOn productImage={product.image} productName={product.name} productCategory={categoryName} />
-            </div>
+            {getCategoryType() !== 'generic' && (
+              <div className="mb-4">
+                <VirtualTryOn productImage={product.image} productName={product.name} productCategory={categoryName} />
+              </div>
+            )}
 
             {/* Policies inline */}
             <div className="grid grid-cols-3 gap-2 border rounded-xl p-3 mb-3">
@@ -820,25 +822,14 @@ const ProductDetail = () => {
               <div className="flex-1 border-t" />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-sm">My usual size</Label>
-                <Input
-                  value={advisorUsualSize}
-                  onChange={e => setAdvisorUsualSize(e.target.value)}
-                  placeholder="e.g. 42, UK 8..."
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-sm">In which brand?</Label>
-                <Input
-                  value={advisorBrand}
-                  onChange={e => setAdvisorBrand(e.target.value)}
-                  placeholder="e.g. Nike, Servis..."
-                  className="mt-1"
-                />
-              </div>
+            <div>
+              <Label className="text-sm">My usual size</Label>
+              <Input
+                value={advisorUsualSize}
+                onChange={e => setAdvisorUsualSize(e.target.value)}
+                placeholder="e.g. 42, UK 8, M, L..."
+                className="mt-1"
+              />
             </div>
 
             <Button onClick={getSizeAdvice} disabled={advisorLoading || advisorUploadingPhoto} className="w-full gap-2">
@@ -894,12 +885,22 @@ const ProductDetail = () => {
               </div>
             )}
 
-            <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
-              <p className="font-medium">💡 How to measure foot length:</p>
-              <p>1. Place your foot on a piece of paper</p>
-              <p>2. Mark the heel and longest toe</p>
-              <p>3. Measure the distance in cm</p>
-            </div>
+            {getCategoryType() === 'shoes' && (
+              <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+                <p className="font-medium">💡 How to measure foot length:</p>
+                <p>1. Place your foot on a piece of paper</p>
+                <p>2. Mark the heel and longest toe</p>
+                <p>3. Measure the distance in cm</p>
+              </div>
+            )}
+            {getCategoryType() === 'clothing' && (
+              <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+                <p className="font-medium">💡 How to measure chest/bust:</p>
+                <p>1. Wrap a tape measure around the fullest part of your chest</p>
+                <p>2. Keep it parallel to the ground</p>
+                <p>3. Note in centimeters</p>
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>

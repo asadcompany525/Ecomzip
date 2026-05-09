@@ -636,17 +636,56 @@ const AdminProducts = () => {
 
               {/* Manual Sizes + Variants */}
               <div className="bg-muted/30 rounded-xl p-4 space-y-3">
-                <Label className="text-base font-semibold">📐 Manual Sizes & Colors</Label>
+                <Label className="text-base font-semibold">📐 Sizes & Colors</Label>
+
+                {/* Quick Size Presets based on product type + gender */}
                 <div>
-                  <Label className="text-xs">Enter Sizes Manually</Label>
+                  <Label className="text-xs font-semibold mb-2 block">⚡ Quick Size Presets — click to apply</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const type = (form.product_type || '').toLowerCase();
+                      const gender = (form.gender || '').toLowerCase();
+                      const presets: { label: string; sizes: string }[] = [];
+                      if (type === 'shoes') {
+                        if (gender === 'men' || gender === 'unisex') presets.push({ label: '👟 Men Shoes (39–45)', sizes: '39-45' });
+                        if (gender === 'women') presets.push({ label: '👠 Women Shoes (35–41)', sizes: '35-41' });
+                        if (gender === 'kids') presets.push({ label: '🧒 Kids Shoes (20–35)', sizes: '20-35' });
+                        if (gender === 'men' || gender === 'unisex') presets.push({ label: '🥿 Men Sandals (40–44)', sizes: '40-44' });
+                        if (gender === 'women') presets.push({ label: '👡 Ladies Heels (35–40)', sizes: '35-40' });
+                        if (gender === 'unisex') presets.push({ label: '👟 Unisex (36–44)', sizes: '36-44' });
+                      } else if (type === 'bags') {
+                        presets.push({ label: '👜 Bags (S, M, L)', sizes: 'S,M,L' });
+                        presets.push({ label: '🎒 One Size', sizes: 'One Size' });
+                        presets.push({ label: '💼 S, M, L, XL', sizes: 'S,M,L,XL' });
+                      } else {
+                        presets.push({ label: '👕 Clothing (XS–XXL)', sizes: 'XS,S,M,L,XL,XXL' });
+                        presets.push({ label: '🩱 S, M, L, XL', sizes: 'S,M,L,XL' });
+                        presets.push({ label: '📏 Free Size', sizes: 'Free Size' });
+                      }
+                      return presets.map(preset => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setSizeInput(preset.sizes)}
+                          className="px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-full hover:bg-primary/20 transition-colors"
+                        >
+                          {preset.label}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Enter Sizes Manually (or use presets above)</Label>
                   <Input
                     value={sizeInput}
                     onChange={e => setSizeInput(e.target.value)}
-                    placeholder="e.g. 39-45 or 36,37,38,39 or Small,Medium,Large"
+                    placeholder="e.g. 39-45 or 36,37,38,39 or S,M,L,XL"
                     className="mt-1 font-mono"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Ranges: <code className="bg-muted px-1 rounded">39-45</code> · Singles: <code className="bg-muted px-1 rounded">36,38,40</code> · Text: <code className="bg-muted px-1 rounded">S,M,L,XL</code> · Kids: <code className="bg-muted px-1 rounded">16-25</code>
+                    Ranges: <code className="bg-muted px-1 rounded">39-45</code> · Singles: <code className="bg-muted px-1 rounded">36,38,40</code> · Text: <code className="bg-muted px-1 rounded">S,M,L,XL</code>
                   </p>
                   {getSizesForProduct().length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">

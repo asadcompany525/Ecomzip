@@ -3,7 +3,6 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Filter, Grid3X3, List, X, ArrowLeft, ShoppingCart, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
@@ -44,7 +43,6 @@ const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedGender, setSelectedGender] = useState('');
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState([0, 50000]);
   const [sortBy, setSortBy] = useState('popular');
   const [searchQuery, setSearchQuery] = useState(initialSearch);
@@ -74,9 +72,6 @@ const Products = () => {
     if (Array.isArray(p.colors)) return p.colors.map((c: any) => typeof c === 'object' ? c.name : c).filter(Boolean);
     return [];
   }))], [allProducts]);
-  const allSizes = useMemo(() => [...new Set(allProducts.flatMap(p => (p.sizes || []).map((s: any) => String(s))))].sort(), [allProducts]);
-  const allBrands = useMemo(() => [...new Set(allProducts.map(p => p.brand).filter(Boolean))], [allProducts]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const level1Cats = dbCategories.filter(c => c.level === 1);
 
   const filteredProducts = useMemo(() => {
@@ -84,9 +79,7 @@ const Products = () => {
       if (selectedCategory) {
         const cat = dbCategories.find(c => c.name === selectedCategory || c.id === selectedCategory);
         if (cat) {
-          // Match main category, sub-category, or sub-sub category
           const catIds = [cat.id];
-          // If level 1, include all sub/sub-sub categories
           if (cat.level === 1) {
             const l2 = dbCategories.filter(c => c.level === 2 && c.parent_id === cat.id);
             l2.forEach(c2 => { catIds.push(c2.id); dbCategories.filter(c => c.level === 3 && c.parent_id === c2.id).forEach(c3 => catIds.push(c3.id)); });
@@ -101,8 +94,6 @@ const Products = () => {
         const pColors = (p.colors || []).map((c: any) => typeof c === 'object' ? c.name : c);
         if (!pColors.some((c: string) => selectedColors.includes(c))) return false;
       }
-      if (selectedSizes.length && !p.sizes?.some((s: any) => selectedSizes.includes(String(s)))) return false;
-      if (selectedBrands.length && !selectedBrands.includes(p.brand)) return false;
       if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -118,7 +109,7 @@ const Products = () => {
       default: result.sort((a, b) => (b.sold || 0) - (a.sold || 0));
     }
     return result;
-  }, [allProducts, selectedCategory, selectedGender, selectedColors, selectedSizes, selectedBrands, priceRange, sortBy, searchQuery, dbCategories]);
+  }, [allProducts, selectedCategory, selectedGender, selectedColors, priceRange, sortBy, searchQuery, dbCategories]);
 
   // Log search queries to Supabase for admin analytics
   useEffect(() => {
@@ -137,8 +128,8 @@ const Products = () => {
 
   const popularProducts = useMemo(() => [...allProducts].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 8), [allProducts]);
   const toggleArray = (arr: string[], val: string) => arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
-  const clearFilters = () => { setSelectedCategory(''); setSelectedGender(''); setSelectedColors([]); setSelectedSizes([]); setSelectedBrands([]); setPriceRange([0, 50000]); setSearchQuery(''); };
-  const activeFilterCount = [selectedCategory, selectedGender, selectedColors.length > 0, selectedSizes.length > 0, selectedBrands.length > 0, priceRange[0] > 0 || priceRange[1] < 50000].filter(Boolean).length;
+  const clearFilters = () => { setSelectedCategory(''); setSelectedGender(''); setSelectedColors([]); setPriceRange([0, 50000]); setSearchQuery(''); };
+  const activeFilterCount = [selectedCategory, selectedGender, selectedColors.length > 0, priceRange[0] > 0 || priceRange[1] < 50000].filter(Boolean).length;
 
   const level2All = dbCategories.filter(c => c.level === 2);
   const level3All = dbCategories.filter(c => c.level === 3);
@@ -242,29 +233,6 @@ const Products = () => {
             {allColors.map(color => (
               <button key={color} onClick={() => setSelectedColors(toggleArray(selectedColors, color))}
                 className={`px-3 py-1.5 rounded-full text-xs border transition-all ${selectedColors.includes(color) ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:border-primary'}`}>{color}</button>
-            ))}
-          </div>
-        </div>
-      )}
-      {allSizes.length > 0 && (
-        <div>
-          <h4 className="font-semibold mb-3 text-sm">Size</h4>
-          <div className="flex flex-wrap gap-2">
-            {allSizes.map(size => (
-              <button key={size} onClick={() => setSelectedSizes(toggleArray(selectedSizes, size))}
-                className={`w-10 h-10 rounded-lg text-xs font-medium border transition-colors ${selectedSizes.includes(size) ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:border-primary'}`}>{size}</button>
-            ))}
-          </div>
-        </div>
-      )}
-      {allBrands.length > 0 && (
-        <div>
-          <h4 className="font-semibold mb-3 text-sm">Brand</h4>
-          <div className="space-y-2">
-            {allBrands.map(brand => (
-              <label key={brand} className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={selectedBrands.includes(brand)} onCheckedChange={() => setSelectedBrands(toggleArray(selectedBrands, brand))} />{brand}
-              </label>
             ))}
           </div>
         </div>

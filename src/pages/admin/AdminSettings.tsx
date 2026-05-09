@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Trash2, Loader2, Upload, Bot, Eye, EyeOff } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Upload, Bot, Eye, EyeOff, CheckCircle, XCircle, Zap } from 'lucide-react';
 import { invalidateStoreSettingsCache } from '@/hooks/useStoreSettings';
 import { ensureAdminSession } from '@/lib/adminSession';
 
@@ -23,6 +23,9 @@ const AdminSettings = () => {
   const [geminiKey, setGeminiKey] = useState('');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
+  const [keySaved, setKeySaved] = useState(false);
+  const [testingKey, setTestingKey] = useState(false);
+  const [keyTestResult, setKeyTestResult] = useState<'ok' | 'fail' | null>(null);
   const [resetting, setResetting] = useState(false);
   const [resetConfirm, setResetConfirm] = useState('');
   const [faviconUploading, setFaviconUploading] = useState(false);
@@ -56,7 +59,7 @@ const AdminSettings = () => {
         if (s.key === 'faq_page') setFaqPage(s.value);
         if (s.key === 'receipt') setReceipt(s.value);
         if (s.key === 'site_title') setSiteTitle(String(s.value || ''));
-        if (s.key === 'gemini_api_key') setGeminiKey(String(s.value || ''));
+        if (s.key === 'gemini_api_key') { const k = String(s.value || ''); setGeminiKey(k); if (k) setKeySaved(true); }
       });
     };
     load();
@@ -153,9 +156,32 @@ const AdminSettings = () => {
     setSavingAi(true);
     try {
       await save('gemini_api_key', geminiKey.trim());
-      toast({ title: '✅ Gemini API key saved!', description: 'All AI features will now use your Gemini key.' });
+      setKeySaved(true);
+      setKeyTestResult(null);
+      toast({ title: '✅ Gemini API key saved!', description: 'All AI features are now connected and ready to use.' });
     } catch {}
     setSavingAi(false);
+  };
+
+  const testAiKey = async () => {
+    if (!geminiKey.trim()) {
+      toast({ title: 'Enter and save a key first', variant: 'destructive' });
+      return;
+    }
+    setTestingKey(true);
+    setKeyTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+        body: { type: 'product-ai', messages: [{ role: 'user', content: 'Respond with only the word: OK' }] },
+      });
+      if (error || data?.error) throw new Error(error?.message || data?.error || 'Failed');
+      setKeyTestResult('ok');
+      toast({ title: '✅ AI Connection Successful', description: 'Your Gemini key is working and all AI features are active.' });
+    } catch (e: any) {
+      setKeyTestResult('fail');
+      toast({ title: '❌ AI Connection Failed', description: e.message || 'Key may be invalid or edge function not deployed.', variant: 'destructive' });
+    }
+    setTestingKey(false);
   };
 
   const updateAdminPassword = async () => {
@@ -362,25 +388,41 @@ const AdminSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bot className="h-5 w-5 text-primary" /> AI Configuration
+                {keySaved && keyTestResult === null && (
+                  <span className="ml-auto text-xs font-normal bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" /> Key Saved
+                  </span>
+                )}
+                {keyTestResult === 'ok' && (
+                  <span className="ml-auto text-xs font-normal bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" /> AI Active ✓
+                  </span>
+                )}
+                {keyTestResult === 'fail' && (
+                  <span className="ml-auto text-xs font-normal bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <XCircle className="h-3 w-3" /> Connection Failed
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-                <p className="font-semibold mb-1">📌 How to get your Gemini API Key</p>
+                <p className="font-semibold mb-1">📌 Set your Gemini API Key once — applies to ALL AI features instantly</p>
                 <ol className="list-decimal ml-4 space-y-0.5 text-xs">
                   <li>Go to <strong>aistudio.google.com</strong></li>
                   <li>Click <strong>Get API Key</strong> → Create API key</li>
-                  <li>Copy and paste the key below</li>
+                  <li>Paste below and click <strong>Save</strong></li>
                 </ol>
-                <p className="mt-2 text-xs">This key enables: AI Virtual Try-On, AI Helper, AI Sales Predictor, AI Fraud Detector, AI Marketing Hub, AI Banner Creator, and all other AI tools.</p>
+                <p className="mt-2 text-xs font-medium">✅ One key connects: Virtual Try-On · Size Advisor · AI Helper · Sales Predictor · Fraud Detector · Marketing Hub · Banner Creator · and all other AI tools</p>
               </div>
+
               <div>
                 <Label>Gemini API Key</Label>
                 <div className="relative mt-1">
                   <Input
                     type={showGeminiKey ? 'text' : 'password'}
                     value={geminiKey}
-                    onChange={e => setGeminiKey(e.target.value)}
+                    onChange={e => { setGeminiKey(e.target.value); setKeySaved(false); setKeyTestResult(null); }}
                     placeholder="AIza..."
                     className="pr-10 font-mono text-sm"
                   />
@@ -393,19 +435,39 @@ const AdminSettings = () => {
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Key is stored securely in your database. It is never exposed to the public.
+                  Stored securely in your database. Never exposed to the public. Change anytime — takes effect immediately.
                 </p>
               </div>
-              {geminiKey && (
-                <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                  <Bot className="h-3.5 w-3.5 shrink-0" />
-                  Key entered — click Save to apply.
+
+              <div className="flex gap-2 flex-wrap">
+                <Button onClick={saveAiSettings} disabled={savingAi} className="gap-2">
+                  {savingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                  {savingAi ? 'Saving...' : keySaved ? 'Update API Key' : 'Save API Key'}
+                </Button>
+                <Button onClick={testAiKey} disabled={testingKey || !geminiKey} variant="outline" className="gap-2">
+                  {testingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                  {testingKey ? 'Testing...' : 'Test Connection'}
+                </Button>
+              </div>
+
+              {keyTestResult === 'ok' && (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-3">
+                  <CheckCircle className="h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="font-semibold">AI is fully connected!</p>
+                    <p className="text-xs mt-0.5">All AI features across the store are now using your Gemini key.</p>
+                  </div>
                 </div>
               )}
-              <Button onClick={saveAiSettings} disabled={savingAi} className="gap-2">
-                {savingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-                {savingAi ? 'Saving...' : 'Save Gemini API Key'}
-              </Button>
+              {keyTestResult === 'fail' && (
+                <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-3">
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Connection failed</p>
+                    <p className="text-xs mt-0.5">Check your API key is valid. You can still save and try again later.</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
