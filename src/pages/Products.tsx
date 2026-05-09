@@ -43,6 +43,7 @@ const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedGender, setSelectedGender] = useState('');
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState([0, 50000]);
   const [sortBy, setSortBy] = useState('popular');
   const [searchQuery, setSearchQuery] = useState(initialSearch);
@@ -94,6 +95,10 @@ const Products = () => {
         const pColors = (p.colors || []).map((c: any) => typeof c === 'object' ? c.name : c);
         if (!pColors.some((c: string) => selectedColors.includes(c))) return false;
       }
+      if (selectedSizes.length) {
+        const pSizes = Array.isArray(p.sizes) ? p.sizes.map(String) : [];
+        if (!pSizes.some((s: string) => selectedSizes.includes(s))) return false;
+      }
       if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -128,8 +133,20 @@ const Products = () => {
 
   const popularProducts = useMemo(() => [...allProducts].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 8), [allProducts]);
   const toggleArray = (arr: string[], val: string) => arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
-  const clearFilters = () => { setSelectedCategory(''); setSelectedGender(''); setSelectedColors([]); setPriceRange([0, 50000]); setSearchQuery(''); };
-  const activeFilterCount = [selectedCategory, selectedGender, selectedColors.length > 0, priceRange[0] > 0 || priceRange[1] < 50000].filter(Boolean).length;
+  const allSizes = useMemo(() => {
+    const sizes = new Set<string>();
+    allProducts.forEach(p => {
+      if (Array.isArray(p.sizes)) p.sizes.forEach((s: any) => sizes.add(String(s)));
+    });
+    return [...sizes].sort((a, b) => {
+      const na = Number(a), nb = Number(b);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+  }, [allProducts]);
+
+  const clearFilters = () => { setSelectedCategory(''); setSelectedGender(''); setSelectedColors([]); setSelectedSizes([]); setPriceRange([0, 50000]); setSearchQuery(''); };
+  const activeFilterCount = [selectedCategory, selectedGender, selectedColors.length > 0, selectedSizes.length > 0, priceRange[0] > 0 || priceRange[1] < 50000].filter(Boolean).length;
 
   const level2All = dbCategories.filter(c => c.level === 2);
   const level3All = dbCategories.filter(c => c.level === 3);
@@ -226,6 +243,17 @@ const Products = () => {
           <span>Selected: Rs. {priceRange[0].toLocaleString()} – Rs. {priceRange[1].toLocaleString()}</span>
         </div>
       </div>
+      {allSizes.length > 0 && (
+        <div>
+          <h4 className="font-semibold mb-3 text-sm">Size</h4>
+          <div className="flex flex-wrap gap-2">
+            {allSizes.map(size => (
+              <button key={size} onClick={() => setSelectedSizes(toggleArray(selectedSizes, size))}
+                className={`px-3 py-1.5 rounded-lg text-xs border font-medium transition-all ${selectedSizes.includes(size) ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:border-primary'}`}>{size}</button>
+            ))}
+          </div>
+        </div>
+      )}
       {allColors.length > 0 && (
         <div>
           <h4 className="font-semibold mb-3 text-sm">Color</h4>

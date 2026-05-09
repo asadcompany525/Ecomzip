@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Upload, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import React from 'react';
@@ -18,19 +17,17 @@ interface Props {
   variants: VariantRow[];
   setVariants: React.Dispatch<React.SetStateAction<VariantRow[]>>;
   sizes: string[];
-  productType: 'shoes' | 'bags';
+  productType: string;
   gender: string;
+  onRemoveSize?: (size: string) => void;
 }
 
-const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, productType, gender }: Props) => {
+const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, productType, gender, onRemoveSize }: Props) => {
   const [uploading, setUploading] = useState<number | null>(null);
   const [newSize, setNewSize] = useState('');
   const [customSizes, setCustomSizes] = useState<string[]>([]);
-  const [rangeStart, setRangeStart] = useState('');
-  const [rangeEnd, setRangeEnd] = useState('');
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Merged sizes = default + custom (no duplicates)
   const allSizes = [...defaultSizes, ...customSizes.filter(s => !defaultSizes.includes(s))];
 
   const addCustomSize = () => {
@@ -42,23 +39,13 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
     setNewSize('');
   };
 
-  const generateSizeRange = () => {
-    const start = parseInt(rangeStart);
-    const end = parseInt(rangeEnd);
-    if (isNaN(start) || isNaN(end) || start > end || end - start > 50) return;
-    const generated: string[] = [];
-    for (let i = start; i <= end; i++) {
-      const s = String(i);
-      if (!allSizes.includes(s)) generated.push(s);
-    }
-    if (generated.length === 0) { setRangeStart(''); setRangeEnd(''); return; }
-    setCustomSizes(prev => [...prev, ...generated]);
-    setVariants(prev => prev.map(v => ({
-      ...v,
-      sizes: { ...v.sizes, ...Object.fromEntries(generated.map(s => [s, 0])) },
-    })));
-    setRangeStart('');
-    setRangeEnd('');
+  const removeDefaultSize = (size: string) => {
+    setVariants(prev => prev.map(v => {
+      const newSizes = { ...v.sizes };
+      delete newSizes[size];
+      return { ...v, sizes: newSizes };
+    }));
+    if (onRemoveSize) onRemoveSize(size);
   };
 
   const removeCustomSize = (size: string) => {
@@ -127,7 +114,8 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
   };
 
   const getSizeLabel = () => {
-    if (productType === 'bags') return 'Size';
+    const t = productType.toLowerCase();
+    if (t.includes('bag') || t.includes('purse') || t.includes('wallet') || t.includes('clutch') || t.includes('tote') || t.includes('backpack')) return 'Size';
     if (gender === 'men') return 'Men Sizes';
     if (gender === 'women') return 'Women Sizes';
     if (gender === 'kids') return 'Kids Sizes';
@@ -141,48 +129,25 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-sm text-muted-foreground">{getSizeLabel()} — Enter qty per size per color</p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={addVariant} className="gap-1">
-            <Plus className="h-3 w-3" /> Add Color
-          </Button>
-        </div>
-      </div>
-
-      {/* Size Range Input */}
-      <div className="flex items-center gap-2 flex-wrap bg-primary/5 border border-primary/20 rounded-lg p-2">
-        <span className="text-xs font-semibold text-primary">Auto Range:</span>
-        <Input
-          value={rangeStart}
-          onChange={e => setRangeStart(e.target.value)}
-          placeholder="Start (e.g. 16)"
-          className="h-7 w-24 text-xs"
-          type="number"
-        />
-        <span className="text-xs text-muted-foreground">to</span>
-        <Input
-          value={rangeEnd}
-          onChange={e => setRangeEnd(e.target.value)}
-          placeholder="End (e.g. 21)"
-          className="h-7 w-24 text-xs"
-          type="number"
-          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), generateSizeRange())}
-        />
-        <Button size="sm" onClick={generateSizeRange} className="h-7 px-3 gap-1 text-xs" disabled={!rangeStart || !rangeEnd}>
-          <Plus className="h-3 w-3" /> Generate Sizes
+        <Button variant="outline" size="sm" onClick={addVariant} className="gap-1">
+          <Plus className="h-3 w-3" /> Add Color
         </Button>
-        <span className="text-[10px] text-muted-foreground">e.g. Kids: 16–21 · Men: 39–45</span>
       </div>
 
-      {/* Add Single Size Row */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium text-muted-foreground">Sizes:</span>
+      {/* Sizes display — all with X button, wraps naturally */}
+      <div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
         {defaultSizes.map(s => (
-          <span key={s} className="bg-muted text-xs px-2 py-0.5 rounded-md">{s}</span>
+          <span key={s} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full border border-primary/20">
+            {s}
+            <button type="button" onClick={() => removeDefaultSize(s)} className="hover:text-destructive ml-0.5 transition-colors">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
         ))}
         {customSizes.map(s => (
-          <span key={s} className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-md flex items-center gap-1">
+          <span key={s} className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full border border-green-200">
             {s}
-            <button onClick={() => removeCustomSize(s)} className="hover:text-destructive ml-0.5">
+            <button type="button" onClick={() => removeCustomSize(s)} className="hover:text-destructive ml-0.5 transition-colors">
               <X className="h-2.5 w-2.5" />
             </button>
           </span>
@@ -192,11 +157,11 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
             value={newSize}
             onChange={e => setNewSize(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomSize())}
-            placeholder="Single size..."
-            className="h-7 w-24 text-xs"
+            placeholder="Add size..."
+            className="h-7 w-20 text-xs"
           />
           <Button size="sm" variant="outline" onClick={addCustomSize} className="h-7 px-2 gap-1">
-            <Plus className="h-3 w-3" /> Add
+            <Plus className="h-3 w-3" />
           </Button>
         </div>
       </div>

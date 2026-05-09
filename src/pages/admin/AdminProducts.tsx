@@ -27,7 +27,6 @@ interface ProductForm {
   brand: string;
   gender: string;
   price: number;
-  original_price: number | null;
   discount_percent: number;
   discount_type: 'none' | 'discount' | 'flash_sale';
   flash_sale_ends: string;
@@ -43,7 +42,7 @@ interface ProductForm {
   video_url: string;
   sizes: string[];
   tags: string[];
-  product_type: 'shoes' | 'bags';
+  product_type: string;
 }
 
 interface VariantRow {
@@ -56,13 +55,38 @@ interface VariantRow {
 
 const defaultForm: ProductForm = {
   title: '', description: '', brand: '', gender: 'men',
-  price: 0, original_price: null, discount_percent: 0,
+  price: 0, discount_percent: 0,
   discount_type: 'none', flash_sale_ends: '',
   category_id: null, sub_category_id: null, sub_sub_category_id: null,
   is_active: true, is_new_arrival: false,
   return_policy: '7 days return policy', claim_duration: '30 days', claim_policy: 'Manufacturing defects only. Normal wear, misuse, water damage, color fading, and size issues are not claimable.',
   images: [], video_url: '', sizes: [], tags: [], product_type: 'shoes',
 };
+
+const BAG_TYPES = ['bags', 'handbags', 'purses', 'wallets', 'clutch', 'tote', 'backpacks'];
+const FOOTWEAR_TYPES = ['shoes', 'sandals', 'heels', 'slippers', 'boots', 'loafers', 'sneakers', 'chappal', 'khussa', 'moccasins'];
+
+const DEFAULT_PRODUCT_TYPES = [
+  { value: 'shoes', label: '👟 Shoes' },
+  { value: 'sandals', label: '🥿 Sandals' },
+  { value: 'heels', label: '👠 Heels' },
+  { value: 'slippers', label: '🩴 Slippers' },
+  { value: 'boots', label: '👢 Boots' },
+  { value: 'loafers', label: '👞 Loafers' },
+  { value: 'sneakers', label: '👟 Sneakers' },
+  { value: 'chappal', label: '🥿 Chappal' },
+  { value: 'khussa', label: '👞 Khussa' },
+  { value: 'moccasins', label: '🥿 Moccasins' },
+  { value: 'bags', label: '👜 Bags' },
+  { value: 'handbags', label: '👜 Handbags' },
+  { value: 'purses', label: '👛 Purses' },
+  { value: 'wallets', label: '💼 Wallets' },
+  { value: 'backpacks', label: '🎒 Backpacks' },
+  { value: 'clutch', label: '👝 Clutch' },
+  { value: 'tote', label: '🛍️ Tote Bag' },
+  { value: 'clothing', label: '👕 Clothing' },
+  { value: 'accessories', label: '💍 Accessories' },
+];
 
 const COLOR_PALETTES: Record<string, { name: string; hex: string }[]> = {
   shoes_gents: [
@@ -139,6 +163,11 @@ const AdminProducts = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [sizeInput, setSizeInput] = useState('');
   const [deleteDialog, setDeleteDialog] = useState<{ id: string; title: string; force: boolean } | null>(null);
+  const [customProductTypes, setCustomProductTypes] = useState<{ value: string; label: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('stopy_custom_product_types') || '[]'); } catch { return []; }
+  });
+  const [newTypeInput, setNewTypeInput] = useState('');
+  const [showAddType, setShowAddType] = useState(false);
 
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('products').select('*, product_variants(*)').order('created_at', { ascending: false });
@@ -160,35 +189,72 @@ const AdminProducts = () => {
 
   useEffect(() => { fetchProducts(); fetchCategories(); logTimezoneSync(); }, []);
 
+  const allProductTypes = [...DEFAULT_PRODUCT_TYPES, ...customProductTypes];
+
+  const addCustomProductType = () => {
+    const val = newTypeInput.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!val || allProductTypes.some(t => t.value === val)) return;
+    const newType = { value: val, label: `✏️ ${newTypeInput.trim()}` };
+    const updated = [...customProductTypes, newType];
+    setCustomProductTypes(updated);
+    localStorage.setItem('stopy_custom_product_types', JSON.stringify(updated));
+    setForm(p => ({ ...p, product_type: val }));
+    setNewTypeInput('');
+    setShowAddType(false);
+  };
+
+  const isBagType = (type: string) => BAG_TYPES.some(bt => type.toLowerCase().includes(bt));
+  const isFootwearType = (type: string) => FOOTWEAR_TYPES.some(ft => type.toLowerCase().includes(ft));
+  const showGender = !isBagType(form.product_type) || form.product_type === 'backpacks';
+
   const getSizesForProduct = (): string[] => {
     const manual = parseSizeInput(sizeInput);
     return manual.length > 0 ? manual : (form.sizes.length > 0 ? form.sizes : []);
+  };
+
+  const onRemoveSize = (size: string) => {
+    const remaining = getSizesForProduct().filter(s => s !== size);
+    setSizeInput(remaining.length > 0 ? remaining.join(',') : '');
   };
 
   const level1 = categories.filter(c => c.level === 1);
   const level2 = categories.filter(c => c.level === 2 && c.parent_id === form.category_id);
   const level3 = categories.filter(c => c.level === 3 && c.parent_id === form.sub_category_id);
 
-  // Auto-calculate price from original price and discount
   const handleDiscountChange = (discountPercent: number) => {
-    setForm(p => {
-      const newForm = { ...p, discount_percent: discountPercent };
-      if (p.original_price && discountPercent > 0) {
-        newForm.price = Math.round(p.original_price - (p.original_price * discountPercent / 100));
-      }
-      return newForm;
-    });
+    setForm(p => ({ ...p, discount_percent: discountPercent }));
   };
 
-  const handleOriginalPriceChange = (origPrice: number) => {
-    setForm(p => {
-      const newForm = { ...p, original_price: origPrice || null };
-      if (origPrice && p.discount_percent > 0) {
-        newForm.price = Math.round(origPrice - (origPrice * p.discount_percent / 100));
+  const generateProductCode = async () => {
+    const subCat = categories.find(c => c.id === form.sub_category_id);
+    const cat = categories.find(c => c.id === form.category_id);
+    const src = subCat || cat;
+    const prefix = src ? src.name.substring(0, 3).toUpperCase() : 'PRD';
+    const { data: deletedData } = await supabase.from('deleted_product_codes').select('code').like('code', `${prefix}%`);
+    const deletedCodes = new Set((deletedData || []).map((d: any) => d.code));
+    let maxNum = 0;
+    products.forEach(p => {
+      const code = (p.tags as string[])?.[0] || '';
+      if (code.startsWith(prefix)) {
+        const num = parseInt(code.replace(prefix, ''), 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
       }
-      return newForm;
     });
+    deletedCodes.forEach((code: string) => {
+      const num = parseInt(code.replace(prefix, ''), 10);
+      if (!isNaN(num) && num > maxNum) maxNum = num;
+    });
+    let candidate = maxNum + 1;
+    while (deletedCodes.has(`${prefix}${String(candidate).padStart(3, '0')}`)) candidate++;
+    const nextCode = `${prefix}${String(candidate).padStart(3, '0')}`;
+    setForm(p => ({ ...p, tags: [nextCode, ...p.tags.slice(1)] }));
   };
+
+  useEffect(() => {
+    if (dialogOpen && !form.id) {
+      generateProductCode();
+    }
+  }, [dialogOpen]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -247,8 +313,6 @@ const AdminProducts = () => {
           description: data.description || p.description,
           brand: data.brand || p.brand,
           gender: data.gender || p.gender,
-          price: data.suggestedPrice || p.price,
-          original_price: data.suggestedOriginalPrice || p.original_price,
           return_policy: data.returnPolicy || p.return_policy,
           claim_duration: data.claimDuration || p.claim_duration,
           claim_policy: data.claimPolicy || p.claim_policy,
@@ -303,9 +367,8 @@ const AdminProducts = () => {
         title: form.title,
         description: form.description || null,
         price: form.price || 0,
-        original_price: form.original_price || null,
         stock: totalStock,
-        gender: form.gender || 'unisex',
+        gender: showGender ? (form.gender || 'unisex') : 'unisex',
         is_active: form.is_active,
         is_flash_sale: form.discount_type === 'flash_sale',
         is_new_arrival: form.is_new_arrival,
@@ -391,6 +454,15 @@ const AdminProducts = () => {
   const handleEdit = async (product: any) => {
     const existingSizes = (product.sizes as string[]) || [];
     setSizeInput(existingSizes.join(','));
+    const detectedType = (() => {
+      const t = (product.product_type || '').toLowerCase();
+      if (t) return t;
+      if (product.gender === 'bags') return 'bags';
+      const title = (product.title || '').toLowerCase();
+      if (FOOTWEAR_TYPES.some(ft => title.includes(ft))) return title.includes('sandal') ? 'sandals' : title.includes('heel') ? 'heels' : 'shoes';
+      if (BAG_TYPES.some(bt => title.includes(bt))) return title.includes('wallet') ? 'wallets' : title.includes('purse') ? 'purses' : 'bags';
+      return 'shoes';
+    })();
     setForm({
       id: product.id,
       title: product.title || '',
@@ -398,7 +470,6 @@ const AdminProducts = () => {
       brand: product.brand || '',
       gender: product.gender || 'men',
       price: product.price || 0,
-      original_price: product.original_price,
       discount_percent: product.discount_percent || 0,
       discount_type: product.is_flash_sale ? 'flash_sale' : (product.discount_percent > 0 ? 'discount' : 'none'),
       flash_sale_ends: utcToPKTInput(product.flash_sale_ends || ''),
@@ -414,7 +485,7 @@ const AdminProducts = () => {
       video_url: product.video_url || '',
       sizes: existingSizes,
       tags: product.tags || [],
-      product_type: product.gender === 'bags' ? 'bags' : 'shoes',
+      product_type: detectedType,
     });
 
     const pvs = product.product_variants || [];
@@ -541,26 +612,40 @@ const AdminProducts = () => {
                 </div>
                 <div>
                   <Label>Product Type</Label>
-                  <Select value={form.product_type} onValueChange={v => setForm(p => ({ ...p, product_type: v as any }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="shoes">👟 Shoes</SelectItem>
-                      <SelectItem value="bags">👜 Bags</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-1.5">
+                    <Select value={form.product_type} onValueChange={v => {
+                      if (v === '__add_custom__') { setShowAddType(true); return; }
+                      setForm(p => ({ ...p, product_type: v }));
+                    }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {allProductTypes.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                        <SelectItem value="__add_custom__">➕ Add Custom Type</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {showAddType && (
+                      <div className="flex gap-1.5">
+                        <Input value={newTypeInput} onChange={e => setNewTypeInput(e.target.value)} placeholder="e.g. Platform Shoes" className="h-8 text-xs" onKeyDown={e => e.key === 'Enter' && addCustomProductType()} />
+                        <Button size="sm" onClick={addCustomProductType} className="h-8 px-3 text-xs">Add</Button>
+                        <Button size="sm" variant="ghost" onClick={() => { setShowAddType(false); setNewTypeInput(''); }} className="h-8 px-2 text-xs">✕</Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <Label>Gender</Label>
-                  <Select value={form.gender} onValueChange={v => setForm(p => ({ ...p, gender: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="men">Men</SelectItem>
-                      <SelectItem value="women">Women</SelectItem>
-                      <SelectItem value="kids">Kids</SelectItem>
-                      <SelectItem value="unisex">Unisex</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {showGender && (
+                  <div>
+                    <Label>Gender</Label>
+                    <Select value={form.gender} onValueChange={v => setForm(p => ({ ...p, gender: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="men">Men</SelectItem>
+                        <SelectItem value="women">Women</SelectItem>
+                        <SelectItem value="kids">Kids</SelectItem>
+                        <SelectItem value="unisex">Unisex</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               {/* Category */}
@@ -574,34 +659,38 @@ const AdminProducts = () => {
                       <SelectContent>{level1.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label className="text-xs">Sub Category</Label>
-                    <Select value={form.sub_category_id || ''} onValueChange={v => setForm(p => ({ ...p, sub_category_id: v, sub_sub_category_id: null }))}>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{level2.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Sub-Sub Category</Label>
-                    <Select value={form.sub_sub_category_id || ''} onValueChange={v => setForm(p => ({ ...p, sub_sub_category_id: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>{level3.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
+                  {level2.length > 0 && (
+                    <div>
+                      <Label className="text-xs">Sub Category</Label>
+                      <Select value={form.sub_category_id || ''} onValueChange={v => setForm(p => ({ ...p, sub_category_id: v, sub_sub_category_id: null }))}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>{level2.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {level3.length > 0 && (
+                    <div>
+                      <Label className="text-xs">Sub-Sub Category</Label>
+                      <Select value={form.sub_sub_category_id || ''} onValueChange={v => setForm(p => ({ ...p, sub_sub_category_id: v }))}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>{level3.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Pricing with auto-calculate */}
+              {/* Pricing */}
               <div className="bg-muted/30 rounded-xl p-4 space-y-3">
-                <Label className="text-base font-semibold">💰 Price & Discount (Auto Calculate)</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Label className="text-base font-semibold">💰 Price & Discount</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div>
-                    <Label className="text-xs">Original Price</Label>
-                    <Input type="number" value={form.original_price || ''} onChange={e => handleOriginalPriceChange(Number(e.target.value))} placeholder="Cost price" />
+                    <Label className="text-xs font-semibold">Selling Price (Rs.)</Label>
+                    <Input type="number" value={form.price} onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) }))} className="font-bold text-lg" placeholder="0" />
                   </div>
                   <div>
                     <Label className="text-xs">Discount Type</Label>
-                    <Select value={form.discount_type} onValueChange={v => setForm(p => ({ ...p, discount_type: v as any }))}>
+                    <Select value={form.discount_type} onValueChange={v => setForm(p => ({ ...p, discount_type: v as any, discount_percent: v === 'none' ? 0 : p.discount_percent }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No Discount</SelectItem>
@@ -613,18 +702,14 @@ const AdminProducts = () => {
                   {form.discount_type !== 'none' && (
                     <div>
                       <Label className="text-xs">Discount %</Label>
-                      <Input type="number" value={form.discount_percent} onChange={e => handleDiscountChange(Number(e.target.value))} />
+                      <Input type="number" min={0} max={99} value={form.discount_percent} onChange={e => handleDiscountChange(Number(e.target.value))} placeholder="e.g. 20" />
+                      {form.discount_percent > 0 && form.price > 0 && (
+                        <p className="text-[10px] text-green-600 mt-1">
+                          Original was ~Rs. {Math.round(form.price / (1 - form.discount_percent / 100)).toLocaleString()}
+                        </p>
+                      )}
                     </div>
                   )}
-                  <div>
-                    <Label className="text-xs">Selling Price (Auto)</Label>
-                    <Input type="number" value={form.price} onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) }))} className="font-bold" />
-                    {form.original_price && form.discount_percent > 0 && (
-                      <p className="text-[10px] text-green-600 mt-1">
-                        {form.discount_percent}% off → Rs. {form.price.toLocaleString()}
-                      </p>
-                    )}
-                  </div>
                 </div>
                 {form.discount_type === 'flash_sale' && (
                   <div>
@@ -640,35 +725,48 @@ const AdminProducts = () => {
 
                 {/* Quick Size Presets based on product type + gender */}
                 <div>
-                  <Label className="text-xs font-semibold mb-2 block">⚡ Quick Size Presets — click to apply</Label>
+                  <Label className="text-xs font-semibold mb-2 block">⚡ Quick Presets — click to apply</Label>
                   <div className="flex flex-wrap gap-2">
                     {(() => {
                       const type = (form.product_type || '').toLowerCase();
-                      const gender = (form.gender || '').toLowerCase();
+                      const g = (form.gender || '').toLowerCase();
                       const presets: { label: string; sizes: string }[] = [];
-                      if (type === 'shoes') {
-                        if (gender === 'men' || gender === 'unisex') presets.push({ label: '👟 Men Shoes (39–45)', sizes: '39-45' });
-                        if (gender === 'women') presets.push({ label: '👠 Women Shoes (35–41)', sizes: '35-41' });
-                        if (gender === 'kids') presets.push({ label: '🧒 Kids Shoes (20–35)', sizes: '20-35' });
-                        if (gender === 'men' || gender === 'unisex') presets.push({ label: '🥿 Men Sandals (40–44)', sizes: '40-44' });
-                        if (gender === 'women') presets.push({ label: '👡 Ladies Heels (35–40)', sizes: '35-40' });
-                        if (gender === 'unisex') presets.push({ label: '👟 Unisex (36–44)', sizes: '36-44' });
-                      } else if (type === 'bags') {
-                        presets.push({ label: '👜 Bags (S, M, L)', sizes: 'S,M,L' });
-                        presets.push({ label: '🎒 One Size', sizes: 'One Size' });
+                      if (isFootwearType(type)) {
+                        if (type.includes('heel')) {
+                          presets.push({ label: '👠 Ladies Heels (35–41)', sizes: '35-41' });
+                          presets.push({ label: '👠 Ladies Heels (35–40)', sizes: '35-40' });
+                        } else if (type.includes('chappal') || type.includes('khussa') || type.includes('moccasin')) {
+                          if (g === 'men' || g === 'unisex') presets.push({ label: '👞 Men (40–45)', sizes: '40-45' });
+                          if (g === 'women') presets.push({ label: '👞 Women (36–41)', sizes: '36-41' });
+                          if (g === 'kids') presets.push({ label: '🧒 Kids (20–35)', sizes: '20-35' });
+                        } else {
+                          if (g === 'men' || g === 'unisex') presets.push({ label: '👟 Men (39–45)', sizes: '39-45' });
+                          if (g === 'women') presets.push({ label: '👠 Women (35–41)', sizes: '35-41' });
+                          if (g === 'kids') presets.push({ label: '🧒 Kids (20–35)', sizes: '20-35' });
+                          if (g === 'unisex') presets.push({ label: '👟 Unisex (36–44)', sizes: '36-44' });
+                        }
+                      } else if (['bags','handbags','purses','clutch','tote'].some(t => type.includes(t))) {
+                        presets.push({ label: '👜 S, M, L', sizes: 'S,M,L' });
                         presets.push({ label: '💼 S, M, L, XL', sizes: 'S,M,L,XL' });
-                      } else {
-                        presets.push({ label: '👕 Clothing (XS–XXL)', sizes: 'XS,S,M,L,XL,XXL' });
-                        presets.push({ label: '🩱 S, M, L, XL', sizes: 'S,M,L,XL' });
+                        presets.push({ label: '🏷️ One Size', sizes: 'One Size' });
+                      } else if (type.includes('wallet') || type.includes('accessories')) {
+                        presets.push({ label: '🏷️ One Size', sizes: 'One Size' });
+                        presets.push({ label: '📏 S, M, L', sizes: 'S,M,L' });
+                      } else if (type.includes('backpack')) {
+                        presets.push({ label: '🎒 S, M, L', sizes: 'S,M,L' });
+                        presets.push({ label: '🏷️ One Size', sizes: 'One Size' });
+                      } else if (type.includes('cloth')) {
+                        presets.push({ label: '👕 XS–XXL', sizes: 'XS,S,M,L,XL,XXL' });
+                        presets.push({ label: '👔 S, M, L, XL', sizes: 'S,M,L,XL' });
                         presets.push({ label: '📏 Free Size', sizes: 'Free Size' });
+                      } else {
+                        presets.push({ label: '📏 Standard (39–45)', sizes: '39-45' });
+                        presets.push({ label: '🏷️ One Size', sizes: 'One Size' });
+                        presets.push({ label: '📐 S, M, L', sizes: 'S,M,L' });
                       }
                       return presets.map(preset => (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() => setSizeInput(preset.sizes)}
-                          className="px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-full hover:bg-primary/20 transition-colors"
-                        >
+                        <button key={preset.label} type="button" onClick={() => setSizeInput(preset.sizes)}
+                          className="px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-full hover:bg-primary/20 transition-colors">
                           {preset.label}
                         </button>
                       ));
@@ -677,7 +775,7 @@ const AdminProducts = () => {
                 </div>
 
                 <div>
-                  <Label className="text-xs">Enter Sizes Manually (or use presets above)</Label>
+                  <Label className="text-xs">Manual Size Range (or use presets above)</Label>
                   <Input
                     value={sizeInput}
                     onChange={e => setSizeInput(e.target.value)}
@@ -685,15 +783,8 @@ const AdminProducts = () => {
                     className="mt-1 font-mono"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Ranges: <code className="bg-muted px-1 rounded">39-45</code> · Singles: <code className="bg-muted px-1 rounded">36,38,40</code> · Text: <code className="bg-muted px-1 rounded">S,M,L,XL</code>
+                    Ranges: <code className="bg-muted px-1 rounded">39-45</code> · Singles: <code className="bg-muted px-1 rounded">36,38,40</code> · Text: <code className="bg-muted px-1 rounded">S,M,L</code>
                   </p>
-                  {getSizesForProduct().length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {getSizesForProduct().map(s => (
-                        <span key={s} className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full">{s}</span>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 {/* AI Color Suggestions — appear when sizes are entered */}
@@ -745,95 +836,69 @@ const AdminProducts = () => {
                   sizes={getSizesForProduct()}
                   productType={form.product_type}
                   gender={form.gender}
+                  onRemoveSize={onRemoveSize}
                 />
               </div>
 
-              {/* Product Code (Auto-Generated) */}
+              {/* Product Code */}
               <div className="bg-muted/30 rounded-xl p-4 space-y-3">
-                <Label className="text-base font-semibold">Product Code & AI Claim Info</Label>
+                <Label className="text-base font-semibold">🏷️ Product Code</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Product Code (auto-generated, editable)</Label>
-                    <div className="flex gap-2">
-                      <Input value={form.tags?.[0] || ''} onChange={e => setForm(p => ({ ...p, tags: [e.target.value, ...p.tags.slice(1)] }))} placeholder="Auto: PMP001" />
-                      <Button variant="outline" size="sm" type="button" onClick={async () => {
-                        // Auto-generate unique code from sub-category or category
-                        const subCat = categories.find(c => c.id === form.sub_category_id);
-                        const cat = categories.find(c => c.id === form.category_id);
-                        const src = subCat || cat;
-                        const prefix = src ? src.name.substring(0, 3).toUpperCase() : 'PRD';
-
-                        // Fetch deleted codes for this prefix to avoid reuse
-                        const { data: deletedData } = await supabase
-                          .from('deleted_product_codes')
-                          .select('code')
-                          .like('code', `${prefix}%`);
-                        const deletedCodes = new Set((deletedData || []).map((d: any) => d.code));
-
-                        // Find max existing number for this prefix (from active products + deleted)
-                        let maxNum = 0;
-                        products.forEach(p => {
-                          const code = (p.tags as string[])?.[0] || '';
-                          if (code.startsWith(prefix)) {
-                            const num = parseInt(code.replace(prefix, ''), 10);
-                            if (!isNaN(num) && num > maxNum) maxNum = num;
-                          }
-                        });
-                        deletedCodes.forEach((code: string) => {
-                          const num = parseInt(code.replace(prefix, ''), 10);
-                          if (!isNaN(num) && num > maxNum) maxNum = num;
-                        });
-
-                        // Find next available code that hasn't been used or deleted
-                        let candidate = maxNum + 1;
-                        while (deletedCodes.has(`${prefix}${String(candidate).padStart(3, '0')}`)) {
-                          candidate++;
-                        }
-                        const nextCode = `${prefix}${String(candidate).padStart(3, '0')}`;
-                        setForm(p => ({ ...p, tags: [nextCode, ...p.tags.slice(1)] }));
-                      }}>Auto</Button>
+                    <div className="flex gap-2 items-center">
+                      <Input value={form.tags?.[0] || ''} onChange={e => setForm(p => ({ ...p, tags: [e.target.value, ...p.tags.slice(1)] }))} placeholder="Auto-generating..." className="font-mono" />
+                      <Button variant="outline" size="sm" type="button" onClick={generateProductCode} title="Re-generate code">↺</Button>
                     </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Standard Claim Duration</Label>
-                    <Select value={form.claim_duration} onValueChange={v => setForm(p => ({ ...p, claim_duration: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="7 days">7 Days</SelectItem>
-                        <SelectItem value="15 days">15 Days</SelectItem>
-                        <SelectItem value="30 days">30 Days</SelectItem>
-                        <SelectItem value="60 days">60 Days</SelectItem>
-                        <SelectItem value="90 days">90 Days</SelectItem>
-                        <SelectItem value="No claim">No Claim</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-full">
-                    <Label className="text-xs">AI Claim Advisor Instructions (tell AI what qualifies for claim)</Label>
-                    <Textarea value={form.claim_policy} onChange={e => setForm(p => ({ ...p, claim_policy: e.target.value }))}
-                      rows={3} placeholder="e.g. Sole detach within 30 days = claim. Color fade is not claimable." />
+                    <p className="text-[10px] text-muted-foreground mt-1">Auto-generated on open. Click ↺ to regenerate.</p>
                   </div>
                 </div>
               </div>
 
-              {/* Policies */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Return Policy</Label>
-                  <Select value={form.return_policy} onValueChange={v => setForm(p => ({ ...p, return_policy: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="7 days return policy">7 Days Return</SelectItem>
-                      <SelectItem value="15 days return policy">15 Days Return</SelectItem>
-                      <SelectItem value="30 days return policy">30 Days Return</SelectItem>
-                      <SelectItem value="No return">No Return</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {/* Claim Info — only show when claim is enabled */}
+              <div className="bg-muted/30 rounded-xl p-4 space-y-3">
+                <Label className="text-base font-semibold">🛡️ Claim & Return Policy</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Claim Duration</Label>
+                    <Select value={form.claim_duration} onValueChange={v => setForm(p => ({ ...p, claim_duration: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="No claim">No Claim</SelectItem>
+                        <SelectItem value="7 days">7 Days Claim</SelectItem>
+                        <SelectItem value="15 days">15 Days Claim</SelectItem>
+                        <SelectItem value="30 days">30 Days Claim</SelectItem>
+                        <SelectItem value="60 days">60 Days Claim</SelectItem>
+                        <SelectItem value="90 days">90 Days Claim</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Return Policy</Label>
+                    <Select value={form.return_policy} onValueChange={v => setForm(p => ({ ...p, return_policy: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="No return">No Return</SelectItem>
+                        <SelectItem value="7 days return policy">7 Days Return</SelectItem>
+                        <SelectItem value="15 days return policy">15 Days Return</SelectItem>
+                        <SelectItem value="30 days return policy">30 Days Return</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {form.claim_duration !== 'No claim' && (
+                    <div className="col-span-full">
+                      <Label className="text-xs">Claim Policy (what qualifies for a claim)</Label>
+                      <Textarea value={form.claim_policy} onChange={e => setForm(p => ({ ...p, claim_policy: e.target.value }))}
+                        rows={2} placeholder="e.g. Sole detach within 30 days = claim. Color fade is not claimable." />
+                    </div>
+                  )}
                 </div>
-                <div className="col-span-full">
-                  <Label>Tags (comma separated)</Label>
-                  <Input value={form.tags.join(', ')} onChange={e => setForm(p => ({ ...p, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))} placeholder="casual, leather, comfort" />
-                </div>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <Label className="text-xs">Tags (comma separated)</Label>
+                <Input value={form.tags.join(', ')} onChange={e => setForm(p => ({ ...p, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))} placeholder="casual, leather, comfort" />
               </div>
 
               {/* Toggles */}
