@@ -1,0 +1,57 @@
+The Ultimate Global E-commerce Master Prompt: "Stopy Shoes" Evolution
+
+Task: Perform a full-scale UI/UX optimization, integrate Generative AI workflows, and implement a global-ready infrastructure.
+
+1. UI/UX Refinement (Fixing Video Glitches)
+
+Global Modal Overhaul: All pop-up windows must be centered with a fixed max-width (e.g., 850px) and substantial margins (padding) from the top, bottom, and sides to ensure they don't touch the screen edges.
+
+Eliminate Horizontal Scrolling: Strictly disable overflow-x in all modals and tables.
+
+Dynamic Line Wrapping: For "Colors" and "Sizes" selection in the Admin Panel, use flex-wrap: wrap. If the number of sizes/colors exceeds the width, they must move to the next line automatically instead of creating a scrollbar.
+
+Zero-Flash Navigation: Convert all navigation (Sidebar/Header) to Client-Side Routing (SPA) using React Router <Link>. There must be no white/blank page flash during transitions.
+
+2. Automated 3D & Media Gallery
+
+AI 3D Workflow (Admin): Add a "Generate 3D" button next to the video upload. On click, send the video to Meshy.ai API to generate a .glb model. Auto-save the result to Supabase Storage and link it to the product. Show a real-time progress bar.
+
+Color-Linked Gallery (Functional Fix): Fix the color swatch logic. Selecting a color (e.g., "Brown") must instantly update the main display to show the specific image/video mapped to that color variant.
+
+3. Realistic AI Virtual Try-On
+
+Generative AI Integration: Replace simple image overlays with Generative In-painting (using Stability AI or similar).
+
+Feature: User uploads a photo; the AI generates a new, high-resolution image where the user is naturally wearing the shoe.
+
+Action: Add a "Download My AI Look" button for the user to save the generated image.
+
+4. Permanent Global Branding
+
+Stopy Clean-up: Hardcode the new Title and Favicon in index.html. Purge all references to the "Stopy" name from metadata, loading states, and database defaults to ensure the correct brand shows even on slow networks.
+
+5. Internationalization & Global Logistics
+
+Currency: Auto-detect user IP and convert prices to local currency (USD, AED, PKR, etc.) using a real-time Exchange Rate API.
+
+Auth & Address: Implement an International Country Code picker for phone numbers. Enable Google Places API for global address auto-fill.
+
+Google Smart-Fill: Add a "Fetch from Gmail" button in the address section to pull shipping details from the user's Google account, while allowing manual edits.
+
+6. Autonomous AI Salesperson
+
+Personalized Greeting: The AI must fetch and use the user's Actual Name from their profile (e.g., "Assalam-o-Alaikum, Asad!").
+
+Product Expertise: The AI must have full context of product materials, quality claims, and current discounts to act as a professional salesperson.
+
+Size Advisor Redirection: If a user asks about fit, the AI should politely direct them to the dedicated "Size Advisor" tool on the page.
+
+
+7 . Visual Search Engine (Update)
+
+Enhance Existing Search: Replace the basic image search with a Contextual AI Review.
+
+Logic: Use Computer Vision to analyze the uploaded image's category, style, and color.
+
+Non-Empty Results: If an exact match is missing, the AI must fetch "Related Styles" based on similarity (at least 40% match). Never return "No results"; always provide the closest alternatives.
+
