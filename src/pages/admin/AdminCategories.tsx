@@ -59,8 +59,14 @@ const AdminCategories = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Categories (3-Level)</h2>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-teal-100 rounded-xl"><Edit className="h-5 w-5 text-teal-600" /></div>
+          <div>
+            <h2 className="text-xl font-bold">Categories</h2>
+            <p className="text-sm text-muted-foreground">{categories.length} categories · 3-level hierarchy</p>
+          </div>
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setEdit({ name: '', slug: '', icon: '', image_url: '', parent_id: null, level: 1 })}>
@@ -113,15 +119,15 @@ const AdminCategories = () => {
 
       <div className="bg-card rounded-xl border overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr className="border-b bg-muted/50">
-            <th className="text-left p-3">Name</th>
-            <th className="text-left p-3">Level</th>
-            <th className="text-left p-3">Parent</th>
-            <th className="text-left p-3">Actions</th>
+          <thead><tr className="border-b bg-muted/40">
+            <th className="text-left p-3 text-xs font-semibold">Name</th>
+            <th className="text-left p-3 text-xs font-semibold">Level</th>
+            <th className="text-left p-3 text-xs font-semibold">Parent</th>
+            <th className="text-left p-3 text-xs font-semibold">Actions</th>
           </tr></thead>
           <tbody>
             {categories.map(c => (
-              <tr key={c.id} className="border-b hover:bg-accent/50">
+              <tr key={c.id} className="border-b hover:bg-muted/30 transition-colors">
                 <td className="p-3 font-medium" style={{ paddingLeft: `${(c.level - 1) * 24 + 12}px` }}>
                   {c.image_url && <img src={c.image_url} alt="" className="w-6 h-6 rounded inline mr-2 object-cover" />}
                   {c.name}

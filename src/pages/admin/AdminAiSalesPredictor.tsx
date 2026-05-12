@@ -132,8 +132,8 @@ Return ONLY valid JSON array.`
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-blue-100 rounded-lg"><TrendingUp className="h-6 w-6 text-blue-600" /></div>
-        <div><h1 className="text-2xl font-bold">AI Sales Predictor</h1><p className="text-muted-foreground text-sm">Stock suggestions based on 30-day sales trends</p></div>
+        <div className="p-2 bg-blue-100 rounded-xl"><TrendingUp className="h-5 w-5 text-blue-600" /></div>
+        <div><h1 className="text-xl font-bold">AI Sales Predictor</h1><p className="text-muted-foreground text-sm">Stock suggestions based on 30-day sales trends</p></div>
       </div>
 
       {predictions.length > 0 && (

@@ -205,8 +205,14 @@ const MyAddresses = () => {
       
       <main className="container py-5 max-w-xl mx-auto">
         <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'My Addresses' }]} />
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">My Addresses</h1>
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-100 rounded-xl"><MapPin className="h-5 w-5 text-blue-500" /></div>
+            <div>
+              <h1 className="text-2xl font-bold">My Addresses</h1>
+              <p className="text-sm text-muted-foreground">{addresses.length} saved address{addresses.length !== 1 ? 'es' : ''}</p>
+            </div>
+          </div>
           <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-1">
             <Plus className="h-4 w-4" /> Add Address
           </Button>

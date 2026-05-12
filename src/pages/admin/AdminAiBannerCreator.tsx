@@ -195,8 +195,13 @@ Choose a vibrant bg_color that matches the banner mood.` },
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold flex items-center gap-2"><Image className="h-5 w-5" /> AI Banner Creator</h2>
-      <p className="text-sm text-muted-foreground">Describe your banner — AI generates the title, subtitle, link, and creates a banner image automatically</p>
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-pink-100 rounded-xl"><Image className="h-5 w-5 text-pink-600" /></div>
+        <div>
+          <h2 className="text-xl font-bold">AI Banner Creator</h2>
+          <p className="text-sm text-muted-foreground">Describe your banner — AI generates title, subtitle, link, and image automatically</p>
+        </div>
+      </div>
 
       <div className="flex gap-2 flex-wrap">
         {['Flash sale banner with timer', 'New arrivals promotion', 'Discount items showcase', 'Free delivery announcement', 'Seasonal sale banner'].map(ex => (

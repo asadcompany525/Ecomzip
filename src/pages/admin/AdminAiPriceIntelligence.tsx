@@ -146,8 +146,8 @@ Return ONLY valid JSON array.`
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-green-100 rounded-lg"><DollarSign className="h-6 w-6 text-green-600" /></div>
-        <div><h1 className="text-2xl font-bold">AI Price Intelligence</h1><p className="text-muted-foreground text-sm">Compare pricing with market trends & get AI suggestions</p></div>
+        <div className="p-2 bg-green-100 rounded-xl"><DollarSign className="h-5 w-5 text-green-600" /></div>
+        <div><h1 className="text-xl font-bold">AI Price Intelligence</h1><p className="text-muted-foreground text-sm">Compare pricing with market trends & get AI suggestions</p></div>
       </div>
 
       <div className="flex gap-2 border-b">

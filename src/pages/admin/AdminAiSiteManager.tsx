@@ -125,15 +125,20 @@ Reply in English or Roman Urdu.` },
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="h-5 w-5" /> AI Site Manager</h2>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-cyan-100 rounded-xl"><Sparkles className="h-5 w-5 text-cyan-600" /></div>
+          <div>
+            <h2 className="text-xl font-bold">AI Site Manager</h2>
+            <p className="text-sm text-muted-foreground">Change store name, policies, fees, contact info — all via AI chat</p>
+          </div>
+        </div>
         {messages.length > 0 && (
           <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground text-xs" onClick={clearHistory}>
             <Trash2 className="h-3.5 w-3.5" /> Clear History
           </Button>
         )}
       </div>
-      <p className="text-sm text-muted-foreground">Change any website setting with AI — store name, policies, fees, contact info, etc. Your chat history is saved.</p>
 
       <div className="flex gap-2 flex-wrap">
         {quickActions.map(q => (

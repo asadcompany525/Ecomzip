@@ -181,8 +181,14 @@ Return JSON: { "decision": "reject" or "review", "reason": "explanation" }`
       
       <main className="container py-5 max-w-xl mx-auto">
         <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'Returns & Claims' }]} />
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Returns & Claims</h1>
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-orange-100 rounded-xl"><RotateCcw className="h-5 w-5 text-orange-500" /></div>
+            <div>
+              <h1 className="text-2xl font-bold">Returns & Claims</h1>
+              <p className="text-sm text-muted-foreground">{returns.length} request{returns.length !== 1 ? 's' : ''} submitted</p>
+            </div>
+          </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2"><RotateCcw className="h-4 w-4" /> New Request</Button>

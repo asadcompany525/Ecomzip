@@ -933,36 +933,36 @@ const AdminProducts = () => {
       <div className="bg-card rounded-xl border overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-             <tr className="border-b bg-muted/50">
-              <th className="text-left p-3">Image</th>
-              <th className="text-left p-3">Title</th>
-              <th className="text-left p-3">Price</th>
-              <th className="text-left p-3">Stock</th>
-              <th className="text-left p-3">Sold</th>
-              <th className="text-left p-3">Status</th>
-              <th className="text-left p-3">Actions</th>
+             <tr className="border-b bg-muted/40">
+              <th className="text-left p-3 text-xs font-semibold">Image</th>
+              <th className="text-left p-3 text-xs font-semibold">Title</th>
+              <th className="text-left p-3 text-xs font-semibold">Price</th>
+              <th className="text-left p-3 text-xs font-semibold">Stock</th>
+              <th className="text-left p-3 text-xs font-semibold">Sold</th>
+              <th className="text-left p-3 text-xs font-semibold">Status</th>
+              <th className="text-left p-3 text-xs font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(p => (
-              <tr key={p.id} className="border-b hover:bg-accent/50">
+              <tr key={p.id} className="border-b hover:bg-muted/30 transition-colors">
                 <td className="p-3">
-                  <img src={(p.images as string[])?.[0] || '/placeholder.svg'} alt="" className="w-12 h-12 rounded object-cover" />
+                  <img src={(p.images as string[])?.[0] || '/placeholder.svg'} alt="" className="w-12 h-12 rounded-lg object-cover border" />
                 </td>
                 <td className="p-3 font-medium max-w-[200px] truncate">{p.title}</td>
                 <td className="p-3">
-                  <span>Rs. {p.price?.toLocaleString()}</span>
+                  <span className="font-bold text-emerald-700">Rs. {p.price?.toLocaleString()}</span>
                   {p.original_price && <span className="text-xs text-muted-foreground line-through ml-1">Rs. {Number(p.original_price).toLocaleString()}</span>}
                 </td>
                 <td className="p-3">
-                  <span className={p.stock < 5 ? 'text-destructive font-bold' : ''}>{p.stock}</span>
+                  <span className={`font-bold ${p.stock < 5 ? 'text-red-600' : p.stock < 10 ? 'text-orange-600' : 'text-foreground'}`}>{p.stock}</span>
                 </td>
-                <td className="p-3">{p.sold}</td>
+                <td className="p-3 font-medium">{p.sold}</td>
                 <td className="p-3">
-                  <span className={`px-2 py-1 rounded-full text-xs ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                     {p.is_active ? 'Active' : 'Inactive'}
                   </span>
-                  {p.is_flash_sale && <span className="ml-1 text-xs">⚡</span>}
+                  {p.is_flash_sale && <span className="ml-1 text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">⚡ Sale</span>}
                   {p.video_url && <span className="ml-1 text-xs">🎥</span>}
                 </td>
                 <td className="p-3">

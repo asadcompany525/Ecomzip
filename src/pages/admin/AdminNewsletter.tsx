@@ -226,9 +226,12 @@ Return ONLY a JSON object with no markdown:
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Mail className="h-6 w-6 text-primary" /> Pro Newsletter & Bulk Email</h1>
-          <p className="text-sm text-muted-foreground mt-1">Send HTML emails to all customers · AI-powered writing assistant included.</p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-100 rounded-xl"><Mail className="h-5 w-5 text-blue-600" /></div>
+          <div>
+            <h1 className="text-2xl font-bold">Newsletter & Bulk Email</h1>
+            <p className="text-sm text-muted-foreground">Send HTML emails to all customers · AI writing assistant included</p>
+          </div>
         </div>
         <Badge variant="outline" className="gap-1.5"><Users className="h-3.5 w-3.5" /> {recipientCount} subscribers</Badge>
       </div>

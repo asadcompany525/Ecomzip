@@ -218,7 +218,13 @@ const AdminSettings = () => {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">Site Settings</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-slate-100 rounded-xl"><Zap className="h-5 w-5 text-slate-600" /></div>
+        <div>
+          <h1 className="text-xl font-bold">Site Settings</h1>
+          <p className="text-sm text-muted-foreground">Manage branding, contact, social links, receipt & more</p>
+        </div>
+      </div>
       <Tabs defaultValue="branding" className="w-full">
         <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
           <TabsTrigger value="branding">Branding</TabsTrigger>

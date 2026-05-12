@@ -241,14 +241,13 @@ Return ONLY valid JSON inside <RESPONSE_JSON>...</RESPONSE_JSON> and optionally 
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Command className="h-5 w-5 text-primary" /> AI Global Manager
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Text-based command center — type any instruction and AI instantly acts on it.
-          </p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-orange-100 rounded-xl"><Command className="h-5 w-5 text-orange-600" /></div>
+          <div>
+            <h2 className="text-xl font-bold">AI Global Manager</h2>
+            <p className="text-sm text-muted-foreground">Text-based command center — type any instruction and AI instantly acts on it</p>
+          </div>
         </div>
         <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
           UTC+5 · PKT Active

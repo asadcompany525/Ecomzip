@@ -163,13 +163,12 @@ export default function AdminAiVirtualTryon() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div>
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" /> AI Virtual Try-On
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Select a product from your catalog + upload a person's photo to generate a try-on preview.
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-fuchsia-100 rounded-xl"><Sparkles className="h-5 w-5 text-fuchsia-600" /></div>
+        <div>
+          <h2 className="text-xl font-bold">AI Virtual Try-On</h2>
+          <p className="text-sm text-muted-foreground">Select a product + upload a photo to generate a try-on preview</p>
+        </div>
       </div>
 
       <div className="flex items-start gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-xl px-4 py-3">

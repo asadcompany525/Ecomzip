@@ -191,8 +191,14 @@ const MySettings = () => {
       <Header />
       <main className="container py-5 max-w-5xl mx-auto">
         <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'Settings' }]} />
-        <div className="flex items-center justify-between mb-5">
-          <h1 className="text-2xl font-bold">Account Settings</h1>
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary/10 rounded-xl"><Shield className="h-5 w-5 text-primary" /></div>
+            <div>
+              <h1 className="text-2xl font-bold">Account Settings</h1>
+              <p className="text-sm text-muted-foreground">Manage your profile, notifications and preferences</p>
+            </div>
+          </div>
           <Button onClick={save} disabled={saving} className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save Changes

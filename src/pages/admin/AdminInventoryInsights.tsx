@@ -121,8 +121,14 @@ const AdminInventoryInsights = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Package className="h-5 w-5" /> Inventory Insights</h2>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-violet-100 rounded-xl"><BarChart3 className="h-5 w-5 text-violet-600" /></div>
+          <div>
+            <h2 className="text-xl font-bold">Inventory Insights</h2>
+            <p className="text-sm text-muted-foreground">{products.length} products · {lowStock.length} low stock · {deadStock.length} dead</p>
+          </div>
+        </div>
         {view !== 'city-heatmap' && (
           <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1"><Download className="h-4 w-4" /> Download CSV</Button>
         )}

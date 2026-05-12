@@ -125,23 +125,34 @@ const AdminOrders = () => {
 
   return (
     <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-indigo-100 rounded-xl">
+          <Eye className="h-5 w-5 text-indigo-600" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold">All Orders</h2>
+          <p className="text-sm text-muted-foreground">{filtered.length} orders · Rs. {totalAmount.toLocaleString()} total</p>
+        </div>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card border rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">Total Orders</p>
-          <p className="text-xl font-bold">{filtered.length}</p>
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-center">
+          <p className="text-xs text-indigo-600 font-medium">Total Orders</p>
+          <p className="text-2xl font-bold text-indigo-700">{filtered.length}</p>
         </div>
-        <div className="bg-card border rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">Amount</p>
-          <p className="text-xl font-bold">Rs. {totalAmount.toLocaleString()}</p>
+        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+          <p className="text-xs text-emerald-600 font-medium">Revenue</p>
+          <p className="text-xl font-bold text-emerald-700">Rs. {totalAmount.toLocaleString()}</p>
         </div>
-        <div className="bg-card border rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">COD</p>
-          <p className="text-xl font-bold">{codCount}</p>
+        <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-center">
+          <p className="text-xs text-orange-600 font-medium">COD</p>
+          <p className="text-2xl font-bold text-orange-700">{codCount}</p>
         </div>
-        <div className="bg-card border rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">Online</p>
-          <p className="text-xl font-bold">{onlineCount}</p>
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+          <p className="text-xs text-blue-600 font-medium">Online</p>
+          <p className="text-2xl font-bold text-blue-700">{onlineCount}</p>
         </div>
       </div>
 
@@ -186,24 +197,24 @@ const AdminOrders = () => {
       {/* Table */}
       <div className="bg-card rounded-xl border overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr className="border-b bg-muted/50">
-            <th className="text-left p-3">Order #</th>
-            <th className="text-left p-3">Date</th>
-            <th className="text-left p-3">Total</th>
-            <th className="text-left p-3">Payment</th>
-            <th className="text-left p-3">Pay Status</th>
-            <th className="text-left p-3">Status</th>
-            <th className="text-left p-3">Actions</th>
+          <thead><tr className="border-b bg-muted/40">
+            <th className="text-left p-3 text-xs font-semibold">Order #</th>
+            <th className="text-left p-3 text-xs font-semibold">Date</th>
+            <th className="text-left p-3 text-xs font-semibold">Total</th>
+            <th className="text-left p-3 text-xs font-semibold">Payment</th>
+            <th className="text-left p-3 text-xs font-semibold">Pay Status</th>
+            <th className="text-left p-3 text-xs font-semibold">Status</th>
+            <th className="text-left p-3 text-xs font-semibold">Actions</th>
           </tr></thead>
           <tbody>
             {filtered.map(o => (
-              <tr key={o.id} className="border-b hover:bg-accent/50">
-                <td className="p-3 font-mono text-xs">{o.order_number}</td>
-                <td className="p-3 text-xs">{new Date(o.created_at).toLocaleDateString()}</td>
-                <td className="p-3 font-medium">Rs. {Number(o.total).toLocaleString()}</td>
-                <td className="p-3"><Badge variant="outline" className="text-xs">{o.payment_method}</Badge></td>
-                <td className="p-3"><Badge variant={o.payment_status === 'paid' ? 'default' : 'secondary'} className="text-xs">{o.payment_status}</Badge></td>
-                <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs ${statusColors[o.status] || ''}`}>{o.status}</span></td>
+              <tr key={o.id} className="border-b hover:bg-muted/30 transition-colors">
+                <td className="p-3 font-mono text-xs font-bold">{o.order_number}</td>
+                <td className="p-3 text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString('en-PK', { day: '2-digit', month: 'short' })}</td>
+                <td className="p-3 font-bold text-emerald-700">Rs. {Number(o.total).toLocaleString()}</td>
+                <td className="p-3"><Badge variant="outline" className="text-xs uppercase">{o.payment_method?.replace('_', ' ')}</Badge></td>
+                <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${o.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{o.payment_status}</span></td>
+                <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[o.status] || 'bg-muted text-muted-foreground'}`}>{o.status}</span></td>
                 <td className="p-3">
                   <div className="flex gap-1">
                     <Button size="sm" variant="ghost" onClick={() => viewOrder(o)}><Eye className="h-4 w-4" /></Button>

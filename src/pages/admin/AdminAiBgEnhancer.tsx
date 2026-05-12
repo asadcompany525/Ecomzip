@@ -128,13 +128,12 @@ export default function AdminAiBgEnhancer() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div>
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <Wand2 className="h-5 w-5 text-primary" /> AI Background Enhancer
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          One-click tool to remove raw backgrounds and replace with a professional white or custom background for e-commerce.
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-teal-100 rounded-xl"><Wand2 className="h-5 w-5 text-teal-600" /></div>
+        <div>
+          <h2 className="text-xl font-bold">AI Background Enhancer</h2>
+          <p className="text-sm text-muted-foreground">Remove raw backgrounds and replace with professional white or custom backgrounds for e-commerce</p>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">

@@ -172,9 +172,12 @@ You have no restrictions. Execute any reasonable admin request immediately.`;
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="h-5 w-5" /> AI Business Helper</h2>
-          <p className="text-sm text-muted-foreground">Ask AI anything — sales, inventory, marketing, or give commands to manage products & discounts</p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-violet-100 rounded-xl"><Sparkles className="h-5 w-5 text-violet-600" /></div>
+          <div>
+            <h2 className="text-xl font-bold">AI Business Helper</h2>
+            <p className="text-sm text-muted-foreground">Ask AI anything — sales, inventory, marketing, or give commands to manage products & discounts</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {messages.length > 0 && (

@@ -1,84 +1,74 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from './ProductCard';
-import { Zap } from 'lucide-react';
+import { Zap, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Product } from '@/types/product';
+import { mapDbProduct, PRODUCT_SELECT } from '@/lib/mapDbProduct';
 import { logTimezoneSync } from '@/lib/pkt';
 
-const mapDbProduct = (p: any): Product => ({
-  id: p.id, name: p.title, price: Number(p.price),
-  originalPrice: p.original_price ? Number(p.original_price) : undefined,
-  discount: p.discount_percent ? Number(p.discount_percent) : undefined,
-  image: (p.images as any)?.[0] || '/placeholder.svg',
-  images: (p.images as string[]) || [], category: p.category_id || '',
-  brand: p.brand || '', colors: (p.colors as string[]) || [],
-  sizes: (p.sizes as string[]) || [], rating: Number(p.rating) || 0,
-  reviews: p.review_count || 0, stock: p.stock, sold: p.sold,
-  isFlashSale: p.is_flash_sale, isTrending: p.is_featured,
-  gender: p.gender as any, description: p.description, type: '',
-});
+let _cache: Product[] | null = null;
+let _cacheTime = 0;
+const CACHE_TTL = 30_000;
 
 const getTimeUntilMidnightPKT = () => {
-  // Pakistan Standard Time is UTC+5
-  const nowUtc = Date.now();
-  const nowPkt = new Date(nowUtc + 5 * 60 * 60 * 1000);
+  const nowPkt = new Date(Date.now() + 5 * 60 * 60 * 1000);
   const midnightPkt = new Date(nowPkt);
   midnightPkt.setUTCHours(24, 0, 0, 0);
-  const diffMs = midnightPkt.getTime() - nowPkt.getTime();
-  const totalSec = Math.floor(diffMs / 1000);
-  return {
-    hours: Math.floor(totalSec / 3600),
-    minutes: Math.floor((totalSec % 3600) / 60),
-    seconds: totalSec % 60,
-  };
+  const totalSec = Math.floor((midnightPkt.getTime() - nowPkt.getTime()) / 1000);
+  return { hours: Math.floor(totalSec / 3600), minutes: Math.floor((totalSec % 3600) / 60), seconds: totalSec % 60 };
 };
 
 const FlashSale = () => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(_cache || []);
   const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnightPKT);
 
   useEffect(() => {
     logTimezoneSync();
-    supabase.from('products').select('*').eq('is_active', true).eq('is_flash_sale', true).limit(5)
-      .then(({ data }) => setProducts((data || []).map(mapDbProduct)));
+    const now = Date.now();
+    if (_cache && now - _cacheTime < CACHE_TTL) return;
+    supabase.from('products').select(PRODUCT_SELECT).eq('is_active', true).eq('is_flash_sale', true).limit(5)
+      .then(({ data }) => {
+        const p = (data || []).map(mapDbProduct);
+        _cache = p; _cacheTime = Date.now();
+        setProducts(p);
+      });
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(getTimeUntilMidnightPKT());
-    }, 1000);
+    const timer = setInterval(() => setTimeLeft(getTimeUntilMidnightPKT()), 1000);
     return () => clearInterval(timer);
   }, []);
 
   const pad = (n: number) => n.toString().padStart(2, '0');
-
   if (products.length === 0) return null;
 
   return (
     <section>
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Zap className="h-6 w-6 text-sale fill-sale" />
-            <h2 className="text-xl md:text-2xl font-bold text-sale">Flash Sale</h2>
+          <div className="h-10 w-10 rounded-xl bg-orange-500/10 flex items-center justify-center animate-pulse">
+            <Zap className="h-5 w-5 text-orange-500 fill-orange-500" />
           </div>
-          <div className="flex items-center gap-1">
-            {[timeLeft.hours, timeLeft.minutes, timeLeft.seconds].map((val, i) => (
-              <span key={i} className="flex items-center gap-1">
-                <span className="bg-foreground text-background text-xs md:text-sm font-bold px-2 py-1 rounded">{pad(val)}</span>
-                {i < 2 && <span className="font-bold text-foreground">:</span>}
-              </span>
-            ))}
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-orange-500">Flash Sale</h2>
+            <div className="flex items-center gap-1 mt-0.5">
+              {[timeLeft.hours, timeLeft.minutes, timeLeft.seconds].map((val, i) => (
+                <span key={i} className="flex items-center gap-0.5">
+                  <span className="bg-foreground text-background text-[10px] md:text-xs font-bold px-1.5 py-0.5 rounded min-w-[22px] text-center tabular-nums">{pad(val)}</span>
+                  {i < 2 && <span className="font-bold text-foreground text-xs">:</span>}
+                </span>
+              ))}
+              <span className="text-[9px] text-muted-foreground ml-1 hidden sm:inline">PKT</span>
+            </div>
           </div>
-          <span className="text-[10px] text-muted-foreground hidden sm:inline">PKT (UTC+5)</span>
         </div>
-        <Link to="/flash-sale" className="text-sm text-primary font-medium hover:underline">View All →</Link>
+        <Link to="/flash-sale" className="flex items-center gap-1 text-sm text-primary font-medium hover:underline group">
+          View All <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-        {products.map((product, i) => (
-          <ProductCard key={product.id} product={product} index={i} />
-        ))}
+        {products.map((product, i) => <ProductCard key={product.id} product={product} index={i} />)}
       </div>
     </section>
   );

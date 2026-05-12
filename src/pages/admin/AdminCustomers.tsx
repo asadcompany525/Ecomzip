@@ -137,8 +137,8 @@ const AdminCustomers = () => {
       <div className="bg-card rounded-xl border overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="text-left p-3 font-semibold">Name</th>
+            <tr className="border-b bg-muted/40">
+              <th className="text-left p-3 font-semibold text-xs">Name</th>
               <th className="text-left p-3 font-semibold">Email</th>
               <th className="text-left p-3 font-semibold">Phone</th>
               <th className="text-left p-3 font-semibold text-amber-700">Password</th>

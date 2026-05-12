@@ -149,13 +149,12 @@ export default function AdminAiClaimValidator() {
   return (
     <div className="space-y-5 max-w-5xl">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Brain className="h-5 w-5 text-primary" /> AI Claim Validator
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            AI auto-analyzes claims and updates status in database.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-orange-100 rounded-xl"><Brain className="h-5 w-5 text-orange-600" /></div>
+          <div>
+            <h2 className="text-xl font-bold">AI Claim Validator</h2>
+            <p className="text-sm text-muted-foreground">AI auto-analyzes return claims and updates status in database</p>
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={fetchReturns} disabled={loadingReturns} className="gap-2">
           <RefreshCw className={`h-3.5 w-3.5 ${loadingReturns ? 'animate-spin' : ''}`} /> Refresh

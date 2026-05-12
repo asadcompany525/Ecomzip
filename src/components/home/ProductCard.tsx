@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
@@ -20,19 +20,14 @@ const CountdownTimer = ({ endsAt, productId }: { endsAt: string; productId: stri
 
   useEffect(() => {
     const update = () => {
-      const now = Date.now();
-      const end = new Date(endsAt).getTime();
-      const diff = end - now;
+      const diff = new Date(endsAt).getTime() - Date.now();
       if (diff <= 0) {
         setExpired(true);
         setTimeLeft('EXPIRED');
         (async () => {
           const { data: p } = await supabase.from('products').select('original_price').eq('id', productId).maybeSingle();
           if (p?.original_price) {
-            await supabase.from('products').update({
-              price: p.original_price, discount_percent: 0,
-              is_flash_sale: false, flash_sale_ends: null,
-            }).eq('id', productId);
+            await supabase.from('products').update({ price: p.original_price, discount_percent: 0, is_flash_sale: false, flash_sale_ends: null }).eq('id', productId);
           }
         })();
         return;
@@ -50,7 +45,7 @@ const CountdownTimer = ({ endsAt, productId }: { endsAt: string; productId: stri
 
   if (expired) return null;
   return (
-    <span className="absolute bottom-2 left-2 bg-destructive text-destructive-foreground text-[9px] font-bold px-1.5 py-0.5 rounded animate-pulse">
+    <span className="absolute bottom-2 left-2 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow animate-pulse">
       ⏰ {timeLeft}
     </span>
   );
@@ -61,6 +56,7 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
   const [dbFlashEnd, setDbFlashEnd] = useState<string | null>(flashSaleEnds || null);
   const [liveRating, setLiveRating] = useState(product.rating ?? 0);
   const [liveReviews, setLiveReviews] = useState(product.reviews ?? 0);
+  const inWishlist = isInWishlist(product.id);
 
   useEffect(() => {
     if (product.isFlashSale && !flashSaleEnds) {
@@ -70,11 +66,10 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
   }, [product.id, product.isFlashSale, flashSaleEnds]);
 
   useEffect(() => {
+    // Skip individual fetch if rating was pre-loaded from a batch query
+    if (product.rating > 0 || product.reviews > 0) return;
     let cancelled = false;
-    supabase
-      .from('reviews')
-      .select('rating')
-      .eq('product_id', product.id)
+    supabase.from('reviews').select('rating').eq('product_id', product.id)
       .then(({ data }) => {
         if (cancelled || !data || data.length === 0) return;
         const avg = data.reduce((s: number, r: any) => s + (r.rating || 0), 0) / data.length;
@@ -82,59 +77,104 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
         setLiveReviews(data.length);
       });
     return () => { cancelled = true; };
-  }, [product.id]);
+  }, [product.id, product.rating, product.reviews]);
 
   const timerEnd = dbFlashEnd || flashSaleEnds;
+  const isOOS = product.stock !== undefined && product.stock <= 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="group bg-card rounded-xl border overflow-hidden hover:shadow-lg transition-all duration-300"
+      transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.3 }}
+      className="group bg-card rounded-2xl border border-border/60 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
     >
       <Link to={`/product/${product.id}`} className="block">
-        <div className="relative aspect-square bg-muted overflow-hidden">
-          <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
-          {product.discount && product.discount > 0 && product.discount !== 0 && (
-            <Badge className="absolute top-1.5 left-1.5 bg-sale text-sale-foreground text-[9px] font-bold px-1.5 py-0.5">-{product.discount}%</Badge>
-          )}
-          {product.isFlashSale && (
-            <Badge className="absolute top-1.5 right-1.5 bg-primary text-primary-foreground text-[9px] px-1.5 py-0.5 animate-flash-pulse">⚡ Flash</Badge>
-          )}
+        <div className="relative aspect-square bg-muted/50 overflow-hidden">
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+          {/* Gradient overlay on hover */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+          {/* Badges */}
+          <div className="absolute top-2 left-2 flex flex-col gap-1">
+            {product.discount && product.discount > 0 && (
+              <Badge className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-sm">-{product.discount}%</Badge>
+            )}
+            {product.isFlashSale && (
+              <Badge className="bg-orange-500 text-white text-[9px] px-1.5 py-0.5 rounded-md shadow-sm">⚡ Flash</Badge>
+            )}
+            {product.isTrending && !product.isFlashSale && (
+              <Badge className="bg-purple-500 text-white text-[9px] px-1.5 py-0.5 rounded-md shadow-sm">🔥 Hot</Badge>
+            )}
+          </div>
+
+          {/* Flash sale timer */}
           {timerEnd && <CountdownTimer endsAt={timerEnd} productId={product.id} />}
-          {product.stock !== undefined && product.stock <= 0 && (
-            <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
-              <span className="text-sm font-bold text-destructive">Out of Stock</span>
+
+          {/* Out of stock overlay */}
+          {isOOS && (
+            <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px] flex items-center justify-center">
+              <span className="text-xs font-bold text-destructive bg-background/80 px-3 py-1 rounded-full border border-destructive/30">Out of Stock</span>
             </div>
           )}
-          <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full shadow-md" onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWishlist(product); }}>
-              <Heart className={`h-3 w-3 ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
-            </Button>
-            <Button size="icon" className="h-7 w-7 rounded-full shadow-md" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(product); }}>
-              <ShoppingCart className="h-3 w-3" />
-            </Button>
-          </div>
+
+          {/* Action buttons */}
+          {!isOOS && (
+            <div className="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
+              <Button
+                size="icon"
+                variant="secondary"
+                className="h-8 w-8 rounded-full shadow-lg bg-background/90 backdrop-blur-sm border border-border/50"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWishlist(product); }}
+              >
+                <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-red-500 text-red-500' : 'text-foreground'}`} />
+              </Button>
+              <Button
+                size="icon"
+                className="h-8 w-8 rounded-full shadow-lg"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(product); }}
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
       </Link>
+
       <Link to={`/product/${product.id}`} className="block p-2.5 md:p-3">
-        <p className="text-[9px] md:text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{product.brand}</p>
-        <h3 className="text-xs md:text-sm font-semibold leading-tight line-clamp-2 mb-1.5 group-hover:text-primary transition-colors">{product.name}</h3>
-        <div className="flex items-center gap-1 mb-1.5">
-          <div className="flex">
+        {product.brand && (
+          <p className="text-[9px] md:text-[10px] text-muted-foreground uppercase tracking-widest mb-0.5 truncate">{product.brand}</p>
+        )}
+        <h3 className="text-xs md:text-sm font-semibold leading-snug line-clamp-2 mb-2 group-hover:text-primary transition-colors">{product.name}</h3>
+
+        {/* Rating */}
+        <div className="flex items-center gap-1 mb-2">
+          <div className="flex gap-0.5">
             {[1, 2, 3, 4, 5].map(i => (
-              <Star key={i} className={`h-3 w-3 ${i <= Math.round(liveRating) ? 'fill-warning text-warning' : 'text-muted-foreground/40'}`} />
+              <Star key={i} className={`h-2.5 w-2.5 ${i <= Math.round(liveRating) ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted'}`} />
             ))}
           </div>
-          <span className="text-[10px] md:text-xs font-medium">{liveRating > 0 ? liveRating.toFixed(1) : '—'}</span>
-          <span className="text-[9px] md:text-[10px] text-muted-foreground">({liveReviews})</span>
-          {product.sold ? <span className="text-[9px] md:text-[10px] text-muted-foreground ml-auto">{product.sold}+ sold</span> : null}
+          {liveRating > 0 ? (
+            <span className="text-[10px] font-medium text-muted-foreground">{liveRating.toFixed(1)}</span>
+          ) : null}
+          {liveReviews > 0 && (
+            <span className="text-[9px] text-muted-foreground">({liveReviews})</span>
+          )}
+          {product.sold ? (
+            <span className="text-[9px] text-muted-foreground ml-auto">{product.sold > 999 ? `${Math.floor(product.sold/1000)}k` : product.sold}+ sold</span>
+          ) : null}
         </div>
-        <div className="flex items-center gap-1.5">
+
+        {/* Price */}
+        <div className="flex items-baseline gap-1.5">
           <span className="text-sm md:text-base font-bold text-primary">Rs. {product.price.toLocaleString()}</span>
           {product.originalPrice && product.discount && product.discount > 0 && (
-            <span className="text-[10px] md:text-xs text-muted-foreground line-through">Rs. {product.originalPrice.toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground line-through">Rs. {product.originalPrice.toLocaleString()}</span>
           )}
         </div>
       </Link>

@@ -196,11 +196,12 @@ Return ONLY valid JSON, no markdown.`
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" /> AI Bulk Product Creator
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">Upload 1–20 product images. AI generates details for each. Set price, discount & stock per size in one view.</p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-100 rounded-xl"><Sparkles className="h-5 w-5 text-emerald-600" /></div>
+          <div>
+            <h2 className="text-xl font-bold">AI Bulk Product Creator</h2>
+            <p className="text-sm text-muted-foreground">Upload 1–20 product images. AI generates details for each with price, discount & stock per size.</p>
+          </div>
         </div>
         <div className="flex gap-2">
           {items.length > 0 && (

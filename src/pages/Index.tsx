@@ -12,32 +12,38 @@ import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/product';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { mapDbProduct, PRODUCT_SELECT } from '@/lib/mapDbProduct';
+import { ShoppingBag, ArrowRight } from 'lucide-react';
 
-const mapDbProduct = (p: any): Product => ({
-  id: p.id, name: p.title, price: Number(p.price),
-  originalPrice: p.original_price ? Number(p.original_price) : undefined,
-  discount: p.discount_percent ? Number(p.discount_percent) : undefined,
-  image: (p.images as any)?.[0] || '/placeholder.svg',
-  images: (p.images as string[]) || [], category: p.category_id || '',
-  brand: p.brand || '', colors: (p.colors as string[]) || [],
-  sizes: (p.sizes as string[]) || [], rating: Number(p.rating) || 0,
-  reviews: p.review_count || 0, stock: p.stock, sold: p.sold,
-  isFlashSale: p.is_flash_sale, isTrending: p.is_featured,
-  gender: p.gender as any, description: p.description, type: p.sub_category_id || '',
-});
+// Simple module-level cache to avoid re-fetching on navigation
+let _cachedProducts: Product[] | null = null;
+let _cacheTime = 0;
+const CACHE_TTL = 60_000; // 1 minute
 
 const Index = () => {
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>(_cachedProducts || []);
 
   useEffect(() => {
-    supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(50)
-      .then(({ data }) => setAllProducts((data || []).map(mapDbProduct)));
+    const now = Date.now();
+    if (_cachedProducts && now - _cacheTime < CACHE_TTL) return;
+    supabase
+      .from('products')
+      .select(PRODUCT_SELECT)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        const products = (data || []).map(mapDbProduct);
+        _cachedProducts = products;
+        _cacheTime = Date.now();
+        setAllProducts(products);
+      });
   }, []);
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
-      <main className="container space-y-8 md:space-y-12 py-5 md:py-8">
+      <main className="container space-y-10 md:space-y-14 py-5 md:py-8">
         <HeroBanner />
         <CategoryGrid />
         <FlashSale />
@@ -47,12 +53,32 @@ const Index = () => {
         {/* All Products */}
         {allProducts.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl md:text-2xl font-bold">🛍️ All Products</h2>
-              <Link to="/products"><Button variant="outline" size="sm">View All</Button></Link>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-1 bg-primary rounded-full" />
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                    <ShoppingBag className="h-5 w-5 text-primary" />
+                    All Products
+                  </h2>
+                  <p className="text-xs text-muted-foreground">{allProducts.length} items available</p>
+                </div>
+              </div>
+              <Link to="/products">
+                <Button variant="outline" size="sm" className="gap-1 group">
+                  View All <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </Button>
+              </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-              {allProducts.map(p => <ProductCard key={p.id} product={p} />)}
+              {allProducts.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            </div>
+            <div className="mt-8 text-center">
+              <Link to="/products">
+                <Button size="lg" className="gap-2 px-8">
+                  Browse All Products <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           </section>
         )}

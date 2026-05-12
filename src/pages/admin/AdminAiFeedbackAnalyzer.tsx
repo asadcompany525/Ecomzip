@@ -91,8 +91,8 @@ Return ONLY valid JSON.`
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-yellow-100 rounded-lg"><MessageSquare className="h-6 w-6 text-yellow-600" /></div>
-        <div><h1 className="text-2xl font-bold">AI Feedback Analyzer</h1><p className="text-muted-foreground text-sm">Summarize reviews into Pros, Cons & actionable insights</p></div>
+        <div className="p-2 bg-yellow-100 rounded-xl"><MessageSquare className="h-5 w-5 text-yellow-600" /></div>
+        <div><h1 className="text-xl font-bold">AI Feedback Analyzer</h1><p className="text-muted-foreground text-sm">Summarize reviews into Pros, Cons & actionable insights</p></div>
       </div>
 
       <div className="bg-card border rounded-xl p-5 space-y-4">

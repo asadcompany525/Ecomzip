@@ -172,7 +172,13 @@ const MyOrders = () => {
     <div className="min-h-screen bg-background pb-20 md:pb-4">
       <main className="container py-5 max-w-2xl mx-auto">
         <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'My Orders' }]} />
-        <h1 className="text-2xl font-bold mb-5">My Orders ({orders.length})</h1>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-2.5 bg-primary/10 rounded-xl"><Package className="h-5 w-5 text-primary" /></div>
+          <div>
+            <h1 className="text-2xl font-bold">My Orders</h1>
+            <p className="text-sm text-muted-foreground">{orders.length} order{orders.length !== 1 ? 's' : ''} total</p>
+          </div>
+        </div>
 
         {orders.length === 0 ? (
           <div className="text-center py-16">

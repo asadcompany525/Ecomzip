@@ -181,7 +181,13 @@ const AdminAiDiscounts = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-semibold">🤖 AI Discount & Flash Sale Manager</h2>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-orange-100 rounded-xl"><Sparkles className="h-5 w-5 text-orange-600" /></div>
+          <div>
+            <h2 className="text-xl font-bold">AI Discounts & Flash Sales</h2>
+            <p className="text-sm text-muted-foreground">AI-powered discount strategy & flash sale automation</p>
+          </div>
+        </div>
         <div className="flex gap-2 flex-wrap">
           <AdminDateFilter date={dateFilter} onDateChange={setDateFilter} />
           <Button onClick={runAiAnalysis} disabled={analyzing} className="gap-2">

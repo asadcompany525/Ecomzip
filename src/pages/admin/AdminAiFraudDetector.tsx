@@ -239,7 +239,7 @@ Return ONLY valid JSON:
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-red-100 rounded-lg"><Shield className="h-6 w-6 text-red-600" /></div>
+        <div className="p-2 bg-red-100 rounded-xl"><Shield className="h-5 w-5 text-red-600" /></div>
         <div>
           <h1 className="text-2xl font-bold">AI Fraud Detector</h1>
           <p className="text-muted-foreground text-sm">Ultra-strict fraud detection — fake phones, gibberish addresses, bot attacks</p>

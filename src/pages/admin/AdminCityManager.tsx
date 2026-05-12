@@ -218,8 +218,12 @@ Cities: ${allCities.slice(0, 50).join(', ')}`
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold flex items-center gap-2"><MapPin className="h-5 w-5" /> City & Area Manager</h2>
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-green-100 rounded-xl"><MapPin className="h-5 w-5 text-green-600" /></div>
+        <div>
+          <h2 className="text-xl font-bold">City & Area Manager</h2>
+          <p className="text-sm text-muted-foreground">Manage cities, areas & per-city delivery rates for Pakistan</p>
+        </div>
       </div>
 
       <Tabs defaultValue="cities">

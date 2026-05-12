@@ -131,15 +131,26 @@ Check if: 1) Return/claim is within policy time, 2) Claim reason matches the adm
 
   return (
     <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-orange-100 rounded-xl">
+          <ExternalLink className="h-5 w-5 text-orange-600" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold">Claims & Returns</h2>
+          <p className="text-sm text-muted-foreground">{stats.pending} pending · {stats.total} total</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          { l: 'Total', v: stats.total, c: 'text-foreground' },
-          { l: 'Pending', v: stats.pending, c: 'text-yellow-600' },
-          { l: 'Approved', v: stats.approved, c: 'text-green-600' },
-          { l: 'Rejected', v: stats.rejected, c: 'text-red-600' },
-          { l: 'Claims', v: stats.claims, c: 'text-purple-600' },
+          { l: 'Total', v: stats.total, c: 'text-foreground', bg: 'bg-card' },
+          { l: 'Pending', v: stats.pending, c: 'text-yellow-600', bg: 'bg-yellow-50' },
+          { l: 'Approved', v: stats.approved, c: 'text-green-600', bg: 'bg-green-50' },
+          { l: 'Rejected', v: stats.rejected, c: 'text-red-600', bg: 'bg-red-50' },
+          { l: 'Claims', v: stats.claims, c: 'text-purple-600', bg: 'bg-purple-50' },
         ].map(s => (
-          <div key={s.l} className="bg-card border rounded-lg p-3 text-center">
+          <div key={s.l} className={`${s.bg} border rounded-xl p-3 text-center`}>
             <p className="text-xs text-muted-foreground">{s.l}</p>
             <p className={`text-xl font-bold ${s.c}`}>{s.v}</p>
           </div>
@@ -166,18 +177,18 @@ Check if: 1) Return/claim is within policy time, 2) Claim reason matches the adm
 
       <div className="bg-card rounded-xl border overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr className="border-b bg-muted/50">
-            <th className="text-left p-3">Type</th>
-            <th className="text-left p-3">Reason</th>
-            <th className="text-left p-3">Status</th>
-            <th className="text-left p-3">AI Suggestion</th>
-            <th className="text-left p-3">Date</th>
-            <th className="text-left p-3">Images</th>
-            <th className="text-left p-3">Actions</th>
+          <thead><tr className="border-b bg-muted/40">
+            <th className="text-left p-3 text-xs font-semibold">Type</th>
+            <th className="text-left p-3 text-xs font-semibold">Reason</th>
+            <th className="text-left p-3 text-xs font-semibold">Status</th>
+            <th className="text-left p-3 text-xs font-semibold">AI Suggestion</th>
+            <th className="text-left p-3 text-xs font-semibold">Date</th>
+            <th className="text-left p-3 text-xs font-semibold">Images</th>
+            <th className="text-left p-3 text-xs font-semibold">Actions</th>
           </tr></thead>
           <tbody>
             {filtered.map(r => (
-              <tr key={r.id} className="border-b hover:bg-accent/50">
+              <tr key={r.id} className="border-b hover:bg-muted/30 transition-colors">
                 <td className="p-3"><Badge variant={isClaim(r) ? 'default' : 'outline'}>{isClaim(r) ? 'Claim' : 'Return'}</Badge></td>
                 <td className="p-3 max-w-[160px] truncate">{r.reason?.replace('CLAIM: ', '')}</td>
                 <td className="p-3">

@@ -129,9 +129,12 @@ const AdminProductSeeder = () => {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Database className="h-6 w-6 text-primary" /> Product Seeder</h1>
-        <p className="text-muted-foreground mt-1">Add 100 dummy test products to your store for UI/testing purposes.</p>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-indigo-100 rounded-xl"><Database className="h-5 w-5 text-indigo-600" /></div>
+        <div>
+          <h1 className="text-2xl font-bold">Product Seeder</h1>
+          <p className="text-muted-foreground text-sm">Add 100 dummy test products to your store for UI/testing purposes</p>
+        </div>
       </div>
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">

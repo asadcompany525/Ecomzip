@@ -1,29 +1,28 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from './ProductCard';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Product } from '@/types/product';
+import { mapDbProduct, PRODUCT_SELECT } from '@/lib/mapDbProduct';
 
-const mapDbProduct = (p: any): Product => ({
-  id: p.id, name: p.title, price: Number(p.price),
-  originalPrice: p.original_price ? Number(p.original_price) : undefined,
-  discount: p.discount_percent ? Number(p.discount_percent) : undefined,
-  image: (p.images as any)?.[0] || '/placeholder.svg',
-  images: (p.images as string[]) || [], category: p.category_id || '',
-  brand: p.brand || '', colors: (p.colors as string[]) || [],
-  sizes: (p.sizes as string[]) || [], rating: Number(p.rating) || 0,
-  reviews: p.review_count || 0, stock: p.stock, sold: p.sold,
-  isFlashSale: p.is_flash_sale, isTrending: p.is_featured,
-  gender: p.gender as any, description: p.description, type: '',
-});
+let _cache: Product[] | null = null;
+let _cacheTime = 0;
+const CACHE_TTL = 60_000;
 
 const TrendingProducts = () => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(_cache || []);
 
   useEffect(() => {
-    supabase.from('products').select('*').eq('is_active', true).eq('is_featured', true).order('sold', { ascending: false }).limit(10)
-      .then(({ data }) => setProducts((data || []).map(mapDbProduct)));
+    const now = Date.now();
+    if (_cache && now - _cacheTime < CACHE_TTL) return;
+    supabase.from('products').select(PRODUCT_SELECT).eq('is_active', true).eq('is_featured', true)
+      .order('sold', { ascending: false }).limit(10)
+      .then(({ data }) => {
+        const p = (data || []).map(mapDbProduct);
+        _cache = p; _cacheTime = Date.now();
+        setProducts(p);
+      });
   }, []);
 
   if (products.length === 0) return null;
@@ -31,16 +30,21 @@ const TrendingProducts = () => {
   return (
     <section>
       <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="h-6 w-6 text-primary" />
-          <h2 className="text-xl md:text-2xl font-bold">Trending Now</h2>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <TrendingUp className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold">Trending Now</h2>
+            <p className="text-xs text-muted-foreground">Most popular picks</p>
+          </div>
         </div>
-        <Link to="/products" className="text-sm text-primary font-medium hover:underline">View All →</Link>
+        <Link to="/products" className="flex items-center gap-1 text-sm text-primary font-medium hover:underline group">
+          View All <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-        {products.map((product, i) => (
-          <ProductCard key={product.id} product={product} index={i} />
-        ))}
+        {products.map((product, i) => <ProductCard key={product.id} product={product} index={i} />)}
       </div>
     </section>
   );

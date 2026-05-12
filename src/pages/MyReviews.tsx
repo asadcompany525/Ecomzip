@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Star } from 'lucide-react';
+import { Star, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-
-
 import BottomNav from '@/components/layout/BottomNav';
 import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
 
@@ -17,10 +15,15 @@ const MyReviews = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      
       <main className="container py-5 max-w-xl mx-auto">
         <PageBreadcrumb items={[{ label: 'My Account', href: '/my-page' }, { label: 'My Reviews' }]} />
-        <h1 className="text-2xl font-bold mb-6">My Reviews</h1>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 bg-yellow-100 rounded-xl"><Star className="h-5 w-5 text-yellow-500" /></div>
+          <div>
+            <h1 className="text-2xl font-bold">My Reviews</h1>
+            <p className="text-sm text-muted-foreground">{reviews.length} review{reviews.length !== 1 ? 's' : ''} submitted</p>
+          </div>
+        </div>
         {reviews.length === 0 ? (
           <div className="text-center py-16"><Star className="h-16 w-16 mx-auto mb-4 text-muted-foreground" /><p className="text-muted-foreground">No reviews yet</p></div>
         ) : (
