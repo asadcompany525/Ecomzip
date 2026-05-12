@@ -24,7 +24,8 @@ const mapDbProduct = (p: any): Product => ({
   reviews: p.review_count || 0, stock: p.stock, sold: p.sold,
   isFlashSale: p.is_flash_sale, isTrending: p.is_featured,
   gender: p.gender as any, description: p.description, type: p.sub_category_id || '',
-});
+  tags: (p.tags as string[]) || [],
+} as any);
 
 const Products = () => {
   const navigate = useNavigate();
@@ -102,7 +103,14 @@ const Products = () => {
       if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        return p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q);
+        const pTags = Array.isArray((p as any).tags) ? (p as any).tags : [];
+        const code = (pTags[0] || '').toLowerCase();
+        return (
+          p.name.toLowerCase().includes(q) ||
+          p.brand.toLowerCase().includes(q) ||
+          code.includes(q) ||
+          (p.description || '').toLowerCase().includes(q)
+        );
       }
       return true;
     });

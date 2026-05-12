@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, ShoppingCart, User, SlidersHorizontal, Menu, X, ChevronRight, Shield, Lock } from 'lucide-react';
+import { Search, ShoppingCart, User, SlidersHorizontal, Menu, X, ChevronRight, Camera, Loader2, Shield, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +62,9 @@ const Header = () => {
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('searchHistory') || '[]'); } catch { return []; }
   });
+  const [imgSearchLoading, setImgSearchLoading] = useState(false);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const mobileImgInputRef = useRef<HTMLInputElement>(null);
 
   // 5-click secret trigger state
   const clickTimestampsRef = useRef<number[]>([]);
@@ -90,7 +93,7 @@ const Header = () => {
 
   useEffect(() => {
     const load = async () => {
-      const { data: prods } = await supabase.from('products').select('id, title, price, images, brand, category_id').eq('is_active', true).limit(100);
+      const { data: prods } = await supabase.from('products').select('id, title, price, images, brand, category_id, tags, sub_category_id').eq('is_active', true).limit(200);
       setProducts(prods || []);
       const { data: settings } = await supabase.from('site_settings').select('*').eq('key', 'logo').maybeSingle();
       if (settings?.value) setLogoData(settings.value as any);
@@ -120,11 +123,83 @@ const Header = () => {
   };
 
   const suggestions = searchQuery.trim()
-    ? products.filter(p =>
-        (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.brand || '').toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 6)
+    ? products.filter(p => {
+        const q = searchQuery.toLowerCase();
+        const code = ((p.tags as string[]) || [])[0]?.toLowerCase() || '';
+        return (
+          (p.title || '').toLowerCase().includes(q) ||
+          (p.brand || '').toLowerCase().includes(q) ||
+          code.includes(q) ||
+          p.id.toLowerCase().includes(q)
+        );
+      }).slice(0, 8)
     : [];
+
+  const compressImage = (file: File): Promise<string> => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const max = 512;
+        const ratio = Math.min(max / img.width, max / img.height, 1);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = e.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const handleImageSearch = async (file: File) => {
+    if (!file) return;
+    setImgSearchLoading(true);
+    setShowSuggestions(false);
+    try {
+      const imageDataUrl = await compressImage(file);
+      const catalog = products.slice(0, 80).map(p => ({
+        id: p.id,
+        title: p.title,
+        brand: p.brand || '',
+        code: ((p.tags as string[]) || [])[0] || '',
+        type: p.sub_category_id || '',
+      }));
+      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+        body: {
+          type: 'admin-helper',
+          imageUrl: imageDataUrl,
+          messages: [{
+            role: 'system',
+            content: `You are a visual product search AI for a Pakistani shoes & bags store. 
+The user uploaded an image. Identify what they are looking for (type of shoes, bag, color, style etc).
+Catalog: ${JSON.stringify(catalog)}
+Return JSON in <SEARCH_JSON> tags: {"query": "search term", "ids": ["id1","id2","id3"]}
+Pick the 3 most visually similar products from the catalog. The query should be 1-3 words describing what's in the image.`,
+          }, {
+            role: 'user',
+            content: 'Find products similar to this image.',
+          }],
+        },
+      });
+      if (error) throw error;
+      const reply = typeof data === 'string' ? data : (data?.reply || '');
+      const match = reply.match(/<SEARCH_JSON>([\s\S]*?)<\/SEARCH_JSON>/);
+      if (match) {
+        const result = JSON.parse(match[1]);
+        const term = result.query || 'similar products';
+        setSearchQuery(term);
+        navigate(`/products?search=${encodeURIComponent(term)}`);
+        setShowMobileSearch(false);
+      } else {
+        toast({ title: 'Could not identify product', description: 'Try a clearer image of a shoe or bag.' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Image search failed', description: 'Check AI settings or try a text search.', variant: 'destructive' });
+    }
+    setImgSearchLoading(false);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,19 +231,49 @@ const Header = () => {
       {showSuggestions && (searchQuery.trim() || searchHistory.length > 0) && (
         <motion.div
           initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
-          className="absolute top-full left-0 right-0 bg-card border shadow-lg rounded-b-lg z-50 max-h-80 overflow-y-auto"
+          className="absolute top-full left-0 right-0 bg-card border shadow-xl rounded-b-xl z-50 max-h-96 overflow-y-auto"
         >
+          {/* Image search hint */}
+          {!searchQuery.trim() && (
+            <div className="px-4 py-2 bg-primary/5 border-b flex items-center gap-2 text-xs text-primary">
+              <Camera className="h-3.5 w-3.5" />
+              <span>Tap the camera icon to search with a photo</span>
+            </div>
+          )}
           {searchQuery.trim() ? (
-            suggestions.length > 0 ? suggestions.map((p: any) => (
-              <button key={p.id} onClick={() => selectSuggestion(p.title)}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent transition-colors w-full text-left">
-                <img src={(p.images as any)?.[0] || '/placeholder.svg'} alt="" className="w-10 h-10 rounded object-cover" loading="lazy" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{p.title}</p>
-                  <p className="text-xs text-muted-foreground">{p.brand || ''} · Rs. {Number(p.price).toLocaleString()}</p>
+            suggestions.length > 0 ? (
+              <>
+                <div className="px-4 py-1.5 border-b bg-muted/30">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{suggestions.length} result{suggestions.length !== 1 ? 's' : ''}</span>
                 </div>
-              </button>
-            )) : <p className="px-4 py-3 text-sm text-muted-foreground">No results found</p>
+                {suggestions.map((p: any) => {
+                  const code = ((p.tags as string[]) || [])[0] || '';
+                  return (
+                    <button key={p.id} onClick={() => selectSuggestion(p.title)}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent transition-colors w-full text-left group">
+                      <img src={(p.images as any)?.[0] || '/placeholder.svg'} alt="" className="w-11 h-11 rounded-lg object-cover border" loading="lazy" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{p.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-muted-foreground">{p.brand || ''} · Rs. {Number(p.price).toLocaleString()}</p>
+                          {code && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono text-muted-foreground">{code}</span>}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:text-primary" />
+                    </button>
+                  );
+                })}
+                <button onClick={() => { navigate(`/products?search=${encodeURIComponent(searchQuery)}`); setShowSuggestions(false); }}
+                  className="flex items-center gap-2 px-4 py-2.5 hover:bg-accent transition-colors w-full text-left text-sm text-primary border-t font-medium">
+                  <Search className="h-3.5 w-3.5" /> See all results for "{searchQuery}"
+                </button>
+              </>
+            ) : (
+              <div className="px-4 py-6 text-center">
+                <p className="text-sm text-muted-foreground">No results for "{searchQuery}"</p>
+                <p className="text-xs text-muted-foreground mt-1">Try searching by product code, brand, or use the camera 📷</p>
+              </div>
+            )
           ) : (
             <>
               <div className="flex items-center justify-between px-4 py-2 border-b">
@@ -253,15 +358,22 @@ const Header = () => {
                       <div className="relative flex-1">
                         <Input
                           ref={mobileInputRef}
-                          placeholder="Search shoes, bags, brands..."
+                          placeholder="Search by name, code, brand..."
                           value={searchQuery}
                           onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
                           onFocus={() => setShowSuggestions(true)}
-                          className="pr-9 bg-muted border-0 h-9 text-sm"
+                          className="pr-16 bg-muted border-0 h-9 text-sm"
                         />
-                        <Button type="submit" size="icon" variant="ghost" className="absolute right-0 top-0 h-full w-9">
-                          <Search className="h-4 w-4" />
-                        </Button>
+                        <div className="absolute right-0 top-0 h-full flex items-center">
+                          <button type="button" onClick={() => mobileImgInputRef.current?.click()}
+                            className="h-full px-2 text-muted-foreground hover:text-primary" disabled={imgSearchLoading}>
+                            {imgSearchLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                          </button>
+                          <Button type="submit" size="icon" variant="ghost" className="h-full w-8">
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <input ref={mobileImgInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { handleImageSearch(f); e.target.value = ''; } }} />
                       </div>
                       <button type="button" onClick={() => setShowMobileSearch(false)} className="text-muted-foreground p-1">
                         <X className="h-4 w-4" />
@@ -306,21 +418,33 @@ const Header = () => {
                   <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className={logoData.size || 'h-12 w-12'} loading="lazy" />
                 </button>
 
-                <div className="hidden md:flex flex-1 max-w-xl relative items-center gap-2" ref={searchRef}>
+                <div className="hidden md:flex flex-1 max-w-2xl relative items-center gap-2" ref={searchRef}>
                   <Button variant="outline" size="icon" className="shrink-0 h-10 w-10" onClick={() => navigate('/products')}>
                     <SlidersHorizontal className="h-4 w-4" />
                   </Button>
                   <form onSubmit={handleSearch} className="w-full flex relative">
                     <Input
-                      placeholder="Search shoes, bags, brands..."
+                      placeholder="Search by name, code, brand..."
                       value={searchQuery}
                       onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
                       onFocus={() => setShowSuggestions(true)}
-                      className="pr-10 bg-muted border-0 focus-visible:ring-primary"
+                      className="pr-20 bg-muted border-0 focus-visible:ring-primary"
                     />
-                    <Button type="submit" size="icon" className="absolute right-0 top-0 h-full rounded-l-none">
-                      <Search className="h-4 w-4" />
-                    </Button>
+                    <div className="absolute right-0 top-0 h-full flex items-center">
+                      <button
+                        type="button"
+                        title="Search by image (AI)"
+                        onClick={() => imgInputRef.current?.click()}
+                        className="h-full px-2.5 text-muted-foreground hover:text-primary transition-colors"
+                        disabled={imgSearchLoading}
+                      >
+                        {imgSearchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                      </button>
+                      <Button type="submit" size="icon" className="h-full rounded-l-none">
+                        <Search className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <input ref={imgInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { handleImageSearch(f); e.target.value = ''; } }} />
                   </form>
                   <SuggestionDropdown />
                 </div>

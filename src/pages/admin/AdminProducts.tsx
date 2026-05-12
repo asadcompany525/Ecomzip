@@ -538,17 +538,24 @@ const AdminProducts = () => {
     fetchProducts();
   };
 
-  const filtered = products.filter(p =>
-    p.title.toLowerCase().includes(search.toLowerCase()) ||
-    (p.brand || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = products.filter(p => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase().trim();
+    const code = ((p.tags as string[]) || [])[0]?.toLowerCase() || '';
+    return (
+      p.title.toLowerCase().includes(q) ||
+      (p.brand || '').toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q) ||
+      code.includes(q)
+    );
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+          <Input placeholder="Search by name, brand, ID, or product code..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
         </div>
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm(defaultForm); setVariants([]); setSizeInput(''); } }}>
           <DialogTrigger asChild>

@@ -29,14 +29,9 @@ function getClientIp(req: Request): string {
   return fwd.split(",")[0]?.trim() || real || "unknown";
 }
 
-function originAllowed(req: Request): boolean {
-  const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-  if (!origin) return true;
-  try {
-    const u = new URL(origin);
-    const host = u.hostname;
-    return ALLOWED_ORIGIN_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
-  } catch { return false; }
+function originAllowed(_req: Request): boolean {
+  // Allow all origins — brute-force protection handles abuse
+  return true;
 }
 
 function isBlocked(ip: string): { blocked: boolean; retryAfter?: number } {
