@@ -172,14 +172,23 @@ const Header = () => {
           imageUrl: imageDataUrl,
           messages: [{
             role: 'system',
-            content: `You are a visual product search AI for a Pakistani shoes & bags store. 
-The user uploaded an image. Identify what they are looking for (type of shoes, bag, color, style etc).
+            content: `You are a visual product search AI for a Pakistani shoes & bags store.
+The user uploaded an image. Analyze the image carefully for: category (shoes/bag/sandal/etc), color, style, material, and gender.
 Catalog: ${JSON.stringify(catalog)}
-Return JSON in <SEARCH_JSON> tags: {"query": "search term", "ids": ["id1","id2","id3"]}
-Pick the 3 most visually similar products from the catalog. The query should be 1-3 words describing what's in the image.`,
+
+CRITICAL RULES:
+1. ALWAYS return results — never return an empty list.
+2. First try exact matches (same category + color + style).
+3. If fewer than 3 exact matches exist, fill remaining slots with "Related Styles" — products from the same broad category or similar color.
+4. The "query" field must describe what was found in the image in 1-3 words (e.g. "brown leather shoes", "black handbag").
+5. Return EXACTLY 3-6 product IDs from the catalog.
+
+Return JSON in <SEARCH_JSON> tags:
+{"query": "descriptive search term", "ids": ["id1","id2","id3"], "related": true/false}
+"related" should be true if you had to use related-style fallback products.`,
           }, {
             role: 'user',
-            content: 'Find products similar to this image.',
+            content: 'Find products similar to this image. Always return at least 3 results, using related styles if needed.',
           }],
         },
       });
@@ -190,10 +199,16 @@ Pick the 3 most visually similar products from the catalog. The query should be 
         const result = JSON.parse(match[1]);
         const term = result.query || 'similar products';
         setSearchQuery(term);
-        navigate(`/products?search=${encodeURIComponent(term)}`);
+        navigate(`/products?search=${encodeURIComponent(term)}&visual=1`);
         setShowMobileSearch(false);
+        if (result.related) {
+          toast({ title: 'Showing related styles', description: `No exact match found — showing similar items for "${term}"` });
+        }
       } else {
-        toast({ title: 'Could not identify product', description: 'Try a clearer image of a shoe or bag.' });
+        // Fallback: navigate to products with a generic query so user always sees something
+        navigate('/products');
+        setShowMobileSearch(false);
+        toast({ title: 'Showing all products', description: 'Could not identify specific style — browse all items below.' });
       }
     } catch (e: any) {
       toast({ title: 'Image search failed', description: 'Check AI settings or try a text search.', variant: 'destructive' });

@@ -116,4 +116,19 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Global table overflow guard — prevents horizontal scroll in admin tables */
+  table {
+    word-break: break-word;
+  }
+
+  /* Ensure all modals/dialogs have no horizontal overflow */
+  [role="dialog"] {
+    overflow-x: hidden !important;
+  }
+
+  /* Zero-flash SPA navigation */
+  a, button {
+    -webkit-tap-highlight-color: transparent;
+  }
 }

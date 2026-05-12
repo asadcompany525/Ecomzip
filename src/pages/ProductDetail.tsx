@@ -423,7 +423,21 @@ const ProductDetail = () => {
     );
   }
 
-  const allImages = [...(product.images?.length ? product.images : [product.image]), dbProduct?.video_url].filter(Boolean);
+  // Color-linked gallery: when a color is selected, show that variant's images first
+  const colorVariantImages = selectedColor
+    ? [...new Set(
+        variants
+          .filter(v => v.color === selectedColor)
+          .flatMap(v => (v.images as string[] | null) || [])
+          .filter(Boolean)
+      )]
+    : [];
+  const baseImages = product.images?.length ? product.images : [product.image];
+  const allImages = [
+    ...(colorVariantImages.length > 0 ? colorVariantImages : baseImages),
+    dbProduct?.video_url,
+  ].filter(Boolean);
+
   const uniqueColors = [...new Set(variants.map(v => v.color).filter(Boolean))];
   const uniqueSizes = product.sizes?.length ? product.sizes : [...new Set(variants.map(v => v.size).filter(Boolean))];
 
@@ -501,7 +515,7 @@ const ProductDetail = () => {
                   {uniqueColors.map(color => {
                     const hex = variants.find(v => v.color === color)?.color_hex || '#888';
                     return (
-                      <button key={color} onClick={() => { setSelectedColor(color); setSelectedSize(''); }}
+                      <button key={color} onClick={() => { setSelectedColor(color); setSelectedSize(''); setSelectedImage(0); }}
                         className={`relative w-9 h-9 rounded-full border-2 transition-all ${selectedColor === color ? 'border-primary ring-2 ring-primary ring-offset-2' : 'border-border hover:border-primary/50'}`}
                         style={{ background: hex }} title={color}>
                         {selectedColor === color && <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow">✓</span>}

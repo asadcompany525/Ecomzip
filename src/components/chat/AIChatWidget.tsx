@@ -17,16 +17,18 @@ interface ChatMsg {
 
 const GUEST_HISTORY_KEY = 'store_guest_chat_history';
 
-const makeWelcomeMsg = (brandLabel: string): ChatMsg => ({
+const makeWelcomeMsg = (brandLabel: string, userName?: string): ChatMsg => ({
   role: 'assistant',
-  content: `Assalam o Alaikum! 👋 ${brandLabel} میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!`
+  content: userName
+    ? `Assalam-o-Alaikum, ${userName}! 👋 ${brandLabel} میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!`
+    : `Assalam-o-Alaikum! 👋 ${brandLabel} میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!`,
 });
 
 const AIChatWidget = () => {
   const { brandName } = useStoreSettings();
   const [open, setOpen] = useState(false);
+  const [userName, setUserName] = useState<string | undefined>(undefined);
   const [messages, setMessages] = useState<ChatMsg[]>(() => {
-    // Restore guest history from localStorage on load
     try {
       const saved = localStorage.getItem(GUEST_HISTORY_KEY);
       if (saved) {
@@ -49,10 +51,35 @@ const AIChatWidget = () => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
   }, [messages]);
 
+  // Fetch user's real name from profile for personalized greeting
+  useEffect(() => {
+    if (!user) return;
+    const firstName = user.user_metadata?.full_name?.split(' ')[0] ||
+                      user.user_metadata?.name?.split(' ')[0];
+    if (firstName) {
+      setUserName(firstName);
+      return;
+    }
+    supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle().then(({ data }) => {
+      const name = (data?.full_name as string | null)?.split(' ')[0];
+      if (name) setUserName(name);
+    });
+  }, [user]);
+
+  // Update welcome message when brand name or user name is resolved
+  useEffect(() => {
+    if (!brandName || brandName === 'My Store') return;
+    setMessages(prev => {
+      if (prev.length === 1 && prev[0].role === 'assistant') {
+        return [makeWelcomeMsg(brandName, userName)];
+      }
+      return prev;
+    });
+  }, [brandName, userName]);
+
   // Persist guest chat history to localStorage (only if not logged in)
   useEffect(() => {
     if (!user && messages.length > 1) {
-      // Keep last 30 messages to avoid localStorage overflow
       const toSave = messages.slice(-30);
       try { localStorage.setItem(GUEST_HISTORY_KEY, JSON.stringify(toSave)); } catch {}
     }

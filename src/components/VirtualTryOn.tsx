@@ -368,7 +368,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
                         <RotateCcw className="h-4 w-4" /> Try Another
                       </Button>
                       <Button onClick={downloadResult} className="flex-1 bg-primary hover:bg-primary/90 text-white gap-2">
-                        <Download className="h-4 w-4" /> Save Photo
+                        <Download className="h-4 w-4" /> Download My AI Look
                       </Button>
                     </div>
                   </div>
