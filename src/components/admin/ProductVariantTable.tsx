@@ -127,73 +127,88 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
 
   return (
     <div className="space-y-3">
+      {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-sm text-muted-foreground">{getSizeLabel()} — Enter qty per size per color</p>
-        <Button variant="outline" size="sm" onClick={addVariant} className="gap-1">
+        <Button variant="outline" size="sm" onClick={addVariant} className="gap-1 shrink-0">
           <Plus className="h-3 w-3" /> Add Color
         </Button>
       </div>
 
-      {/* Sizes display — all with X button, wraps naturally */}
-      <div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
-        {defaultSizes.map(s => (
-          <span key={s} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full border border-primary/20">
-            {s}
-            <button type="button" onClick={() => removeDefaultSize(s)} className="hover:text-destructive ml-0.5 transition-colors">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ))}
-        {customSizes.map(s => (
-          <span key={s} className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full border border-green-200">
-            {s}
-            <button type="button" onClick={() => removeCustomSize(s)} className="hover:text-destructive ml-0.5 transition-colors">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ))}
-        <div className="flex items-center gap-1">
+      {/* Size chips — separate from Add Size row so chips wrap cleanly */}
+      <div className="space-y-2">
+        {/* Active size badges */}
+        {allSizes.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {defaultSizes.map(s => (
+              <span key={s} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2.5 py-1 rounded-full border border-primary/20 font-medium">
+                {s}
+                <button type="button" onClick={() => removeDefaultSize(s)} className="hover:text-destructive transition-colors ml-0.5">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            {customSizes.map(s => (
+              <span key={s} className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs px-2.5 py-1 rounded-full border border-green-200 font-medium">
+                {s}
+                <button type="button" onClick={() => removeCustomSize(s)} className="hover:text-destructive transition-colors ml-0.5">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Add size row — always on its own line so it never gets cut off */}
+        <div className="flex items-center gap-2 w-full">
           <Input
             value={newSize}
             onChange={e => setNewSize(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomSize())}
-            placeholder="Add size..."
-            className="h-7 w-20 text-xs"
+            placeholder="Add custom size…"
+            className="h-8 text-xs flex-1 min-w-0"
           />
-          <Button size="sm" variant="outline" onClick={addCustomSize} className="h-7 px-2 gap-1">
-            <Plus className="h-3 w-3" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={addCustomSize}
+            className="h-8 px-3 gap-1 shrink-0 text-xs font-medium"
+          >
+            <Plus className="h-3 w-3" /> Add Size
           </Button>
         </div>
       </div>
 
+      {/* Variant table */}
       {variants.length === 0 ? (
         <div className="text-center p-6 border-2 border-dashed rounded-xl text-muted-foreground">
-          <p>No colors/variants added yet. Click "Add Color" or use AI</p>
+          <p className="text-sm">No colors/variants added yet.</p>
+          <p className="text-xs mt-1">Click <strong>Add Color</strong> above or use AI suggestions.</p>
         </div>
       ) : (
         <div className="overflow-x-auto border rounded-xl">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 border-b">
-                <th className="p-2 text-left min-w-[120px]">Color</th>
-                <th className="p-2 text-left min-w-[60px]">Hex</th>
+                <th className="p-2 text-left min-w-[120px] sticky left-0 bg-muted/50 z-10">Color</th>
+                <th className="p-2 text-left min-w-[52px]">Hex</th>
                 {allSizes.map(s => (
-                  <th key={s} className="p-2 text-center min-w-[60px]">{s}</th>
+                  <th key={s} className="p-2 text-center min-w-[56px] text-xs">{s}</th>
                 ))}
-                <th className="p-2 text-center min-w-[60px]">Total</th>
-                <th className="p-2 text-center min-w-[80px]">Images</th>
-                <th className="p-2 w-10"></th>
+                <th className="p-2 text-center min-w-[56px] text-xs">Total</th>
+                <th className="p-2 text-center min-w-[72px] text-xs">Imgs</th>
+                <th className="p-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
               {variants.map((variant, vi) => (
                 <tr key={vi} className="border-b hover:bg-accent/30">
-                  <td className="p-2">
+                  <td className="p-2 sticky left-0 bg-card z-10">
                     <Input
                       value={variant.color}
                       onChange={e => updateVariant(vi, 'color', e.target.value)}
-                      placeholder="Red, Blue..."
-                      className="h-8 text-xs"
+                      placeholder="Red, Blue…"
+                      className="h-8 text-xs min-w-[100px]"
                     />
                   </td>
                   <td className="p-2">
@@ -218,23 +233,23 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
                         }}
                         onFocus={e => e.target.select()}
                         onKeyDown={e => handleKeyDown(e, vi, si)}
-                        className="h-8 text-xs text-center w-14 border rounded-md bg-background px-1 focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="h-8 text-xs text-center w-12 border rounded-md bg-background px-1 focus:outline-none focus:ring-2 focus:ring-ring"
                       />
                     </td>
                   ))}
-                  <td className="p-2 text-center font-bold text-primary">
+                  <td className="p-2 text-center font-bold text-primary text-xs">
                     {getTotalForVariant(variant)}
                   </td>
                   <td className="p-2">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-wrap">
                       {variant.images.slice(0, 2).map((img, i) => (
                         <img key={i} src={img} alt="" className="w-6 h-6 rounded object-cover" />
                       ))}
-                      <label className="w-6 h-6 border border-dashed rounded flex items-center justify-center cursor-pointer hover:bg-accent text-[8px]">
+                      <label className="w-6 h-6 border border-dashed rounded flex items-center justify-center cursor-pointer hover:bg-accent shrink-0">
                         <Upload className="h-3 w-3" />
                         <input type="file" multiple accept="image/*" className="hidden" onChange={e => handleVariantImageUpload(vi, e)} />
                       </label>
-                      {uploading === vi && <span className="text-[10px]">...</span>}
+                      {uploading === vi && <span className="text-[10px] text-muted-foreground">...</span>}
                     </div>
                   </td>
                   <td className="p-2">
@@ -245,13 +260,13 @@ const ProductVariantTable = ({ variants, setVariants, sizes: defaultSizes, produ
                 </tr>
               ))}
               <tr className="bg-muted/30 font-bold">
-                <td colSpan={2} className="p-2 text-right text-xs">Total Stock:</td>
+                <td colSpan={2} className="p-2 text-right text-xs text-muted-foreground">Total Stock:</td>
                 {allSizes.map(size => (
                   <td key={size} className="p-2 text-center text-xs">
                     {variants.reduce((sum, v) => sum + (v.sizes[size] || 0), 0)}
                   </td>
                 ))}
-                <td className="p-2 text-center text-primary">{grandTotal}</td>
+                <td className="p-2 text-center text-primary text-xs font-bold">{grandTotal}</td>
                 <td colSpan={2}></td>
               </tr>
             </tbody>

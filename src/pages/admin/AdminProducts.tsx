@@ -622,7 +622,7 @@ const AdminProducts = () => {
               <Plus className="h-4 w-4 mr-2" /> Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+          <DialogContent className="w-[96vw] max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
             <DialogHeader>
               <DialogTitle>{form.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
             </DialogHeader>

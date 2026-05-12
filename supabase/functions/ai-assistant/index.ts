@@ -98,6 +98,25 @@ function safeStr(v: unknown, max = 1000): string {
   return v.length > max ? v.slice(0, max) : v;
 }
 
+async function getReplicateKey(): Promise<string | null> {
+  const envKey = Deno.env.get("REPLICATE_API_KEY");
+  if (envKey) return envKey;
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) return null;
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/site_settings?key=eq.replicate_api_key&select=value&limit=1`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows?.[0]?.value || null;
+  } catch {
+    return null;
+  }
+}
+
 async function getGeminiKeys(): Promise<string[]> {
   const keys = new Set<string>();
   const fromEnv =
@@ -382,7 +401,7 @@ serve(async (req) => {
       const rl = checkRateLimit(ip, true);
       if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);
 
-      const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+      const REPLICATE_API_KEY = await getReplicateKey();
       if (!REPLICATE_API_KEY) return jsonResp({ error: "Try-on not configured" }, 500);
       const { userImageUrl, productImageUrl, categoryType, productTitle } = body;
       if (!userImageUrl || !productImageUrl) return jsonResp({ error: "Missing images" }, 400);
@@ -429,7 +448,7 @@ serve(async (req) => {
       const rl = checkRateLimit(ip, false);
       if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);
 
-      const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
+      const REPLICATE_API_KEY = await getReplicateKey();
       if (!REPLICATE_API_KEY) return jsonResp({ error: "Try-on not configured" }, 500);
       const { predictionId } = body;
       if (!predictionId || !/^[a-zA-Z0-9_-]{8,80}$/.test(String(predictionId))) {
