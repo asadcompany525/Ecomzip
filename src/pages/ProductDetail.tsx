@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle, Sparkles } from 'lucide-react';
+import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import VirtualTryOn from '@/components/VirtualTryOn';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +38,7 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const { addToCart, toggleWishlist, isInWishlist, cartCount } = useCart();
   const { user } = useAuth();
+  const { formatPrice } = useCurrencyConverter();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [dbProduct, setDbProduct] = useState<any>(null);
@@ -498,10 +500,10 @@ const ProductDetail = () => {
             </div>
 
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl md:text-3xl font-bold text-primary">Rs. {product.price.toLocaleString()}</span>
+              <span className="text-2xl md:text-3xl font-bold text-primary">{formatPrice(product.price)}</span>
               {product.originalPrice && product.discount && product.discount > 0 && (
                 <>
-                  <span className="text-base text-muted-foreground line-through">Rs. {product.originalPrice.toLocaleString()}</span>
+                  <span className="text-base text-muted-foreground line-through">{formatPrice(product.originalPrice)}</span>
                   <Badge className="bg-sale text-sale-foreground">-{product.discount}%</Badge>
                 </>
               )}

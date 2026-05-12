@@ -4,7 +4,7 @@ import { utcToPKTInput, pktInputToUtcIso, logTimezoneSync } from '@/lib/pkt';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit, Trash2, Search, Upload, Sparkles, Loader2, Video, ShieldAlert } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Upload, Sparkles, Loader2, Video, ShieldAlert, Box } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
@@ -168,6 +168,7 @@ const AdminProducts = () => {
   });
   const [newTypeInput, setNewTypeInput] = useState('');
   const [showAddType, setShowAddType] = useState(false);
+  const [meshyLoading, setMeshyLoading] = useState(false);
 
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('products').select('*, product_variants(*)').order('created_at', { ascending: false });
@@ -287,6 +288,64 @@ const AdminProducts = () => {
       toast({ title: 'Video upload failed', description: error.message, variant: 'destructive' });
     }
     setUploading(false);
+  };
+
+  const handleMeshy3D = async () => {
+    const imageUrl = form.images[0];
+    if (!imageUrl) {
+      toast({ title: 'Add a product image first', description: 'Meshy.ai needs at least one product image to generate a 3D model.', variant: 'destructive' });
+      return;
+    }
+    const MESHY_KEY = import.meta.env.VITE_MESHY_API_KEY;
+    if (!MESHY_KEY) {
+      toast({
+        title: 'Meshy.ai API Key Required',
+        description: 'Set VITE_MESHY_API_KEY in your environment variables (get a free key at meshy.ai).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setMeshyLoading(true);
+    try {
+      const createRes = await fetch('https://api.meshy.ai/v1/image-to-3d', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${MESHY_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: imageUrl, enable_pbr: true }),
+      });
+      if (!createRes.ok) {
+        const errText = await createRes.text();
+        throw new Error(`Meshy error ${createRes.status}: ${errText.slice(0, 200)}`);
+      }
+      const { result: taskId } = await createRes.json();
+      toast({ title: '3D generation started!', description: 'Polling for result (up to 2 min)...' });
+
+      const poll = async (): Promise<string | null> => {
+        for (let i = 0; i < 24; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const pollRes = await fetch(`https://api.meshy.ai/v1/image-to-3d/${taskId}`, {
+            headers: { Authorization: `Bearer ${MESHY_KEY}` },
+          });
+          const pollData = await pollRes.json();
+          if (pollData.status === 'SUCCEEDED') {
+            return pollData.model_urls?.glb || pollData.model_urls?.fbx || null;
+          }
+          if (pollData.status === 'FAILED' || pollData.status === 'EXPIRED') return null;
+        }
+        return null;
+      };
+
+      const glbUrl = await poll();
+      if (glbUrl) {
+        setForm(p => ({ ...p, video_url: glbUrl }));
+        toast({ title: '3D model ready!', description: 'GLB URL saved to product. It will display in 3D viewers.' });
+      } else {
+        toast({ title: '3D generation timed out', description: 'Try again or check your Meshy.ai dashboard.', variant: 'destructive' });
+      }
+    } catch (e: any) {
+      toast({ title: '3D generation failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setMeshyLoading(false);
+    }
   };
 
   const handleAiAnalyze = async () => {
@@ -592,15 +651,22 @@ const AdminProducts = () => {
                 </div>
                 {form.video_url && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Video className="h-3 w-3" /> Video uploaded
+                    <Video className="h-3 w-3" />
+                    {form.video_url.endsWith('.glb') || form.video_url.endsWith('.fbx') ? '3D model linked' : 'Video uploaded'}
                     <button onClick={() => setForm(p => ({ ...p, video_url: '' }))} className="text-destructive">Remove</button>
                   </div>
                 )}
                 {uploading && <p className="text-xs text-muted-foreground">Uploading...</p>}
-                <Button variant="outline" onClick={handleAiAnalyze} disabled={aiLoading} className="gap-2">
-                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  {aiLoading ? 'AI Analyzing...' : '🤖 AI Auto-Fill Details'}
-                </Button>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" onClick={handleAiAnalyze} disabled={aiLoading} className="gap-2">
+                    {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {aiLoading ? 'AI Analyzing...' : '🤖 AI Auto-Fill Details'}
+                  </Button>
+                  <Button variant="outline" onClick={handleMeshy3D} disabled={meshyLoading || form.images.length === 0} className="gap-2 border-purple-300 text-purple-700 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-700 dark:hover:bg-purple-950/30">
+                    {meshyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Box className="h-4 w-4" />}
+                    {meshyLoading ? 'Generating 3D...' : '🧊 Generate 3D Model'}
+                  </Button>
+                </div>
               </div>
 
               {/* Basic Info */}

@@ -2,6 +2,14 @@
 
 A React 18 + Vite + Supabase e-commerce storefront for a Pakistani shoes and bags store — Pakistan's #1 Shoes & Bags Store.
 
+## Recent Changes (May 2026 — Session 3)
+- **Currency Auto-Detection**: `src/hooks/useCurrencyConverter.ts` — detects visitor's country via `ipapi.co`, maps to currency (PKR/USD/AED/GBP/EUR/SAR/CAD/AUD), fetches live rates from `open.er-api.com` (free, no key), caches 6 hours. Rates show site-wide on ProductCard and ProductDetail. `CurrencySelector` dropdown in header lets user manually override. Preferred currency saved to localStorage.
+- **International Phone Picker**: `src/components/ui/PhoneInput.tsx` — searchable dropdown of 25 countries with flag + dial code, attached to both Phone and WhatsApp fields in Checkout. Phone validation relaxed from Pakistan-only regex to minimum 7 digits (supports any country).
+- **Meshy.ai 3D Model Generation**: Admin → Products → "Generate 3D Model" button (purple) in the Images & Video section. Calls `meshy.ai/v1/image-to-3d` API, polls for up to 2 min, saves `.glb` URL to `product.video_url`. Requires `VITE_MESHY_API_KEY` env var (free key at meshy.ai). Disabled if no product image is uploaded.
+- **Realistic AI Virtual Try-On**: The `VirtualTryOn.tsx` component already calls `virtual-tryon-start`/`virtual-tryon-poll` in the edge function — just set `REPLICATE_API_KEY` as a Supabase secret to activate real IDM-VTON. Falls back to canvas preview if key is missing.
+- **Google Places Address Autocomplete**: Checkout injects the Google Maps JS API script when `VITE_GOOGLE_MAPS_API_KEY` is set, attaches Places Autocomplete to the address textarea. Silently skipped if key is not set.
+- **Checkout navigate fix**: `if (items.length === 0) navigate('/cart')` moved into `useEffect` to avoid React render-update warning.
+
 ## Recent Changes (May 2026 — Session 2)
 - **MySettings fix**: Profile load now only selects existing columns (`full_name, username, phone, whatsapp, avatar_url, email`). Extended preferences (bio, gender, dob, city, notification toggles) saved to localStorage under `stopy_prefs_{userId}`. Saves no longer write to missing `settings` column — avoids 400 error.
 - **AdminNewsletter fix**: `send-newsletter` edge function call now wrapped in try/catch. If function is unavailable, gracefully logs to `email_logs` as `partial` status and shows informative toast instead of crashing.

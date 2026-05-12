@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import SecretDevDashboard, { MASTER_PW_HASH } from '@/components/SecretDevDashboard';
 import { toast } from '@/hooks/use-toast';
+import CurrencySelector from '@/components/ui/CurrencySelector';
 
 const NAV_ITEMS = [
   { label: 'Home', path: '/' },
@@ -465,6 +466,7 @@ Return JSON in <SEARCH_JSON> tags:
                 </div>
 
                 <div className="flex items-center gap-1 md:gap-2 ml-auto">
+                  <CurrencySelector />
                   <Link to="/cart">
                     <Button variant="ghost" size="icon" className="relative">
                       <ShoppingCart className="h-5 w-5" />

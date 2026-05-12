@@ -7,6 +7,7 @@ import { Product } from '@/types/product';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 
 interface ProductCardProps {
   product: Product;
@@ -53,6 +54,7 @@ const CountdownTimer = ({ endsAt, productId }: { endsAt: string; productId: stri
 
 const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) => {
   const { addToCart, toggleWishlist, isInWishlist } = useCart();
+  const { formatPrice } = useCurrencyConverter();
   const [dbFlashEnd, setDbFlashEnd] = useState<string | null>(flashSaleEnds || null);
   const [liveRating, setLiveRating] = useState(product.rating ?? 0);
   const [liveReviews, setLiveReviews] = useState(product.reviews ?? 0);
@@ -172,9 +174,9 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
 
         {/* Price */}
         <div className="flex items-baseline gap-1.5">
-          <span className="text-sm md:text-base font-bold text-primary">Rs. {product.price.toLocaleString()}</span>
+          <span className="text-sm md:text-base font-bold text-primary">{formatPrice(product.price)}</span>
           {product.originalPrice && product.discount && product.discount > 0 && (
-            <span className="text-[10px] text-muted-foreground line-through">Rs. {product.originalPrice.toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground line-through">{formatPrice(product.originalPrice)}</span>
           )}
         </div>
       </Link>

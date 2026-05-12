@@ -12,6 +12,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import PhoneInput from '@/components/ui/PhoneInput';
 
 import BottomNav from '@/components/layout/BottomNav';
 
@@ -227,6 +228,8 @@ const Checkout = () => {
   const [locationData, setLocationData] = useState<LocationData>(PROVINCES);
   const [deliveryRates, setDeliveryRates] = useState<DeliveryRates>({});
   const [deliveryFee, setDeliveryFee] = useState(DEFAULT_DELIVERY_FEE);
+  const addressInputRef = useRef<HTMLTextAreaElement>(null);
+  const placesAutocompleteRef = useRef<any>(null);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -278,6 +281,43 @@ const Checkout = () => {
       setDeliveryFee(DEFAULT_DELIVERY_FEE);
     }
   }, [city, deliveryRates]);
+
+  // Google Places autocomplete for address field
+  useEffect(() => {
+    const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!GOOGLE_KEY) return;
+    const scriptId = 'google-places-script';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_KEY}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initPlaces;
+      document.head.appendChild(script);
+    } else if ((window as any).google?.maps?.places) {
+      initPlaces();
+    }
+
+    function initPlaces() {
+      if (!addressInputRef.current) return;
+      try {
+        const autocomplete = new (window as any).google.maps.places.Autocomplete(
+          addressInputRef.current,
+          { types: ['address'], componentRestrictions: { country: [] } }
+        );
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place?.formatted_address) {
+            setFullAddress(place.formatted_address);
+          }
+        });
+        placesAutocompleteRef.current = autocomplete;
+      } catch (e) {
+        console.warn('[Places] autocomplete init failed', e);
+      }
+    }
+  }, [step]);
 
   useEffect(() => {
     // Load city data from CityManager (site_settings), fall back to hardcoded PROVINCES
@@ -347,10 +387,8 @@ const Checkout = () => {
   const placeOrder = async () => {
     if (!user) { toast({ title: 'Please login first', variant: 'destructive' }); navigate('/login'); return; }
     if (!fullName || !phone || !province || !city || !area || !fullAddress) { toast({ title: 'Fill all address fields', variant: 'destructive' }); return; }
-    // Validate Pakistani phone number format
-    const pkPhoneRegex = /^(03\d{9}|\+923\d{9})$/;
-    if (!pkPhoneRegex.test(phone.replace(/\s/g, ''))) {
-      toast({ title: 'Invalid phone number', description: 'Please enter a valid Pakistani number (e.g. 03001234567)', variant: 'destructive' });
+    if (phone.replace(/[\s+\-()]/g,'').length < 7) {
+      toast({ title: 'Invalid phone number', description: 'Please enter a valid phone number with country code.', variant: 'destructive' });
       return;
     }
     // Validate WhatsApp differs from phone
@@ -426,7 +464,11 @@ const Checkout = () => {
     setLoading(false);
   };
 
-  if (items.length === 0) { navigate('/cart'); return null; }
+  useEffect(() => {
+    if (items.length === 0) navigate('/cart');
+  }, [items.length]);
+
+  if (items.length === 0) return null;
 
   // Get selected payment method details
   const selectedPM = paymentMethods.find(pm => pm.type === paymentMethod || pm.name.toLowerCase().includes(paymentMethod));
@@ -476,12 +518,12 @@ const Checkout = () => {
                   <div><Label>Full Name *</Label><Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" className="mt-1" required /></div>
                   <div>
                     <Label>Phone *</Label>
-                    <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="03001234567" className={`mt-1 ${phone && !/^(03\d{9}|\+923\d{9})$/.test(phone.replace(/\s/g,'')) ? 'border-red-400 focus-visible:ring-red-300' : ''}`} required />
-                    {phone && !/^(03\d{9}|\+923\d{9})$/.test(phone.replace(/\s/g,'')) && <p className="text-xs text-red-500 mt-0.5">Enter Pakistani number e.g. 03001234567</p>}
+                    <PhoneInput value={phone} onChange={setPhone} placeholder="Phone number" className="mt-1" required />
+                    {phone && phone.replace(/[\s+\-()]/g,'').length < 7 && <p className="text-xs text-red-500 mt-0.5">Enter a valid phone number</p>}
                   </div>
                   <div>
                     <Label>WhatsApp (Optional)</Label>
-                    <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="Different WhatsApp number" className={`mt-1 ${whatsapp && whatsapp.replace(/\s/g,'') === phone.replace(/\s/g,'') ? 'border-red-400 focus-visible:ring-red-300' : ''}`} />
+                    <PhoneInput value={whatsapp} onChange={setWhatsapp} placeholder="WhatsApp (if different)" className="mt-1" />
                     {whatsapp && whatsapp.replace(/\s/g,'') === phone.replace(/\s/g,'') && <p className="text-xs text-red-500 mt-0.5">WhatsApp must be different from Phone</p>}
                   </div>
                   <div>
@@ -513,7 +555,23 @@ const Checkout = () => {
                     </Select>
                   </div>
                 </div>
-                <div><Label>Full Address *</Label><Textarea value={fullAddress} onChange={e => setFullAddress(e.target.value)} placeholder="House #, Street, Landmark..." className="mt-1" /></div>
+                <div>
+                  <Label>Full Address *</Label>
+                  <div className="relative mt-1">
+                    <Textarea
+                      ref={addressInputRef}
+                      value={fullAddress}
+                      onChange={e => setFullAddress(e.target.value)}
+                      placeholder="House #, Street, Landmark..."
+                      id="checkout-address-input"
+                    />
+                    {!fullAddress && (
+                      <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                        <span>📍</span> Start typing your address — Google autocomplete is active if configured
+                      </p>
+                    )}
+                  </div>
+                </div>
 
                 {province && (
                   <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2">
@@ -538,9 +596,8 @@ const Checkout = () => {
                   Save this address for future orders
                 </label>
                 <Button onClick={() => {
-                  const pkPhoneRegex = /^(03\d{9}|\+923\d{9})$/;
-                  if (!pkPhoneRegex.test(phone.replace(/\s/g, ''))) {
-                    toast({ title: 'Invalid phone number', description: 'Enter a valid Pakistani number e.g. 03001234567', variant: 'destructive' });
+                  if (phone.replace(/[\s+\-()]/g,'').length < 7) {
+                    toast({ title: 'Invalid phone number', description: 'Enter a valid phone number with country code.', variant: 'destructive' });
                     return;
                   }
                   if (whatsapp && whatsapp.replace(/\s/g, '') === phone.replace(/\s/g, '')) {
@@ -679,6 +736,7 @@ const Checkout = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Delivery{city && deliveryRates[city] ? ` (${city})` : ''}</span><span>Rs. {deliveryFee.toLocaleString()}</span></div>
               {promoDiscount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>-Rs. {promoDiscount.toLocaleString()}</span></div>}
               <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total</span><span className="text-primary">Rs. {total.toLocaleString()}</span></div>
+              <p className="text-[10px] text-muted-foreground text-right">All amounts in PKR (Pakistani Rupee)</p>
             </div>
           </div>
         </div>
