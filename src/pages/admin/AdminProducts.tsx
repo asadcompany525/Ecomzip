@@ -435,105 +435,122 @@ const AdminProducts = () => {
     setAiLoading(false);
   };
 
-  const handleSave = async () => {
+  // Helper: try save, fallback without missing columns if schema cache error
+  const trySave = async (data: any, id?: string) => {
+    if (id) {
+      const { error } = await supabase.from('products').update(data).eq('id', id).select('id').single();
+      if (error) {
+        if (error.message?.includes('claim_duration') || error.message?.includes('schema cache')) {
+          const { claim_duration, ...dataWithout } = data;
+          const { error: e2 } = await supabase.from('products').update(dataWithout).eq('id', id).select('id').single();
+          if (e2) throw e2;
+          return { id };
+        }
+        throw error;
+      }
+      return { id };
+    } else {
+      const { data: inserted, error } = await supabase.from('products').insert(data).select('id').single();
+      if (error) {
+        if (error.message?.includes('claim_duration') || error.message?.includes('schema cache')) {
+          const { claim_duration, ...dataWithout } = data;
+          const { data: ins2, error: e2 } = await supabase.from('products').insert(dataWithout).select('id').single();
+          if (e2) throw e2;
+          return { id: ins2?.id };
+        }
+        throw error;
+      }
+      return { id: inserted?.id };
+    }
+  };
+
+  const handleSave = () => {
     if (!form.title) {
       toast({ title: 'Title is required', variant: 'destructive' });
       return;
     }
-    setSaving(true);
-    try {
-      await ensureAdminSession();
 
-      const totalStock = variants.reduce((sum, v) => sum + Object.values(v.sizes).reduce((a, b) => a + b, 0), 0);
-      const colorsJson = variants.map(v => ({ name: v.color, hex: v.color_hex }));
-      const sizesJson = getSizesForProduct();
+    const isNew = !form.id;
+    const totalStock = variants.reduce((sum, v) => sum + Object.values(v.sizes).reduce((a, b) => a + b, 0), 0);
+    const colorsJson = variants.map(v => ({ name: v.color, hex: v.color_hex }));
+    const sizesJson = getSizesForProduct();
+    const tempId = form.id || `temp-${Date.now()}`;
 
-      const saveData: any = {
-        title: form.title,
-        description: form.description || null,
-        price: form.price || 0,
-        stock: totalStock,
-        gender: showGender ? (form.gender || 'unisex') : 'unisex',
-        is_active: form.is_active,
-        is_flash_sale: form.discount_type === 'flash_sale',
-        is_new_arrival: form.is_new_arrival,
-        flash_sale_ends: form.discount_type === 'flash_sale' && form.flash_sale_ends ? pktInputToUtcIso(form.flash_sale_ends) : null,
-        images: form.images,
-        video_url: form.video_url || null,
-        brand: form.brand || null,
-        sizes: sizesJson,
-        colors: colorsJson,
-        discount_percent: form.discount_type !== 'none' ? form.discount_percent : 0,
-        return_policy: form.return_policy || null,
-        claim_duration: form.claim_duration || null,
-        claim_policy: form.claim_policy || null,
-        category_id: form.category_id || null,
-        sub_category_id: form.sub_category_id || null,
-        sub_sub_category_id: form.sub_sub_category_id || null,
-        tags: form.tags,
-      };
+    const saveData: any = {
+      title: form.title,
+      description: form.description || null,
+      price: form.price || 0,
+      stock: totalStock,
+      gender: showGender ? (form.gender || 'unisex') : 'unisex',
+      is_active: form.is_active,
+      is_flash_sale: form.discount_type === 'flash_sale',
+      is_new_arrival: form.is_new_arrival,
+      flash_sale_ends: form.discount_type === 'flash_sale' && form.flash_sale_ends ? pktInputToUtcIso(form.flash_sale_ends) : null,
+      images: form.images,
+      video_url: form.video_url || null,
+      brand: form.brand || null,
+      sizes: sizesJson,
+      colors: colorsJson,
+      discount_percent: form.discount_type !== 'none' ? form.discount_percent : 0,
+      return_policy: form.return_policy || null,
+      claim_duration: form.claim_duration || null,
+      claim_policy: form.claim_policy || null,
+      category_id: form.category_id || null,
+      sub_category_id: form.sub_category_id || null,
+      sub_sub_category_id: form.sub_sub_category_id || null,
+      tags: form.tags,
+      product_type: form.product_type,
+    };
 
-      // Helper: try save, fallback without missing columns if schema cache error
-      const trySave = async (data: any, id?: string) => {
-        if (id) {
-          const { error } = await supabase.from('products').update(data).eq('id', id).select('id').single();
-          if (error) {
-            if (error.message?.includes('claim_duration') || error.message?.includes('schema cache')) {
-              const { claim_duration, ...dataWithout } = data;
-              const { error: e2 } = await supabase.from('products').update(dataWithout).eq('id', id).select('id').single();
-              if (e2) throw e2;
-              return { id };
-            }
-            throw error;
-          }
-          return { id };
-        } else {
-          const { data: inserted, error } = await supabase.from('products').insert(data).select('id').single();
-          if (error) {
-            if (error.message?.includes('claim_duration') || error.message?.includes('schema cache')) {
-              const { claim_duration, ...dataWithout } = data;
-              const { data: ins2, error: e2 } = await supabase.from('products').insert(dataWithout).select('id').single();
-              if (e2) throw e2;
-              return { id: ins2?.id };
-            }
-            throw error;
-          }
-          return { id: inserted?.id };
-        }
-      };
-
-      let productId = form.id;
-      const saved = await trySave(saveData, productId || undefined);
-      if (!productId) productId = saved.id;
-
-      if (!productId) throw new Error('Product save did not return an id');
-
-      const { error: deleteVariantsError } = await supabase.from('product_variants').delete().eq('product_id', productId);
-      if (deleteVariantsError) throw deleteVariantsError;
-
-      const variantInserts = variants.flatMap(v => 
+    // ── INSTANT: close dialog + optimistically update list ──
+    const optimistic: any = {
+      ...saveData,
+      id: tempId,
+      created_at: isNew ? new Date().toISOString() : undefined,
+      product_variants: variants.flatMap(v =>
         Object.entries(v.sizes).map(([size, qty]) => ({
-          product_id: productId!,
-          color: v.color, color_hex: v.color_hex,
-          size, stock: qty, images: v.images,
+          id: `tv-${size}`, product_id: tempId,
+          color: v.color, color_hex: v.color_hex, size, stock: qty, images: v.images,
         }))
-      );
-
-      if (variantInserts.length > 0) {
-        const { error: variantInsertError } = await supabase.from('product_variants').insert(variantInserts);
-        if (variantInsertError) throw variantInsertError;
-      }
-
-      toast({ title: form.id ? 'Product updated!' : 'Product added!' });
-      setDialogOpen(false);
-      setForm(defaultForm);
-      setVariants([]);
-      fetchProducts();
-    } catch (e: any) {
-      toast({ title: 'Product save failed', description: e.message || 'Unknown Supabase error', variant: 'destructive' });
-    } finally {
-      setSaving(false);
+      ),
+    };
+    if (isNew) {
+      setProducts(prev => [optimistic, ...prev]);
+    } else {
+      setProducts(prev => prev.map(p => p.id === form.id ? { ...p, ...optimistic } : p));
     }
+    setDialogOpen(false);
+    setForm(defaultForm);
+    setVariants([]);
+    setSizeInput('');
+    toast({ title: isNew ? '✅ Product added!' : '✅ Product updated!' });
+
+    // ── BACKGROUND: actual DB write ──
+    const savedFormId = form.id;
+    (async () => {
+      try {
+        await ensureAdminSession();
+        const saved = await trySave(saveData, savedFormId || undefined);
+        const productId = savedFormId || saved.id;
+        if (!productId) throw new Error('No product id returned');
+        await supabase.from('product_variants').delete().eq('product_id', productId);
+        const variantInserts = variants.flatMap(v =>
+          Object.entries(v.sizes).map(([size, qty]) => ({
+            product_id: productId!,
+            color: v.color, color_hex: v.color_hex,
+            size, stock: qty, images: v.images,
+          }))
+        );
+        if (variantInserts.length > 0) {
+          await supabase.from('product_variants').insert(variantInserts);
+        }
+        // Silent sync — replaces temp IDs with real data
+        fetchProducts();
+      } catch (e: any) {
+        toast({ title: 'Save error — refreshing', description: e.message, variant: 'destructive' });
+        fetchProducts();
+      }
+    })();
   };
 
   const handleEdit = async (product: any) => {
@@ -596,31 +613,43 @@ const AdminProducts = () => {
     setDeleteDialog({ id, title: product?.title || 'this product', force: true });
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!deleteDialog) return;
     const { id, force } = deleteDialog;
     const product = products.find(p => p.id === id);
-    if (product) {
-      const code = (product.tags as string[])?.[0];
-      if (code) {
-        await supabase.from('deleted_product_codes').upsert({ code, product_title: product.title }, { onConflict: 'code' });
-      }
-    }
-    if (force) {
-      await supabase.from('order_items').update({ product_id: null, variant_id: null }).eq('product_id', id);
-      await supabase.from('reviews').delete().eq('product_id', id);
-      await supabase.from('stock_alerts').delete().eq('product_id', id);
-      await supabase.from('ai_discount_suggestions').delete().eq('product_id', id);
-    }
-    await supabase.from('product_variants').delete().eq('product_id', id);
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) {
-      toast({ title: force ? 'Force delete failed' : 'Cannot delete', description: force ? error.message : 'Product has linked orders. Use Force Delete.', variant: 'destructive' });
-    } else {
-      toast({ title: force ? 'Product force deleted!' : 'Product deleted' });
-    }
+
+    // ── INSTANT: remove from list ──
+    setProducts(prev => prev.filter(p => p.id !== id));
     setDeleteDialog(null);
-    fetchProducts();
+    toast({ title: force ? '🗑️ Force deleted!' : '🗑️ Product deleted' });
+
+    // ── BACKGROUND: actual DB delete ──
+    (async () => {
+      try {
+        await ensureAdminSession();
+        const code = (product?.tags as string[])?.[0];
+        if (code) {
+          await supabase.from('deleted_product_codes').upsert({ code, product_title: product.title }, { onConflict: 'code' });
+        }
+        if (force) {
+          await Promise.all([
+            supabase.from('order_items').update({ product_id: null, variant_id: null }).eq('product_id', id),
+            supabase.from('reviews').delete().eq('product_id', id),
+            supabase.from('stock_alerts').delete().eq('product_id', id),
+            supabase.from('ai_discount_suggestions').delete().eq('product_id', id),
+          ]);
+        }
+        await supabase.from('product_variants').delete().eq('product_id', id);
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        if (error && !force) {
+          toast({ title: 'Delete failed — use Force Delete', description: error.message, variant: 'destructive' });
+          fetchProducts();
+        }
+      } catch (e: any) {
+        toast({ title: 'Delete error — refreshing', description: e.message, variant: 'destructive' });
+        fetchProducts();
+      }
+    })();
   };
 
   const filtered = products.filter(p => {

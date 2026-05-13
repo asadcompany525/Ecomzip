@@ -20,7 +20,6 @@ const AdminTodayOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<Date | undefined>(new Date());
-  const [updating, setUpdating] = useState<string | null>(null);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -37,12 +36,14 @@ const AdminTodayOrders = () => {
 
   useEffect(() => { fetchOrders(); }, [dateFilter]);
 
-  const updateStatus = async (id: string, status: string) => {
-    setUpdating(id + status);
-    await supabase.from('orders').update({ status: status as any }).eq('id', id);
-    toast({ title: `Order ${status}` });
+  const updateStatus = (id: string, status: string) => {
+    // INSTANT
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
-    setUpdating(null);
+    toast({ title: `✅ Order ${status}` });
+    // Background DB write
+    supabase.from('orders').update({ status: status as any }).eq('id', id).then(({ error }) => {
+      if (error) toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
+    });
   };
 
   const totalAmount = orders.reduce((s, o) => s + Number(o.total || 0), 0);
@@ -122,17 +123,17 @@ const AdminTodayOrders = () => {
                     <div className="flex gap-1">
                       <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-blue-700 border-blue-200 hover:bg-blue-50"
                         onClick={() => updateStatus(o.id, 'confirmed')}
-                        disabled={updating === o.id + 'confirmed' || o.status === 'confirmed'}>
+                        disabled={o.status === 'confirmed'}>
                         <CheckCircle className="h-3 w-3" /> Confirm
                       </Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-indigo-700 border-indigo-200 hover:bg-indigo-50"
                         onClick={() => updateStatus(o.id, 'shipped')}
-                        disabled={updating === o.id + 'shipped' || o.status === 'shipped'}>
+                        disabled={o.status === 'shipped'}>
                         <Truck className="h-3 w-3" /> Ship
                       </Button>
                       <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-700 border-red-200 hover:bg-red-50"
                         onClick={() => updateStatus(o.id, 'cancelled')}
-                        disabled={updating === o.id + 'cancelled' || o.status === 'cancelled'}>
+                        disabled={o.status === 'cancelled'}>
                         <XCircle className="h-3 w-3" /> Cancel
                       </Button>
                     </div>

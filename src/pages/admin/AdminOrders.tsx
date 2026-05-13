@@ -66,23 +66,37 @@ const AdminOrders = () => {
     setOrderItems(data || []);
   };
 
-  const updateStatus = async (orderId: string, status: string) => {
-    await supabase.from('orders').update({ status: status as any }).eq('id', orderId);
-    toast({ title: `Order ${status}` });
-    fetchOrders();
+  const updateStatus = (orderId: string, status: string) => {
+    // INSTANT update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
     if (selectedOrder?.id === orderId) setSelectedOrder((o: any) => ({ ...o, status }));
+    toast({ title: `✅ Order ${status}` });
+    // Background DB write
+    supabase.from('orders').update({ status: status as any }).eq('id', orderId).then(({ error }) => {
+      if (error) { toast({ title: 'Status update failed', description: error.message, variant: 'destructive' }); fetchOrders(); }
+    });
   };
 
-  const updatePaymentStatus = async (orderId: string, ps: string) => {
-    await supabase.from('orders').update({ payment_status: ps as any }).eq('id', orderId);
-    toast({ title: `Payment ${ps}` });
+  const updatePaymentStatus = (orderId: string, ps: string) => {
+    // INSTANT update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_status: ps } : o));
     if (selectedOrder?.id === orderId) setSelectedOrder((o: any) => ({ ...o, payment_status: ps }));
+    toast({ title: `✅ Payment ${ps}` });
+    // Background DB write
+    supabase.from('orders').update({ payment_status: ps as any }).eq('id', orderId).then(({ error }) => {
+      if (error) { toast({ title: 'Payment update failed', description: error.message, variant: 'destructive' }); fetchOrders(); }
+    });
   };
 
-  const updateTracking = async (orderId: string, trackingId: string) => {
-    await supabase.from('orders').update({ tracking_id: trackingId }).eq('id', orderId);
-    toast({ title: 'Tracking updated' });
+  const updateTracking = (orderId: string, trackingId: string) => {
+    // INSTANT update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, tracking_id: trackingId } : o));
     setSelectedOrder((o: any) => ({ ...o, tracking_id: trackingId }));
+    toast({ title: '✅ Tracking updated' });
+    // Background DB write
+    supabase.from('orders').update({ tracking_id: trackingId }).eq('id', orderId).then(({ error }) => {
+      if (error) { toast({ title: 'Tracking update failed', description: error.message, variant: 'destructive' }); }
+    });
   };
 
   const handleScan = () => {
