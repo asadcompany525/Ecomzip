@@ -3,7 +3,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -13,6 +14,7 @@ import AbandonedCartWebNotification from "@/components/AbandonedCartWebNotificat
 import StopyLoader from "@/components/StopyLoader";
 import RouteProgressBar from "@/components/ui/RouteProgressBar";
 import { PageSkeleton, AdminPageSkeleton } from "@/components/ui/PageSkeleton";
+import PageTransition from "@/components/PageTransition";
 
 const Index            = lazy(() => import("./pages/Index"));
 const Products         = lazy(() => import("./pages/Products"));
@@ -128,12 +130,115 @@ const AdminGuard = ({ children }: { children: React.ReactNode }) => {
 };
 
 const PageLoader = () => <StopyLoader fullScreen />;
+
 const S = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
 );
 const AS = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<AdminPageSkeleton />}>{children}</Suspense>
 );
+const PT = ({ children }: { children: React.ReactNode }) => (
+  <PageTransition><Suspense fallback={<PageSkeleton />}>{children}</Suspense></PageTransition>
+);
+const PTL = ({ children }: { children: React.ReactNode }) => (
+  <PageTransition><Suspense fallback={<PageLoader />}>{children}</Suspense></PageTransition>
+);
+
+const AppRoutes = () => {
+  const location = useLocation();
+  return (
+    <>
+      <RouteProgressBar />
+      <AnimatePresence mode="wait" initial={false}>
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<PTL><Index /></PTL>} />
+          <Route path="/products" element={<PT><Products /></PT>} />
+          <Route path="/product/:id" element={<PTL><ProductDetail /></PTL>} />
+          <Route path="/cart" element={<PT><Cart /></PT>} />
+          <Route path="/checkout" element={<PTL><Checkout /></PTL>} />
+          <Route path="/order-success/:id" element={<PTL><OrderSuccess /></PTL>} />
+          <Route path="/wishlist" element={<PT><Wishlist /></PT>} />
+          <Route path="/login" element={<PT><Login /></PT>} />
+          <Route path="/signup" element={<PT><Signup /></PT>} />
+          <Route path="/new-arrivals" element={<PT><NewArrivals /></PT>} />
+          <Route path="/discount-items" element={<PT><DiscountItems /></PT>} />
+          <Route path="/flash-sale" element={<PT><FlashSalePage /></PT>} />
+          <Route path="/my-page" element={<PT><MyPage /></PT>} />
+          <Route path="/my-orders" element={<PT><MyOrders /></PT>} />
+          <Route path="/my-addresses" element={<PT><MyAddresses /></PT>} />
+          <Route path="/my-returns" element={<PT><MyReturns /></PT>} />
+          <Route path="/my-reviews" element={<PT><MyReviews /></PT>} />
+          <Route path="/my-settings" element={<PT><MySettings /></PT>} />
+          <Route path="/track-order" element={<PT><TrackOrder /></PT>} />
+          <Route path="/return-policy" element={<PT><ReturnPolicy /></PT>} />
+          <Route path="/contact" element={<PT><Contact /></PT>} />
+          <Route path="/faq" element={<PT><FAQ /></PT>} />
+          <Route path="/developer" element={<PT><DeveloperPage /></PT>} />
+          <Route path="/notifications" element={<PT><Notifications /></PT>} />
+
+          <Route path="/admin/login" element={<S><AdminLogin /></S>} />
+          <Route path="/admin" element={<AdminGuard><Suspense fallback={<PageLoader />}><AdminLayout /></Suspense></AdminGuard>}>
+            <Route index element={<AS><AdminDashboard /></AS>} />
+            <Route path="products" element={<AS><AdminProducts /></AS>} />
+            <Route path="categories" element={<AS><AdminCategories /></AS>} />
+            <Route path="orders" element={<AS><AdminOrders /></AS>} />
+            <Route path="payments" element={<AS><AdminPayments /></AS>} />
+            <Route path="payment-methods" element={<AS><AdminPaymentMethods /></AS>} />
+            <Route path="today-orders" element={<AS><AdminTodayOrders /></AS>} />
+            <Route path="customers" element={<AS><AdminCustomers /></AS>} />
+            <Route path="staff" element={<AS><AdminStaff /></AS>} />
+            <Route path="staff-performance" element={<AS><AdminStaffPerformance /></AS>} />
+            <Route path="banners" element={<AS><AdminBanners /></AS>} />
+            <Route path="promos" element={<AS><AdminPromos /></AS>} />
+            <Route path="reviews" element={<AS><AdminReviews /></AS>} />
+            <Route path="returns" element={<AS><AdminClaimsReturns /></AS>} />
+            <Route path="claims-returns" element={<AS><AdminClaimsReturns /></AS>} />
+            <Route path="contact-messages" element={<AS><AdminContactMessages /></AS>} />
+            <Route path="chat" element={<AS><AdminChat /></AS>} />
+            <Route path="reports" element={<AS><AdminReports /></AS>} />
+            <Route path="product-analytics" element={<AS><AdminProductAnalytics /></AS>} />
+            <Route path="ai-discounts" element={<AS><AdminAiDiscounts /></AS>} />
+            <Route path="order-checklist" element={<AS><AdminOrderChecklist /></AS>} />
+            <Route path="form-generator" element={<AS><AdminFormGenerator /></AS>} />
+            <Route path="delivery" element={<AS><AdminDelivery /></AS>} />
+            <Route path="stock-alerts" element={<AS><AdminStockAlerts /></AS>} />
+            <Route path="city-manager" element={<AS><AdminCityManager /></AS>} />
+            <Route path="ai-helper" element={<AS><AdminAiHelper /></AS>} />
+            <Route path="ai-site-manager" element={<AS><AdminAiSiteManager /></AS>} />
+            <Route path="ai-banner-creator" element={<AS><AdminAiBannerCreator /></AS>} />
+            <Route path="ai-bulk-creator" element={<AS><AdminAiBulkCreator /></AS>} />
+            <Route path="ai-fraud-detector" element={<AS><AdminAiFraudDetector /></AS>} />
+            <Route path="ai-sales-predictor" element={<AS><AdminAiSalesPredictor /></AS>} />
+            <Route path="ai-marketing-hub" element={<AS><AdminAiMarketingHub /></AS>} />
+            <Route path="ai-feedback-analyzer" element={<AS><AdminAiFeedbackAnalyzer /></AS>} />
+            <Route path="ai-price-intelligence" element={<AS><AdminAiPriceIntelligence /></AS>} />
+            <Route path="ai-global-manager" element={<AS><AdminAiGlobalManager /></AS>} />
+            <Route path="ai-voice" element={<AS><AdminAiVoice /></AS>} />
+            <Route path="ai-claim-validator" element={<AS><AdminClaimsReturns /></AS>} />
+            <Route path="ai-virtual-tryon" element={<AS><AdminAiVirtualTryon /></AS>} />
+            <Route path="ai-size-advisor" element={<AS><AdminAiSizeAdvisor /></AS>} />
+            <Route path="inventory" element={<AS><AdminInventoryInsights /></AS>} />
+            <Route path="activity" element={<AS><AdminActivity /></AS>} />
+            <Route path="settings" element={<AS><AdminSettings /></AS>} />
+            <Route path="trend-predictor" element={<AS><AdminTrendPredictor /></AS>} />
+            <Route path="pricing-engine" element={<AS><AdminPricingEngine /></AS>} />
+            <Route path="loyalty-heatmap" element={<AS><AdminLoyaltyHeatmap /></AS>} />
+            <Route path="search-logs" element={<AS><AdminSearchLogs /></AS>} />
+            <Route path="newsletter" element={<AS><AdminNewsletter /></AS>} />
+            <Route path="finance-ledger" element={<AS><AdminFinanceLedger /></AS>} />
+            <Route path="staff-salary" element={<AS><AdminStaffSalary /></AS>} />
+            <Route path="tech-logs" element={<AS><AdminTechLogs /></AS>} />
+          </Route>
+
+          <Route path="*" element={<PT><NotFound /></PT>} />
+        </Routes>
+      </AnimatePresence>
+      <AIChatWidget />
+      <AbandonedCartRecovery />
+      <AbandonedCartWebNotification />
+    </>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -144,94 +249,7 @@ const App = () => (
           <Sonner />
           <SiteBrandingLoader />
           <BrowserRouter>
-            <RouteProgressBar />
-            <Suspense fallback={<PageSkeleton />}>
-              <Routes>
-                <Route path="/" element={<Suspense fallback={<PageLoader />}><Index /></Suspense>} />
-                <Route path="/products" element={<S><Products /></S>} />
-                <Route path="/product/:id" element={<Suspense fallback={<PageLoader />}><ProductDetail /></Suspense>} />
-                <Route path="/cart" element={<S><Cart /></S>} />
-                <Route path="/checkout" element={<Suspense fallback={<PageLoader />}><Checkout /></Suspense>} />
-                <Route path="/order-success/:id" element={<Suspense fallback={<PageLoader />}><OrderSuccess /></Suspense>} />
-                <Route path="/wishlist" element={<S><Wishlist /></S>} />
-                <Route path="/login" element={<S><Login /></S>} />
-                <Route path="/signup" element={<S><Signup /></S>} />
-                <Route path="/new-arrivals" element={<S><NewArrivals /></S>} />
-                <Route path="/discount-items" element={<S><DiscountItems /></S>} />
-                <Route path="/flash-sale" element={<S><FlashSalePage /></S>} />
-                <Route path="/my-page" element={<S><MyPage /></S>} />
-                <Route path="/my-orders" element={<S><MyOrders /></S>} />
-                <Route path="/my-addresses" element={<S><MyAddresses /></S>} />
-                <Route path="/my-returns" element={<S><MyReturns /></S>} />
-                <Route path="/my-reviews" element={<S><MyReviews /></S>} />
-                <Route path="/my-settings" element={<S><MySettings /></S>} />
-                <Route path="/track-order" element={<S><TrackOrder /></S>} />
-                <Route path="/return-policy" element={<S><ReturnPolicy /></S>} />
-                <Route path="/contact" element={<S><Contact /></S>} />
-                <Route path="/faq" element={<S><FAQ /></S>} />
-                <Route path="/developer" element={<S><DeveloperPage /></S>} />
-                <Route path="/notifications" element={<S><Notifications /></S>} />
-
-                <Route path="/admin/login" element={<S><AdminLogin /></S>} />
-                <Route path="/admin" element={<AdminGuard><Suspense fallback={<PageLoader />}><AdminLayout /></Suspense></AdminGuard>}>
-                  <Route index element={<AS><AdminDashboard /></AS>} />
-                  <Route path="products" element={<AS><AdminProducts /></AS>} />
-                  <Route path="categories" element={<AS><AdminCategories /></AS>} />
-                  <Route path="orders" element={<AS><AdminOrders /></AS>} />
-                  <Route path="payments" element={<AS><AdminPayments /></AS>} />
-                  <Route path="payment-methods" element={<AS><AdminPaymentMethods /></AS>} />
-                  <Route path="today-orders" element={<AS><AdminTodayOrders /></AS>} />
-                  <Route path="customers" element={<AS><AdminCustomers /></AS>} />
-                  <Route path="staff" element={<AS><AdminStaff /></AS>} />
-                  <Route path="staff-performance" element={<AS><AdminStaffPerformance /></AS>} />
-                  <Route path="banners" element={<AS><AdminBanners /></AS>} />
-                  <Route path="promos" element={<AS><AdminPromos /></AS>} />
-                  <Route path="reviews" element={<AS><AdminReviews /></AS>} />
-                  <Route path="returns" element={<AS><AdminClaimsReturns /></AS>} />
-                  <Route path="claims-returns" element={<AS><AdminClaimsReturns /></AS>} />
-                  <Route path="contact-messages" element={<AS><AdminContactMessages /></AS>} />
-                  <Route path="chat" element={<AS><AdminChat /></AS>} />
-                  <Route path="reports" element={<AS><AdminReports /></AS>} />
-                  <Route path="product-analytics" element={<AS><AdminProductAnalytics /></AS>} />
-                  <Route path="ai-discounts" element={<AS><AdminAiDiscounts /></AS>} />
-                  <Route path="order-checklist" element={<AS><AdminOrderChecklist /></AS>} />
-                  <Route path="form-generator" element={<AS><AdminFormGenerator /></AS>} />
-                  <Route path="delivery" element={<AS><AdminDelivery /></AS>} />
-                  <Route path="stock-alerts" element={<AS><AdminStockAlerts /></AS>} />
-                  <Route path="city-manager" element={<AS><AdminCityManager /></AS>} />
-                  <Route path="ai-helper" element={<AS><AdminAiHelper /></AS>} />
-                  <Route path="ai-site-manager" element={<AS><AdminAiSiteManager /></AS>} />
-                  <Route path="ai-banner-creator" element={<AS><AdminAiBannerCreator /></AS>} />
-                  <Route path="ai-bulk-creator" element={<AS><AdminAiBulkCreator /></AS>} />
-                  <Route path="ai-fraud-detector" element={<AS><AdminAiFraudDetector /></AS>} />
-                  <Route path="ai-sales-predictor" element={<AS><AdminAiSalesPredictor /></AS>} />
-                  <Route path="ai-marketing-hub" element={<AS><AdminAiMarketingHub /></AS>} />
-                  <Route path="ai-feedback-analyzer" element={<AS><AdminAiFeedbackAnalyzer /></AS>} />
-                  <Route path="ai-price-intelligence" element={<AS><AdminAiPriceIntelligence /></AS>} />
-                  <Route path="ai-global-manager" element={<AS><AdminAiGlobalManager /></AS>} />
-                  <Route path="ai-voice" element={<AS><AdminAiVoice /></AS>} />
-                  <Route path="ai-claim-validator" element={<AS><AdminClaimsReturns /></AS>} />
-                  <Route path="ai-virtual-tryon" element={<AS><AdminAiVirtualTryon /></AS>} />
-                  <Route path="ai-size-advisor" element={<AS><AdminAiSizeAdvisor /></AS>} />
-                  <Route path="inventory" element={<AS><AdminInventoryInsights /></AS>} />
-                  <Route path="activity" element={<AS><AdminActivity /></AS>} />
-                  <Route path="settings" element={<AS><AdminSettings /></AS>} />
-                  <Route path="trend-predictor" element={<AS><AdminTrendPredictor /></AS>} />
-                  <Route path="pricing-engine" element={<AS><AdminPricingEngine /></AS>} />
-                  <Route path="loyalty-heatmap" element={<AS><AdminLoyaltyHeatmap /></AS>} />
-                  <Route path="search-logs" element={<AS><AdminSearchLogs /></AS>} />
-                  <Route path="newsletter" element={<AS><AdminNewsletter /></AS>} />
-                  <Route path="finance-ledger" element={<AS><AdminFinanceLedger /></AS>} />
-                  <Route path="staff-salary" element={<AS><AdminStaffSalary /></AS>} />
-                  <Route path="tech-logs" element={<AS><AdminTechLogs /></AS>} />
-                </Route>
-
-                <Route path="*" element={<S><NotFound /></S>} />
-              </Routes>
-            </Suspense>
-            <AIChatWidget />
-            <AbandonedCartRecovery />
-            <AbandonedCartWebNotification />
+            <AppRoutes />
           </BrowserRouter>
         </CartProvider>
       </AuthProvider>
