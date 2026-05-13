@@ -257,6 +257,32 @@ const AdminProducts = () => {
     }
   }, [dialogOpen]);
 
+  // Auto-apply smart size range when product type or gender changes (new products only)
+  useEffect(() => {
+    if (form.id) return; // Never overwrite sizes on edit
+    const type = form.product_type.toLowerCase();
+    const g = form.gender.toLowerCase();
+    let auto = '';
+    if (isFootwearType(type)) {
+      if (type.includes('heel')) auto = '35-41';
+      else if (g === 'women') auto = '35-41';
+      else if (g === 'kids') auto = '20-35';
+      else if (g === 'unisex') auto = '36-45';
+      else auto = '39-45'; // men default
+    } else if (isBagType(type)) {
+      if (type === 'wallets' || type === 'clutch') auto = 'One Size';
+      else if (type === 'tote') auto = 'S,M,L';
+      else auto = 'S,M,L';
+    } else if (type === 'clothing') {
+      if (g === 'kids') auto = '2-3Y,4-5Y,6-7Y,8-9Y,10-11Y,12-13Y';
+      else if (g === 'women') auto = 'XS,S,M,L,XL';
+      else auto = 'S,M,L,XL,XXL';
+    } else if (type === 'accessories') {
+      auto = 'One Size';
+    }
+    if (auto) setSizeInput(auto);
+  }, [form.product_type, form.gender]);
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -880,7 +906,7 @@ const AdminProducts = () => {
                               setVariants(prev => [...prev, {
                                 color: c.name,
                                 color_hex: c.hex,
-                                sizes: Object.fromEntries(sizes.map(s => [s, 0])),
+                                sizes: Object.fromEntries(sizes.map(s => [s, 1])),
                                 images: [],
                               }]);
                             }}
