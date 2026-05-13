@@ -322,34 +322,44 @@ const AdminProducts = () => {
       toast({ title: 'Add a product image first', description: 'Meshy.ai needs at least one product image to generate a 3D model.', variant: 'destructive' });
       return;
     }
-    const MESHY_KEY = import.meta.env.VITE_MESHY_API_KEY;
-    if (!MESHY_KEY) {
+    // Load 3D API config from site_settings (fallback to env var)
+    let threedApiKey = import.meta.env.VITE_MESHY_API_KEY || '';
+    let threedEndpoint = 'https://api.meshy.ai/v1/image-to-3d';
+    let threedProvider = 'Meshy.ai';
+    try {
+      const { data: cfg } = await supabase.from('site_settings').select('value').eq('key', 'threed_api_config').maybeSingle();
+      if (cfg?.value?.api_key) { threedApiKey = cfg.value.api_key; threedEndpoint = cfg.value.endpoint_url || threedEndpoint; threedProvider = cfg.value.provider || threedProvider; }
+    } catch {}
+
+    if (!threedApiKey) {
       toast({
-        title: 'Meshy.ai API Key Required',
-        description: 'Set VITE_MESHY_API_KEY in your environment variables (get a free key at meshy.ai).',
+        title: '3D API Key Required',
+        description: 'Go to Admin → Settings → AI Settings → 3D Model API and add your API key.',
         variant: 'destructive',
       });
       return;
     }
     setMeshyLoading(true);
     try {
-      const createRes = await fetch('https://api.meshy.ai/v1/image-to-3d', {
+      const createRes = await fetch(threedEndpoint, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${MESHY_KEY}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${threedApiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_url: imageUrl, enable_pbr: true }),
       });
       if (!createRes.ok) {
         const errText = await createRes.text();
-        throw new Error(`Meshy error ${createRes.status}: ${errText.slice(0, 200)}`);
+        throw new Error(`${threedProvider} error ${createRes.status}: ${errText.slice(0, 200)}`);
       }
-      const { result: taskId } = await createRes.json();
-      toast({ title: '3D generation started!', description: 'Polling for result (up to 2 min)...' });
+      const resJson = await createRes.json();
+      const taskId = resJson.result || resJson.task_id || resJson.id;
+      toast({ title: '3D generation started!', description: `Polling ${threedProvider} for result (up to 2 min)...` });
 
+      const pollUrl = threedEndpoint.replace(/\/$/, '') + '/' + taskId;
       const poll = async (): Promise<string | null> => {
         for (let i = 0; i < 24; i++) {
           await new Promise(r => setTimeout(r, 5000));
-          const pollRes = await fetch(`https://api.meshy.ai/v1/image-to-3d/${taskId}`, {
-            headers: { Authorization: `Bearer ${MESHY_KEY}` },
+          const pollRes = await fetch(pollUrl, {
+            headers: { Authorization: `Bearer ${threedApiKey}` },
           });
           const pollData = await pollRes.json();
           if (pollData.status === 'SUCCEEDED') {
@@ -499,7 +509,6 @@ const AdminProducts = () => {
       sub_category_id: form.sub_category_id || null,
       sub_sub_category_id: form.sub_sub_category_id || null,
       tags: form.tags,
-      product_type: form.product_type,
     };
 
     // ── INSTANT: close dialog + optimistically update list ──

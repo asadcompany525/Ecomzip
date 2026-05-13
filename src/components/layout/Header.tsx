@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SecretDevDashboard, { MASTER_PW_HASH } from '@/components/SecretDevDashboard';
 import { toast } from '@/hooks/use-toast';
 import CurrencySelector from '@/components/ui/CurrencySelector';
+import StoreLogo from '@/components/ui/StoreLogo';
 
 const NAV_ITEMS = [
   { label: 'Home', path: '/' },
@@ -334,7 +335,9 @@ Return JSON in <SEARCH_JSON> tags:
                 <Menu className="h-5 w-5" />
               </button>
               <button onClick={handleLogoClick} className="flex-1 flex items-center justify-center gap-2 min-w-0 bg-transparent border-0">
-                <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-9 w-9 object-contain" loading="lazy" />
+                {logoData.url && logoData.url !== '/favicon.ico'
+                  ? <img src={logoData.url} alt={logoData.name} className="h-9 w-9 object-contain" loading="lazy" />
+                  : <StoreLogo name={logoData.name || 'Store'} size={36} />}
                 <span className="font-bold text-sm truncate hidden xs:inline">{logoData.name || 'Store'}</span>
               </button>
               <div className="flex items-center gap-1 shrink-0">
@@ -411,7 +414,9 @@ Return JSON in <SEARCH_JSON> tags:
                 <X className="h-4 w-4" />
               </button>
               <button onClick={handleLogoClick} className="flex-1 flex items-center justify-center gap-1.5 bg-transparent border-0">
-                <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
+                {logoData.url && logoData.url !== '/favicon.ico'
+                  ? <img src={logoData.url} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
+                  : <StoreLogo name={logoData.name || 'Store'} size={28} />}
                 <span className="font-semibold text-sm">{logoData.name || 'Store'}</span>
               </button>
               <Link to="/cart" className="relative flex items-center justify-center h-8 w-8 rounded-lg hover:bg-accent">
@@ -431,7 +436,9 @@ Return JSON in <SEARCH_JSON> tags:
             <div className="container py-3">
               <div className="flex items-center gap-3 md:gap-6">
                 <button onClick={handleLogoClick} className="shrink-0 flex items-center gap-2 bg-transparent border-0 cursor-pointer select-none">
-                  <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className={logoData.size || 'h-12 w-12'} loading="lazy" />
+                  {logoData.url && logoData.url !== '/favicon.ico'
+                    ? <img src={logoData.url} alt={logoData.name} className={logoData.size || 'h-12 w-12'} loading="lazy" />
+                    : <StoreLogo name={logoData.name || 'Store'} size={44} />}
                 </button>
 
                 <div className="hidden md:flex flex-1 max-w-2xl relative items-center gap-2" ref={searchRef}>
@@ -512,7 +519,9 @@ Return JSON in <SEARCH_JSON> tags:
                 <div className="flex items-center gap-2 h-10">
                   {/* Logo on non-home desktop */}
                   <button onClick={handleLogoClick} className="flex items-center gap-2 bg-transparent border-0 cursor-pointer select-none mr-2 shrink-0">
-                    <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
+                    {logoData.url && logoData.url !== '/favicon.ico'
+                      ? <img src={logoData.url} alt={logoData.name} className="h-7 w-7 object-contain" loading="lazy" />
+                      : <StoreLogo name={logoData.name || 'Store'} size={28} />}
                     <span className="font-bold text-sm hidden lg:inline">{logoData.name || 'Store'}</span>
                   </button>
 
@@ -586,7 +595,9 @@ Return JSON in <SEARCH_JSON> tags:
             >
               <div className="flex items-center justify-between p-4 border-b">
                 <button onClick={handleLogoClick} className="flex items-center gap-2 bg-transparent border-0">
-                  <img src={logoData.url || '/favicon.ico'} alt={logoData.name} className="h-9 w-9" loading="lazy" />
+                  {logoData.url && logoData.url !== '/favicon.ico'
+                    ? <img src={logoData.url} alt={logoData.name} className="h-9 w-9 object-contain" loading="lazy" />
+                    : <StoreLogo name={logoData.name || 'Store'} size={36} />}
                   <span className="font-bold text-lg">{logoData.name || 'My Store'}</span>
                 </button>
                 <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded hover:bg-accent">

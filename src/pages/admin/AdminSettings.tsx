@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Trash2, Loader2, Upload, Bot, Eye, EyeOff, CheckCircle, XCircle, Zap } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Upload, Bot, Eye, EyeOff, CheckCircle, XCircle, Zap, Box } from 'lucide-react';
 import { invalidateStoreSettingsCache } from '@/hooks/useStoreSettings';
 import { ensureAdminSession } from '@/lib/adminSession';
 
@@ -26,6 +26,8 @@ const AdminSettings = () => {
   const [keySaved, setKeySaved] = useState(false);
   const [testingKey, setTestingKey] = useState(false);
   const [keyTestResult, setKeyTestResult] = useState<'ok' | 'fail' | null>(null);
+  const [threedApi, setThreedApi] = useState({ provider: 'Meshy.ai', api_key: '', endpoint_url: 'https://api.meshy.ai/v1/image-to-3d', show_key: false });
+  const [savingThreed, setSavingThreed] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetConfirm, setResetConfirm] = useState('');
   const [faviconUploading, setFaviconUploading] = useState(false);
@@ -60,6 +62,7 @@ const AdminSettings = () => {
         if (s.key === 'receipt') setReceipt(s.value);
         if (s.key === 'site_title') setSiteTitle(String(s.value || ''));
         if (s.key === 'gemini_api_key') { const k = String(s.value || ''); setGeminiKey(k); if (k) setKeySaved(true); }
+        if (s.key === 'threed_api_config') setThreedApi((p: any) => ({ ...p, ...(s.value || {}) }));
       });
     };
     load();
@@ -115,6 +118,15 @@ const AdminSettings = () => {
       }
     }
     setFaviconUploading(false);
+  };
+
+  const saveThreedApi = async () => {
+    setSavingThreed(true);
+    try {
+      const { show_key: _, ...toSave } = threedApi as any;
+      await save('threed_api_config', toSave);
+    } catch {}
+    setSavingThreed(false);
   };
 
   const saveBranding = async () => {
@@ -494,6 +506,82 @@ const AdminSettings = () => {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+          {/* ── 3D Model API Config ── */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Box className="h-5 w-5 text-purple-600" /> 3D Model API
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-800">
+                <p className="font-semibold mb-1">🧊 Connect any 3D model generation website</p>
+                <p className="text-xs">Works with Meshy.ai, Tripo3D, Kaedim, Luma AI, or any API that accepts an image and returns a model URL. The API key is stored privately in your database.</p>
+              </div>
+
+              <div>
+                <Label>Provider Name</Label>
+                <Input
+                  value={threedApi.provider}
+                  onChange={e => setThreedApi(p => ({ ...p, provider: e.target.value }))}
+                  placeholder="e.g. Meshy.ai, Tripo3D, Luma AI"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Just a label so you know which service is connected.</p>
+              </div>
+
+              <div>
+                <Label>API Endpoint URL</Label>
+                <Input
+                  value={threedApi.endpoint_url}
+                  onChange={e => setThreedApi(p => ({ ...p, endpoint_url: e.target.value }))}
+                  placeholder="https://api.meshy.ai/v1/image-to-3d"
+                  className="mt-1 font-mono text-xs"
+                />
+                <p className="text-xs text-muted-foreground mt-1">The POST endpoint that accepts an image URL and starts 3D generation.</p>
+              </div>
+
+              <div>
+                <Label>API Key</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={threedApi.show_key ? 'text' : 'password'}
+                    value={threedApi.api_key}
+                    onChange={e => setThreedApi(p => ({ ...p, api_key: e.target.value }))}
+                    placeholder="Paste your API key here..."
+                    className="pr-10 font-mono text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setThreedApi(p => ({ ...p, show_key: !p.show_key }))}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {threedApi.show_key ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Stored securely in your database. Used by the "Generate 3D Model" button on each product.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
+                <Box className="h-4 w-4 shrink-0 text-purple-500" />
+                <div>
+                  <p className="font-medium text-foreground">Where to get a free key?</p>
+                  <p>
+                    <strong>Meshy.ai</strong> → meshy.ai (free tier available) ·{' '}
+                    <strong>Tripo3D</strong> → tripo3d.ai ·{' '}
+                    <strong>Luma AI</strong> → lumalabs.ai
+                  </p>
+                </div>
+              </div>
+
+              <Button onClick={saveThreedApi} disabled={savingThreed} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white">
+                {savingThreed ? <Loader2 className="h-4 w-4 animate-spin" /> : <Box className="h-4 w-4" />}
+                {savingThreed ? 'Saving...' : 'Save 3D API Settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

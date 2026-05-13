@@ -373,7 +373,6 @@ Return ONLY valid JSON, no markdown.`
         is_active: true,
         sizes: sizesArr,
         stock: totalStock,
-        product_type: item.productType,
       }).select('id').single();
       if (error) throw error;
 
