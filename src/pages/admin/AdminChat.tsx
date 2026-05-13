@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Send, Image as ImageIcon, RefreshCw, Eye } from 'lucide-react';
+import { Send, Image as ImageIcon, RefreshCw, Eye, Bot } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ensureAdminSession } from '@/lib/adminSession';
 
@@ -62,8 +62,7 @@ const AdminChat = () => {
     const msgs = data || [];
     setMessages(msgs);
 
-    // Fetch sender profiles for admin/staff messages
-    const senderIds = [...new Set(msgs.filter(m => m.sender_id).map(m => m.sender_id))];
+    const senderIds = [...new Set(msgs.filter((m: any) => m.sender_id).map((m: any) => m.sender_id))];
     if (senderIds.length > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
@@ -83,7 +82,7 @@ const AdminChat = () => {
         (payload) => {
           const msg = payload.new;
           setMessages(prev => {
-            if (prev.some(m => m.id === msg.id)) return prev;
+            if (prev.some((m: any) => m.id === msg.id)) return prev;
             return [...prev, msg];
           });
         }
@@ -115,6 +114,7 @@ const AdminChat = () => {
       message: msg,
     });
     await supabase.from('chat_conversations').update({ is_ai_handled: false, updated_at: new Date().toISOString() }).eq('id', selected.id);
+    setSelected((s: any) => ({ ...s, is_ai_handled: false }));
     setReply('');
     setImageUrl('');
   };
@@ -125,16 +125,15 @@ const AdminChat = () => {
     return { text: cleanText, image: imgMatch?.[1] };
   };
 
-  // Filter conversations if viewing a specific staff member's chats
-  const filteredConversations = filterStaffId
-    ? conversations.filter(c => {
-        return true; // will be further filtered below via message content
-      })
-    : conversations;
+  const filteredConversations = filterStaffId ? conversations : conversations;
+
+  const getAiMsgCount = (convoId: string) => {
+    if (selected?.id !== convoId) return 0;
+    return messages.filter((m: any) => m.sender_type === 'ai').length;
+  };
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-160px)]">
-      {/* Staff Chat Watch filter — admin only */}
       {isAdmin && staffList.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
           <Eye className="h-4 w-4 text-amber-600 shrink-0" />
@@ -142,23 +141,18 @@ const AdminChat = () => {
           <button
             onClick={() => setFilterStaffId(null)}
             className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${!filterStaffId ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
-          >
-            All
-          </button>
+          >All</button>
           {staffList.map(s => (
             <button
               key={s.user_id}
               onClick={() => setFilterStaffId(filterStaffId === s.user_id ? null : s.user_id)}
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${filterStaffId === s.user_id ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
-            >
-              {s.full_name || s.email}
-            </button>
+            >{s.full_name || s.email}</button>
           ))}
         </div>
       )}
 
       <div className="flex gap-4 flex-1 min-h-0">
-        {/* Conversation list */}
         <div className="w-72 bg-card rounded-xl border overflow-y-auto shrink-0">
           <div className="p-3 border-b font-semibold text-sm flex items-center justify-between">
             Conversations
@@ -168,8 +162,11 @@ const AdminChat = () => {
             <button key={c.id} onClick={() => selectConvo(c)}
               className={`w-full text-left p-3 border-b hover:bg-accent transition-colors ${selected?.id === c.id ? 'bg-accent' : ''}`}>
               <p className="text-sm font-medium truncate">{c.subject || 'Chat'}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-xs">{c.is_ai_handled ? 'AI' : 'Staff'}</Badge>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {c.is_ai_handled
+                  ? <Badge variant="outline" className="text-xs text-purple-600 border-purple-300 bg-purple-50 gap-1"><Bot className="h-2.5 w-2.5" />AI Active</Badge>
+                  : <Badge variant="outline" className="text-xs text-blue-600 border-blue-300 bg-blue-50">Staff</Badge>
+                }
                 {!c.is_resolved && <span className="w-2 h-2 bg-orange-500 rounded-full" />}
                 <span className="text-[10px] text-muted-foreground ml-auto">
                   {new Date(c.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -180,14 +177,19 @@ const AdminChat = () => {
           {filteredConversations.length === 0 && <p className="p-4 text-center text-sm text-muted-foreground">No conversations</p>}
         </div>
 
-        {/* Chat area */}
         <div className="flex-1 bg-card rounded-xl border flex flex-col min-h-0">
           {selected ? (
             <>
               <div className="p-3 border-b flex items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">{selected.subject || 'Chat'}</p>
-                  <p className="text-xs text-muted-foreground">User ID: {selected.user_id?.slice(0, 8)}...</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-muted-foreground">User: {selected.user_id?.slice(0, 8)}...</p>
+                    {selected.is_ai_handled
+                      ? <Badge className="text-[10px] h-4 bg-purple-100 text-purple-700 border-purple-200 gap-0.5"><Bot className="h-2.5 w-2.5" />AI Handling</Badge>
+                      : <Badge variant="outline" className="text-[10px] h-4 text-blue-700 border-blue-200">Staff Mode</Badge>
+                    }
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant={selected.is_resolved ? 'secondary' : 'outline'} onClick={async () => {
@@ -200,19 +202,34 @@ const AdminChat = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages
-                  .filter(m => !filterStaffId || m.sender_type !== 'admin' || m.sender_id === filterStaffId || m.sender_type === 'user')
-                  .map(m => {
+                  .filter((m: any) => !filterStaffId || m.sender_type !== 'admin' || m.sender_id === filterStaffId || m.sender_type === 'user')
+                  .map((m: any) => {
                     const { text, image } = parseMessage(m.message);
-                    const senderName = m.sender_id && senderProfiles[m.sender_id]
-                      ? senderProfiles[m.sender_id]
-                      : m.sender_type;
+                    const isAi = m.sender_type === 'ai';
+                    const isAdmin = m.sender_type === 'admin';
+                    const isUser = m.sender_type === 'user';
+                    const senderName = isAi ? 'AI Salesperson' :
+                      (m.sender_id && senderProfiles[m.sender_id] ? senderProfiles[m.sender_id] : m.sender_type);
                     return (
-                      <div key={m.id} className={`flex ${m.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                      <div key={m.id} className={`flex ${isUser ? 'justify-start' : 'justify-end'}`}>
+                        {isAi && (
+                          <div className="mr-2 h-7 w-7 rounded-full bg-purple-100 flex items-center justify-center shrink-0 self-end">
+                            <Bot className="h-4 w-4 text-purple-600" />
+                          </div>
+                        )}
                         <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                          m.sender_type === 'admin' ? 'bg-primary text-primary-foreground' :
-                          m.sender_type === 'ai' ? 'bg-secondary/20' : 'bg-muted'
+                          isAdmin ? 'bg-primary text-primary-foreground' :
+                          isAi ? 'bg-purple-50 border border-purple-200 text-purple-900' :
+                          'bg-muted'
                         }`}>
-                          <p className="text-xs font-medium mb-1 opacity-70">{senderName}</p>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <p className="text-xs font-medium opacity-70">{senderName}</p>
+                            {isAi && (
+                              <span className="inline-flex items-center gap-0.5 bg-purple-200 text-purple-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                                <Bot className="h-2 w-2" />AI
+                              </span>
+                            )}
+                          </div>
                           {image && <img src={image} alt="" className="max-w-[200px] rounded-lg mb-2" />}
                           {text && <p className="text-sm whitespace-pre-wrap">{text}</p>}
                           <p className="text-[10px] opacity-50 mt-1">
@@ -232,16 +249,24 @@ const AdminChat = () => {
                   </div>
                 </div>
               )}
-              <div className="p-3 border-t flex gap-2">
-                <label className="cursor-pointer">
-                  <Button variant="ghost" size="icon" className="shrink-0" asChild>
-                    <span><ImageIcon className="h-4 w-4" /></span>
-                  </Button>
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                </label>
-                <Input value={reply} onChange={e => setReply(e.target.value)} placeholder="Type reply..."
-                  onKeyDown={e => e.key === 'Enter' && sendReply()} />
-                <Button onClick={sendReply} disabled={uploading}><Send className="h-4 w-4" /></Button>
+              <div className="p-3 border-t space-y-2">
+                {selected.is_ai_handled && (
+                  <p className="text-xs text-purple-600 flex items-center gap-1">
+                    <Bot className="h-3 w-3" />
+                    AI is handling this conversation. Type a reply to take over.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <label className="cursor-pointer">
+                    <Button variant="ghost" size="icon" className="shrink-0" asChild>
+                      <span><ImageIcon className="h-4 w-4" /></span>
+                    </Button>
+                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                  </label>
+                  <Input value={reply} onChange={e => setReply(e.target.value)} placeholder="Type reply (overrides AI for this chat)..."
+                    onKeyDown={e => e.key === 'Enter' && sendReply()} />
+                  <Button onClick={sendReply} disabled={uploading}><Send className="h-4 w-4" /></Button>
+                </div>
               </div>
             </>
           ) : (

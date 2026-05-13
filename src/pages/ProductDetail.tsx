@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { setChatProductContext } from '@/lib/chatProductContext';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle, Sparkles } from 'lucide-react';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
@@ -121,7 +122,17 @@ const ProductDetail = () => {
         };
 
         setDbProduct(safeProduct);
-        setProduct(mapDbProduct(safeProduct));
+        const mapped = mapDbProduct(safeProduct);
+        setProduct(mapped);
+        setChatProductContext({
+          title: safeProduct.title,
+          price: safeProduct.price,
+          description: safeProduct.description,
+          stock: safeProduct.stock,
+          sizes: safeProduct.sizes,
+          return_policy: safeProduct.return_policy,
+          claim_policy: safeProduct.claim_policy,
+        });
 
         // Run secondary queries in parallel — don't crash if they fail
         const [varsResult, revsResult] = await Promise.allSettled([
