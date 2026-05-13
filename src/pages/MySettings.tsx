@@ -45,6 +45,7 @@ interface Settings {
   notif_wishlist_restock: boolean;
   notif_flash_sale: boolean;
   notif_new_arrivals: boolean;
+  notif_abandoned_cart: boolean;
   pref_default_size: string;
   pref_sort: string;
   pref_language: string;
@@ -64,7 +65,7 @@ const DEFAULT: Settings = {
   dob: '', city: '', avatar_url: '',
   notif_email_orders: true, notif_email_promos: false, notif_sms_orders: true,
   notif_sms_promos: false, notif_push_orders: true, notif_push_promos: true,
-  notif_wishlist_restock: true, notif_flash_sale: true, notif_new_arrivals: false,
+  notif_wishlist_restock: true, notif_flash_sale: true, notif_new_arrivals: false, notif_abandoned_cart: true,
   pref_default_size: '', pref_sort: 'Newest First', pref_language: 'English',
   pref_currency: 'PKR (Rs.)', pref_show_instock_only: false,
   pref_show_discounts_first: false, pref_compact_view: false,
@@ -328,6 +329,7 @@ const MySettings = () => {
                     <SwitchRow label="Wishlist Restocked" desc="When saved items are back in stock" checked={settings.notif_wishlist_restock} onChange={v => set('notif_wishlist_restock', v)} />
                     <SwitchRow label="New Arrivals" desc="Be the first to know about new products" checked={settings.notif_new_arrivals} onChange={v => set('notif_new_arrivals', v)} />
                     <SwitchRow label="Promotions" desc="Discount codes and special events" checked={settings.notif_push_promos} onChange={v => set('notif_push_promos', v)} />
+                    <SwitchRow label="Abandoned Cart Reminder" desc="Remind me if I leave items in cart for 30+ minutes" checked={settings.notif_abandoned_cart} onChange={v => set('notif_abandoned_cart', v)} />
                   </div>
                 </div>
               </div>

@@ -9,6 +9,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AIChatWidget from "@/components/chat/AIChatWidget";
 import AbandonedCartRecovery from "@/components/AbandonedCartRecovery";
+import AbandonedCartWebNotification from "@/components/AbandonedCartWebNotification";
 import StopyLoader from "@/components/StopyLoader";
 import RouteProgressBar from "@/components/ui/RouteProgressBar";
 import { PageSkeleton, AdminPageSkeleton } from "@/components/ui/PageSkeleton";
@@ -230,6 +231,7 @@ const App = () => (
             </Suspense>
             <AIChatWidget />
             <AbandonedCartRecovery />
+            <AbandonedCartWebNotification />
           </BrowserRouter>
         </CartProvider>
       </AuthProvider>

@@ -14,12 +14,32 @@ import { toast } from '@/hooks/use-toast';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const BAG_TYPES = ['bags', 'handbags', 'purses', 'wallets', 'clutch', 'tote', 'backpacks'];
+const CLOTHING_TYPES = ['clothing', 'shirt', 'kurta', 'dress', 'top', 'trouser', 'pants', 'jeans', 'jacket', 'coat', 'sweater', 'hoodie', 'tshirt', 't-shirt', 'shalwar', 'kameez'];
+const FOOTWEAR_TYPES = ['shoes', 'sandals', 'heels', 'slippers', 'boots', 'loafers', 'sneakers', 'chappal', 'khussa', 'moccasins', 'flip flops'];
 
 const getSizesForType = (productType: string, gender: string): string[] => {
   const t = (productType || '').toLowerCase();
+  const g = (gender || '').toLowerCase();
+
   if (BAG_TYPES.some(bt => t.includes(bt))) return ['Small', 'Medium', 'Large', 'XL'];
-  if ((gender || '').toLowerCase() === 'kids') return Array.from({ length: 10 }, (_, i) => String(i + 16));
-  if ((gender || '').toLowerCase() === 'women') return ['36', '37', '38', '39', '40', '41'];
+
+  if (CLOTHING_TYPES.some(ct => t.includes(ct))) {
+    if (g === 'kids') return ['2-3Y', '4-5Y', '6-7Y', '8-9Y', '10-11Y', '12-13Y'];
+    return ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+  }
+
+  if (FOOTWEAR_TYPES.some(ft => t.includes(ft)) || t === 'shoes') {
+    if (g === 'kids') return Array.from({ length: 10 }, (_, i) => String(i + 16));
+    if (g === 'women') return ['36', '37', '38', '39', '40', '41'];
+    return ['39', '40', '41', '42', '43', '44', '45'];
+  }
+
+  if (t === 'accessories' || t === 'jewellery' || t === 'jewelry' || t === 'belt' || t === 'watch' || t === 'cap' || t === 'hat') {
+    return ['One Size'];
+  }
+
+  if (g === 'kids') return Array.from({ length: 10 }, (_, i) => String(i + 16));
+  if (g === 'women') return ['36', '37', '38', '39', '40', '41'];
   return ['39', '40', '41', '42', '43', '44', '45'];
 };
 
@@ -37,10 +57,18 @@ const PRODUCT_TYPES = [
   { value: 'heels', label: '👠 Heels' }, { value: 'slippers', label: '🩴 Slippers' },
   { value: 'boots', label: '👢 Boots' }, { value: 'loafers', label: '👞 Loafers' },
   { value: 'sneakers', label: '👟 Sneakers' }, { value: 'chappal', label: '🥿 Chappal' },
+  { value: 'khussa', label: '👞 Khussa' }, { value: 'moccasins', label: '🥿 Moccasins' },
   { value: 'bags', label: '👜 Bags' }, { value: 'handbags', label: '👜 Handbags' },
   { value: 'purses', label: '👛 Purses' }, { value: 'wallets', label: '💼 Wallets' },
   { value: 'backpacks', label: '🎒 Backpacks' }, { value: 'clutch', label: '👝 Clutch' },
-  { value: 'clothing', label: '👕 Clothing' }, { value: 'accessories', label: '💍 Accessories' },
+  { value: 'tote', label: '🛍️ Tote Bag' },
+  { value: 'clothing', label: '👕 Clothing' }, { value: 'shirt', label: '👕 Shirt' },
+  { value: 'kurta', label: '👘 Kurta' }, { value: 'dress', label: '👗 Dress' },
+  { value: 'trouser', label: '👖 Trouser/Pants' }, { value: 'jacket', label: '🧥 Jacket' },
+  { value: 'sweater', label: '🧣 Sweater/Hoodie' }, { value: 'shalwar', label: '👘 Shalwar Kameez' },
+  { value: 'accessories', label: '💍 Accessories' }, { value: 'jewellery', label: '💎 Jewellery' },
+  { value: 'belt', label: '👔 Belt' }, { value: 'cap', label: '🧢 Cap/Hat' },
+  { value: 'watch', label: '⌚ Watch' },
 ];
 
 interface ColorVariant {
@@ -265,7 +293,7 @@ Return JSON only:
   "suggestedPrice": 2500,
   "suggestedOriginalPrice": 3000,
   "suggestedDiscountPercent": 15,
-  "productType": "shoes|bags",
+  "productType": "shoes|sandals|heels|slippers|boots|sneakers|chappal|bags|handbags|purses|wallets|backpacks|clutch|clothing|shirt|kurta|dress|trouser|jacket|sweater|accessories|belt|cap|watch",
   "returnPolicy": "7 days return policy",
   "claimPolicy": "30 days warranty",
   "highlights": ["Feature 1","Feature 2","Feature 3"]

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Product, CartItem } from '@/types/product';
 import { toast } from '@/hooks/use-toast';
 
@@ -19,9 +19,36 @@ const CartContext = createContext<CartContextType>({} as CartContextType);
 
 export const useCart = () => useContext(CartContext);
 
+const CART_KEY = 'stopy_cart_v1';
+const WISHLIST_KEY = 'stopy_wishlist_v1';
+
+const loadCart = (): CartItem[] => {
+  try {
+    const saved = localStorage.getItem(CART_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+};
+
+const loadWishlist = (): Product[] => {
+  try {
+    const saved = localStorage.getItem(WISHLIST_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+};
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [wishlist, setWishlist] = useState<Product[]>([]);
+  const [items, setItems] = useState<CartItem[]>(loadCart);
+  const [wishlist, setWishlist] = useState<Product[]>(loadWishlist);
+
+  useEffect(() => {
+    try { localStorage.setItem(CART_KEY, JSON.stringify(items)); } catch {}
+  }, [items]);
+
+  useEffect(() => {
+    try { localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist)); } catch {}
+  }, [wishlist]);
 
   const addToCart = (product: Product, size?: string, color?: string) => {
     setItems(prev => {
@@ -43,7 +70,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setItems(prev => prev.map(i => i.product.id === productId ? { ...i, quantity } : i));
   };
 
-  const clearCart = () => setItems([]);
+  const clearCart = () => {
+    setItems([]);
+    try { localStorage.removeItem(CART_KEY); } catch {}
+  };
 
   const toggleWishlist = (product: Product) => {
     setWishlist(prev => {
