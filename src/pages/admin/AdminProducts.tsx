@@ -793,7 +793,7 @@ const AdminProducts = () => {
               </div>
 
               {/* Manual Sizes + Variants */}
-              <div className="bg-muted/30 rounded-xl p-4 space-y-3">
+              <div className="bg-muted/30 rounded-xl p-4 space-y-3 min-w-0 overflow-hidden">
                 <Label className="text-base font-semibold">📐 Sizes & Colors</Label>
 
                 {/* Quick Size Presets based on product type + gender */}
