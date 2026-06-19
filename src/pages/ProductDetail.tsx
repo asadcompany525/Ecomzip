@@ -233,40 +233,104 @@ const ProductDetail = () => {
     return 'generic';
   };
 
-  // Product ke type aur gender ke hisaab se POORA size range banao
-  // Jo sizes product mein hain wo selectable, baaki gray/blocked dikhenge
-  const getFullSizeGrid = (): string[] => {
+  // -------------------------------------------------------
+  // Smart size grid detector — product sizes se system detect karo
+  // EU shoes, UK shoes, Clothing (XS-5XL), Kids, Bags — sab support
+  // -------------------------------------------------------
+  const getFullSizeGrid = (): { sizes: string[]; label: string } => {
     const catType = getCategoryType();
-    const productSizes = (product?.sizes || []).map(String);
+    const productSizes = (product?.sizes || []).map(s => String(s).trim());
     const gender = (dbProduct?.gender || '').toLowerCase();
 
-    if (catType === 'clothing') {
-      if (gender === 'kids') return ['2-3Y', '4-5Y', '6-7Y', '8-9Y', '10-11Y', '12-13Y'];
-      return ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+    // ---- BAGS ----
+    if (catType === 'bags') {
+      return {
+        label: 'Size',
+        sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Small', 'Medium', 'Large'],
+      };
     }
 
-    if (catType === 'bags') return ['Small', 'Medium', 'Large', 'XL'];
+    // ---- CLOTHING ----
+    if (catType === 'clothing') {
+      // Kids clothing detect: any size matches age pattern
+      const hasKidsSize = productSizes.some(s => /^\d{1,2}-\d{1,2}Y$/i.test(s) || /^\d{1,2}Y$/i.test(s));
+      if (hasKidsSize || gender === 'kids') {
+        return {
+          label: 'Age / Size',
+          sizes: ['2-3Y', '4-5Y', '6-7Y', '8-9Y', '10-11Y', '12-13Y', '14-15Y'],
+        };
+      }
+      // Number-based clothing (like 28, 30, 32 for pants/trousers)
+      const hasNumericClothing = productSizes.some(s => /^\d{2}$/.test(s) && Number(s) >= 24 && Number(s) <= 54);
+      if (hasNumericClothing) {
+        return {
+          label: 'Waist / Size',
+          sizes: ['26', '28', '30', '32', '34', '36', '38', '40', '42', '44', '46', '48'],
+        };
+      }
+      // Standard letter sizes (XS to 5XL)
+      return {
+        label: 'Size',
+        sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '4XL', '5XL'],
+      };
+    }
 
+    // ---- SHOES ----
     if (catType === 'shoes') {
-      // Product mein jo numeric sizes hain un se range detect karo
-      const nums = productSizes.map(s => Number(s)).filter(n => !isNaN(n) && n > 10);
+      const nums = productSizes.map(s => Number(s)).filter(n => !isNaN(n) && n > 0);
+
       if (nums.length > 0) {
         const minS = Math.min(...nums);
         const maxS = Math.max(...nums);
-        const defMin = gender === 'women' ? 35 : gender === 'kids' ? 16 : 38;
-        const defMax = gender === 'women' ? 42 : gender === 'kids' ? 30 : 46;
-        const start = Math.min(minS, defMin);
-        const end = Math.max(maxS, defMax);
-        return Array.from({ length: end - start + 1 }, (_, i) => String(start + i));
+
+        // UK shoe sizes: typically 1-15 (men), 1-9 (women)
+        if (maxS <= 15 && minS >= 1) {
+          const start = Math.max(1, minS - 1);
+          const end = Math.min(15, maxS + 1);
+          return {
+            label: 'UK Size',
+            sizes: Array.from({ length: end - start + 1 }, (_, i) => String(start + i)),
+          };
+        }
+
+        // US shoe sizes: typically 4-16 (men), 4-12 (women) — overlaps with kids EU so check range
+        if (maxS <= 18 && minS >= 4) {
+          const start = Math.max(4, minS - 1);
+          const end = Math.min(18, maxS + 1);
+          return {
+            label: 'US Size',
+            sizes: Array.from({ length: end - start + 1 }, (_, i) => String(start + i)),
+          };
+        }
+
+        // Kids EU shoe sizes: 16-35
+        if (maxS <= 35 && minS >= 16) {
+          const start = Math.max(16, minS - 1);
+          const end = Math.min(35, maxS + 2);
+          return {
+            label: 'EU Size (Kids)',
+            sizes: Array.from({ length: end - start + 1 }, (_, i) => String(start + i)),
+          };
+        }
+
+        // Adult EU shoe sizes: 34-48
+        const euStart = Math.max(34, minS - 1);
+        const euEnd = Math.min(48, maxS + 1);
+        return {
+          label: 'EU Size',
+          sizes: Array.from({ length: euEnd - euStart + 1 }, (_, i) => String(euStart + i)),
+        };
       }
-      // Default sizes by gender
-      if (gender === 'women') return ['35', '36', '37', '38', '39', '40', '41', '42'];
-      if (gender === 'kids') return Array.from({ length: 15 }, (_, i) => String(i + 16));
-      return ['38', '39', '40', '41', '42', '43', '44', '45', '46'];
+
+      // No numeric sizes — gender based default EU grid
+      if (gender === 'women') return { label: 'EU Size', sizes: ['34', '35', '36', '37', '38', '39', '40', '41', '42'] };
+      if (gender === 'kids') return { label: 'EU Size (Kids)', sizes: Array.from({ length: 15 }, (_, i) => String(i + 20)) };
+      return { label: 'EU Size', sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47'] };
     }
 
-    // Generic/electronics — sirf product ki actual sizes show karo, koi full grid nahi
-    return productSizes;
+    // ---- GENERIC / OTHER (accessories, jewellery, etc.) ----
+    // Sirf product ki apni sizes dikhao, koi extra grid nahi
+    return { label: 'Size', sizes: productSizes };
   };
 
   const numberFromText = (value: string) => {
@@ -575,22 +639,26 @@ const ProductDetail = () => {
               </div>
             )}
 
-            {/* Smart Size Grid — product type ke hisaab se poora range dikhao */}
+            {/* Smart Size Grid — product type + size system ke hisaab se */}
             {(() => {
               const catType = getCategoryType();
-              const fullGrid = getFullSizeGrid();
+              const { sizes: fullGrid, label: sizeLabel } = getFullSizeGrid();
               if (fullGrid.length === 0) return null;
 
-              // Product mein jo sizes hain unhe normalize karo for matching
+              // Product ki actual sizes normalize karke set mein rakho
               const productSizeSet = new Set(
                 (product.sizes || []).map(s => normalizeSize(String(s)))
               );
+
+              // Clothing buttons slightly wider (S, M, L text is short, XS XL etc need space)
+              const isLetterSize = fullGrid.some(s => /^(XS|S|M|L|XL|XXL|XXXL|4XL|5XL|Small|Medium|Large)$/i.test(s));
+              const btnW = isLetterSize ? 'min-w-[44px] px-2 h-10' : 'w-11 h-11';
 
               return (
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-semibold">
-                      Size:{' '}
+                      {sizeLabel}:{' '}
                       <span className="font-normal text-muted-foreground">
                         {selectedSize || 'Select'}
                       </span>
@@ -608,31 +676,23 @@ const ProductDetail = () => {
                   <div className="flex flex-wrap gap-1.5">
                     {fullGrid.map(size => {
                       const normSize = normalizeSize(size);
-                      // Kya yeh size is product mein hai?
                       const inProduct = productSizeSet.has(normSize);
-                      // Kya yeh size in-stock hai?
                       const stockInfo = inProduct ? getStockInfo(size) : { inStock: false, stockCount: 0 };
                       const isSelected = normalizeSize(selectedSize) === normSize;
 
-                      // 3 states:
-                      // 1. inProduct + inStock   → selectable (active/hover)
-                      // 2. inProduct + OOS        → strikethrough, dim
-                      // 3. NOT inProduct          → heavily blocked, diagonal line, no click
-
-                      let btnClass = 'relative w-11 h-11 rounded-lg text-sm font-medium border transition-all ';
+                      // State 1: Available in product + in stock
+                      // State 2: In product but out of stock (strikethrough)
+                      // State 3: Not in this product (heavy gray + diagonal slash)
+                      let cls = `relative ${btnW} rounded-lg text-xs font-semibold border transition-all `;
 
                       if (!inProduct) {
-                        // Blocked — product mein yeh size nahi hai
-                        btnClass += 'opacity-20 cursor-not-allowed bg-muted/50 border-border/20 text-muted-foreground overflow-hidden';
+                        cls += 'opacity-20 cursor-not-allowed bg-muted/40 border-border/20 text-muted-foreground overflow-hidden select-none';
                       } else if (!stockInfo.inStock) {
-                        // Product mein hai lekin stock nahi
-                        btnClass += 'opacity-40 cursor-not-allowed line-through bg-muted border-border text-muted-foreground';
+                        cls += 'opacity-45 cursor-not-allowed bg-muted border-border text-muted-foreground';
                       } else if (isSelected) {
-                        // Selected
-                        btnClass += 'border-primary bg-primary text-primary-foreground shadow-sm';
+                        cls += 'border-primary bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30';
                       } else {
-                        // Available — select ho sakta hai
-                        btnClass += 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary';
+                        cls += 'border-border bg-background hover:border-primary hover:text-primary cursor-pointer';
                       }
 
                       return (
@@ -641,41 +701,40 @@ const ProductDetail = () => {
                           disabled={!inProduct || !stockInfo.inStock}
                           onClick={() => inProduct && stockInfo.inStock && setSelectedSize(size)}
                           title={
-                            !inProduct
-                              ? 'Is product mein available nahi'
-                              : !stockInfo.inStock
-                              ? 'Out of stock'
-                              : `Size ${size} select karo`
+                            !inProduct ? 'Is product mein yeh size nahi hai'
+                            : !stockInfo.inStock ? 'Out of stock'
+                            : `Size ${size}`
                           }
-                          className={btnClass}
+                          className={cls}
                         >
-                          {size}
-                          {/* Blocked sizes pe X diagonal line */}
-                          {!inProduct && (
-                            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full opacity-30">
-                                <line x1="6" y1="6" x2="38" y2="38" stroke="currentColor" strokeWidth="1.5" />
-                              </svg>
-                            </span>
+                          {/* Out-of-stock slash line */}
+                          {inProduct && !stockInfo.inStock && (
+                            <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
+                              <line x1="4" y1="4" x2="40" y2="40" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
+                            </svg>
                           )}
+                          {/* Not-in-product blocked diagonal */}
+                          {!inProduct && (
+                            <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
+                              <line x1="4" y1="4" x2="40" y2="40" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+                            </svg>
+                          )}
+                          {size}
                         </button>
                       );
                     })}
                   </div>
 
-                  {/* Size legend */}
-                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  {/* Legend */}
+                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="w-3 h-3 rounded border border-border bg-primary/10 inline-block" />
-                      Available
+                      <span className="w-3 h-3 rounded border border-primary bg-primary/10 inline-block" /> Available
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="w-3 h-3 rounded border border-border bg-muted opacity-40 inline-block" />
-                      Out of Stock
+                      <span className="w-3 h-3 rounded border border-border bg-muted opacity-50 inline-block" /> Out of Stock
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="w-3 h-3 rounded border border-border/20 bg-muted/50 opacity-20 inline-block" />
-                      Not Available
+                      <span className="w-3 h-3 rounded border border-border/20 bg-muted/40 opacity-20 inline-block" /> N/A
                     </span>
                   </div>
                 </div>
