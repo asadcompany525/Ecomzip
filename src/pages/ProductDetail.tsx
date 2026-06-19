@@ -233,6 +233,42 @@ const ProductDetail = () => {
     return 'generic';
   };
 
+  // Product ke type aur gender ke hisaab se POORA size range banao
+  // Jo sizes product mein hain wo selectable, baaki gray/blocked dikhenge
+  const getFullSizeGrid = (): string[] => {
+    const catType = getCategoryType();
+    const productSizes = (product?.sizes || []).map(String);
+    const gender = (dbProduct?.gender || '').toLowerCase();
+
+    if (catType === 'clothing') {
+      if (gender === 'kids') return ['2-3Y', '4-5Y', '6-7Y', '8-9Y', '10-11Y', '12-13Y'];
+      return ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+    }
+
+    if (catType === 'bags') return ['Small', 'Medium', 'Large', 'XL'];
+
+    if (catType === 'shoes') {
+      // Product mein jo numeric sizes hain un se range detect karo
+      const nums = productSizes.map(s => Number(s)).filter(n => !isNaN(n) && n > 10);
+      if (nums.length > 0) {
+        const minS = Math.min(...nums);
+        const maxS = Math.max(...nums);
+        const defMin = gender === 'women' ? 35 : gender === 'kids' ? 16 : 38;
+        const defMax = gender === 'women' ? 42 : gender === 'kids' ? 30 : 46;
+        const start = Math.min(minS, defMin);
+        const end = Math.max(maxS, defMax);
+        return Array.from({ length: end - start + 1 }, (_, i) => String(start + i));
+      }
+      // Default sizes by gender
+      if (gender === 'women') return ['35', '36', '37', '38', '39', '40', '41', '42'];
+      if (gender === 'kids') return Array.from({ length: 15 }, (_, i) => String(i + 16));
+      return ['38', '39', '40', '41', '42', '43', '44', '45', '46'];
+    }
+
+    // Generic/electronics — sirf product ki actual sizes show karo, koi full grid nahi
+    return productSizes;
+  };
+
   const numberFromText = (value: string) => {
     const match = value.match(/\d+(\.\d+)?/);
     return match ? Number(match[0]) : null;
@@ -539,33 +575,112 @@ const ProductDetail = () => {
               </div>
             )}
 
-            {/* Sizes */}
-            {uniqueSizes.length > 0 && (
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold">Size: <span className="font-normal text-muted-foreground">{selectedSize || 'Select'}</span></h4>
-                  {(getCategoryType() === 'shoes' || getCategoryType() === 'clothing') && (
-                    <button
-                      onClick={() => { setSizeAdvisorOpen(true); setAdvisorResult(null); }}
-                      className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
-                    >
-                      <Ruler className="h-3.5 w-3.5" /> Find My Size
-                    </button>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {uniqueSizes.map(size => {
-                    const available = isSizeAvailable(size as string);
-                    return (
-                      <button key={size} onClick={() => available && setSelectedSize(size as string)} disabled={!available}
-                        className={`w-11 h-11 rounded-lg text-sm font-medium border transition-all ${!available ? 'opacity-30 cursor-not-allowed line-through bg-muted' : selectedSize === size ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:border-primary'}`}>
-                        {size}
+            {/* Smart Size Grid — product type ke hisaab se poora range dikhao */}
+            {(() => {
+              const catType = getCategoryType();
+              const fullGrid = getFullSizeGrid();
+              if (fullGrid.length === 0) return null;
+
+              // Product mein jo sizes hain unhe normalize karo for matching
+              const productSizeSet = new Set(
+                (product.sizes || []).map(s => normalizeSize(String(s)))
+              );
+
+              return (
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold">
+                      Size:{' '}
+                      <span className="font-normal text-muted-foreground">
+                        {selectedSize || 'Select'}
+                      </span>
+                    </h4>
+                    {(catType === 'shoes' || catType === 'clothing') && (
+                      <button
+                        onClick={() => { setSizeAdvisorOpen(true); setAdvisorResult(null); }}
+                        className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                      >
+                        <Ruler className="h-3.5 w-3.5" /> Find My Size
                       </button>
-                    );
-                  })}
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {fullGrid.map(size => {
+                      const normSize = normalizeSize(size);
+                      // Kya yeh size is product mein hai?
+                      const inProduct = productSizeSet.has(normSize);
+                      // Kya yeh size in-stock hai?
+                      const stockInfo = inProduct ? getStockInfo(size) : { inStock: false, stockCount: 0 };
+                      const isSelected = normalizeSize(selectedSize) === normSize;
+
+                      // 3 states:
+                      // 1. inProduct + inStock   → selectable (active/hover)
+                      // 2. inProduct + OOS        → strikethrough, dim
+                      // 3. NOT inProduct          → heavily blocked, diagonal line, no click
+
+                      let btnClass = 'relative w-11 h-11 rounded-lg text-sm font-medium border transition-all ';
+
+                      if (!inProduct) {
+                        // Blocked — product mein yeh size nahi hai
+                        btnClass += 'opacity-20 cursor-not-allowed bg-muted/50 border-border/20 text-muted-foreground overflow-hidden';
+                      } else if (!stockInfo.inStock) {
+                        // Product mein hai lekin stock nahi
+                        btnClass += 'opacity-40 cursor-not-allowed line-through bg-muted border-border text-muted-foreground';
+                      } else if (isSelected) {
+                        // Selected
+                        btnClass += 'border-primary bg-primary text-primary-foreground shadow-sm';
+                      } else {
+                        // Available — select ho sakta hai
+                        btnClass += 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary';
+                      }
+
+                      return (
+                        <button
+                          key={size}
+                          disabled={!inProduct || !stockInfo.inStock}
+                          onClick={() => inProduct && stockInfo.inStock && setSelectedSize(size)}
+                          title={
+                            !inProduct
+                              ? 'Is product mein available nahi'
+                              : !stockInfo.inStock
+                              ? 'Out of stock'
+                              : `Size ${size} select karo`
+                          }
+                          className={btnClass}
+                        >
+                          {size}
+                          {/* Blocked sizes pe X diagonal line */}
+                          {!inProduct && (
+                            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full opacity-30">
+                                <line x1="6" y1="6" x2="38" y2="38" stroke="currentColor" strokeWidth="1.5" />
+                              </svg>
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Size legend */}
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-3 h-3 rounded border border-border bg-primary/10 inline-block" />
+                      Available
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-3 h-3 rounded border border-border bg-muted opacity-40 inline-block" />
+                      Out of Stock
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-3 h-3 rounded border border-border/20 bg-muted/50 opacity-20 inline-block" />
+                      Not Available
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div className="mb-4">
               <h4 className="text-sm font-semibold mb-2">Quantity</h4>
