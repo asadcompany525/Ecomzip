@@ -1,13 +1,23 @@
+// ============================================================
+// mapDbProduct — Supabase DB row ko frontend Product type mein convert karta hai
+// ============================================================
+
 import { Product } from '@/types/product';
 
+// Supabase products table ka ek row Product interface mein map karo
+// Reviews embedded hain to real-time rating calculate hoti hai
 export const mapDbProduct = (p: any): Product => {
-  const embedded = p.reviews as { rating: number }[] | null;
+  // Agar reviews embed hain (PRODUCT_SELECT use kiya) to rating recalculate karo
+  const embeddedReviews = p.reviews as { rating: number }[] | null;
   let rating = Number(p.rating) || 0;
   let reviewCount = Number(p.review_count) || 0;
-  if (embedded && embedded.length > 0) {
-    rating = Math.round((embedded.reduce((s: number, r: any) => s + (r.rating || 0), 0) / embedded.length) * 10) / 10;
-    reviewCount = embedded.length;
+
+  if (embeddedReviews && embeddedReviews.length > 0) {
+    const total = embeddedReviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0);
+    rating = Math.round((total / embeddedReviews.length) * 10) / 10;
+    reviewCount = embeddedReviews.length;
   }
+
   return {
     id: p.id,
     name: p.title,
@@ -30,7 +40,10 @@ export const mapDbProduct = (p: any): Product => {
     description: p.description,
     type: p.sub_category_id || '',
     tags: (p.tags as string[]) || [],
+    video_url: p.video_url || undefined,
   };
 };
 
+// Products fetch karte waqt yeh select string use karo
+// Reviews embedded hoti hain taake real-time rating mile
 export const PRODUCT_SELECT = '*, reviews(rating)';

@@ -1,3 +1,8 @@
+// ============================================================
+// PageTransition — Route change pe fade + slide animation
+// App.tsx mein har storefront route ko PT/PTL mein wrap kiya gaya hai
+// ============================================================
+
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
 

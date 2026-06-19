@@ -1,3 +1,8 @@
+// ============================================================
+// PageSkeleton — Lazy-loaded pages ke liye loading placeholder
+// PageSkeleton = storefront pages, AdminPageSkeleton = admin panel pages
+// ============================================================
+
 export function PageSkeleton() {
   return (
     <div className="min-h-screen bg-background">

@@ -1,3 +1,9 @@
+// ============================================================
+// tryonCanvas — Virtual Try-On ka free canvas-based fallback
+// Replicate AI (paid) available na ho to yeh canvas overlay use hoti hai
+// User photo pe product image overlay karta hai category ke hisaab se
+// ============================================================
+
 export type TryOnCategory = 'shoes' | 'clothing' | 'bags' | 'generic';
 
 function loadCanvasImage(src: string): Promise<HTMLImageElement> {

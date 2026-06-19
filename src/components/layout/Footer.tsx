@@ -1,3 +1,8 @@
+// ============================================================
+// Footer — Desktop only (hidden on mobile, BottomNav use hoti hai)
+// Contact, links, payment methods aur social links DB se load hote hain
+// ============================================================
+
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, MessageCircle, Facebook, Instagram } from 'lucide-react';
 import { useEffect, useState } from 'react';

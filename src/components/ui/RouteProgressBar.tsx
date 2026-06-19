@@ -1,3 +1,8 @@
+// ============================================================
+// RouteProgressBar — Route change pe top mein orange loading bar
+// 1 second mein 0% → 100% animate hoti hai, phir fade out
+// ============================================================
+
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 

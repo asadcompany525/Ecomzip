@@ -1,3 +1,10 @@
+// ============================================================
+// Header — Responsive storefront header
+// Home page pe: full header (logo + search + cart + nav)
+// Other pages pe: slim back-nav bar (mobile) ya minimal bar (desktop)
+// Secret feature: Logo pe 5 rapid clicks → Dev Dashboard khulta hai
+// ============================================================
+
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, ShoppingCart, User, SlidersHorizontal, Menu, X, ChevronRight, Camera, Loader2, Shield, Lock } from 'lucide-react';

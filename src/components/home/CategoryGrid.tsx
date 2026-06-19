@@ -1,3 +1,8 @@
+// ============================================================
+// CategoryGrid — Homepage category buttons (Sneakers, Bags, etc.)
+// Categories Supabase se load hoti hain, emoji icons name se auto-match hote hain
+// ============================================================
+
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';

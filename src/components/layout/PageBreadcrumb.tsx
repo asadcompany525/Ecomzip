@@ -1,3 +1,9 @@
+// ============================================================
+// PageBreadcrumb — Reusable breadcrumb navigation
+// Usage: <PageBreadcrumb items={[{ label: 'My Orders', href: '/my-orders' }, { label: 'Details' }]} />
+// Last item (current page) href nahi hota — bold text mein show hota hai
+// ============================================================
+
 import { Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 

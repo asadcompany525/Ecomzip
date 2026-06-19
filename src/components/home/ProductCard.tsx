@@ -1,3 +1,9 @@
+// ============================================================
+// ProductCard — Product grid mein ek card
+// Features: animated hover, countdown timer (flash sale), wishlist toggle,
+//           quick add-to-cart, live rating, out-of-stock overlay
+// ============================================================
+
 import { Link } from 'react-router-dom';
 import { Heart, ShoppingCart, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';

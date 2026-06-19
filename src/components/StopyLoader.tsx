@@ -1,3 +1,8 @@
+// ============================================================
+// StopyLoader — Animated brand loader (rotating ring + logo)
+// Usage: <StopyLoader /> inline, ya <StopyLoader fullScreen /> page level par
+// ============================================================
+
 import { motion } from 'framer-motion';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 

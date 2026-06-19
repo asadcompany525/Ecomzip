@@ -1,3 +1,8 @@
+// ============================================================
+// BottomNav — Mobile navigation bar (fixed at bottom, hidden on md+)
+// Active tab pe animated dot aur scale effect hota hai
+// ============================================================
+
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Tag, Zap, User, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';

@@ -1,3 +1,8 @@
+// ============================================================
+// FlashSale — Homepage flash sale section
+// PKT midnight tak countdown timer, products 30s cache ke saath load hote hain
+// ============================================================
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from './ProductCard';

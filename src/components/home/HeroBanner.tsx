@@ -1,3 +1,9 @@
+// ============================================================
+// HeroBanner — Homepage ka main sliding banner/slideshow
+// Banners Supabase 'banners' table se load hote hain (is_active = true)
+// Video support: mp4/webm banners autoplay hote hain
+// ============================================================
+
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
