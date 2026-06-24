@@ -65,9 +65,14 @@ const AIChatWidget = () => {
   }, [user]);
 
   useEffect(() => {
-    if (!brandName || brandName === 'My Store') return;
+    if (!brandName) return;
     setMessages(prev => {
-      if (prev.length === 1 && prev[0].role === 'assistant') {
+      const rest = prev.filter(m => m.role !== 'assistant' || prev.indexOf(m) > 0);
+      const firstIsWelcome = prev.length > 0 && prev[0].role === 'assistant';
+      if (firstIsWelcome) {
+        return [makeWelcomeMsg(brandName, userName), ...rest];
+      }
+      if (prev.length === 0) {
         return [makeWelcomeMsg(brandName, userName)];
       }
       return prev;

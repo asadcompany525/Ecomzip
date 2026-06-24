@@ -16,6 +16,7 @@ const AdminSettings = () => {
   const [social, setSocial] = useState({ facebook: '', instagram: '', tiktok: '' });
   const [logo, setLogo] = useState({ url: '/favicon.ico', name: '', size: 'h-8 w-8' });
   const [siteTitle, setSiteTitle] = useState('');
+  const [shopTagline, setShopTagline] = useState('');
   const [helpPage, setHelpPage] = useState({ title: 'Help & Support', content: '', phone: '', email: '', whatsapp: '' });
   const [returnPolicy, setReturnPolicy] = useState({ title: 'Return Policy', content: '', days: 7 });
   const [faqPage, setFaqPage] = useState({ title: 'FAQs', items: '[]' });
@@ -61,6 +62,7 @@ const AdminSettings = () => {
         if (s.key === 'faq_page') setFaqPage(s.value);
         if (s.key === 'receipt') setReceipt(s.value);
         if (s.key === 'site_title') setSiteTitle(String(s.value || ''));
+        if (s.key === 'shop_tagline') setShopTagline(String(s.value || ''));
         if (s.key === 'gemini_api_key') { const k = String(s.value || ''); setGeminiKey(k); if (k) setKeySaved(true); }
         if (s.key === 'threed_api_config') setThreedApi((p: any) => ({ ...p, ...(s.value || {}) }));
       });
@@ -133,7 +135,8 @@ const AdminSettings = () => {
     try {
       await save('logo', logo);
       await save('site_title', siteTitle || logo.name);
-      toast({ title: 'Branding saved!', description: 'Brand name, favicon and site title updated.' });
+      if (shopTagline.trim()) await save('shop_tagline', shopTagline.trim());
+      toast({ title: 'Branding saved!', description: 'Brand name, tagline, favicon and site title updated.' });
     } catch {}
   };
 
@@ -261,6 +264,16 @@ const AdminSettings = () => {
                   placeholder="Enter your brand/store name"
                 />
                 <p className="text-xs text-muted-foreground mt-1">This name appears in the header, footer, admin sidebar and everywhere branding is shown.</p>
+              </div>
+
+              <div>
+                <Label>Store Tagline</Label>
+                <Input
+                  value={shopTagline}
+                  onChange={e => setShopTagline(e.target.value)}
+                  placeholder="e.g. Pakistan's #1 Shoes & Bags Store"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Shown in footer under the logo and in chat widget greeting. Leave empty to use default.</p>
               </div>
 
               <div>
