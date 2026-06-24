@@ -21,16 +21,16 @@ interface StoreSettings {
 
 // Default values — DB se load hone tak ya agar setting missing ho
 const DEFAULTS: StoreSettings = {
-  brandName: 'My Store',
-  shopName: 'My Store',
-  shopCategory: 'Shoes & Bags',
-  shopTagline: "Pakistan's #1 Shoes & Bags Store",
+  brandName: '',
+  shopName: '',
+  shopCategory: '',
+  shopTagline: '',
   productLabel: 'Products',
   categoryLabel: 'Shoes',
   deliveryFee: 200,
   freeDeliveryMin: 3000,
   faviconUrl: '/favicon.ico',
-  siteTitle: 'My Store',
+  siteTitle: '',
 };
 
 // Module-level cache — sirf ek baar DB se load karo

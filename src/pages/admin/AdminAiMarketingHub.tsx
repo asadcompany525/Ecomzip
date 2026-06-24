@@ -56,7 +56,7 @@ export default function AdminAiMarketingHub() {
           type: 'marketing-hub',
           messages: [{
             role: 'user',
-            content: `You are a viral marketing expert for ${brandName || 'our store'} Pakistan — Pakistan's #1 shoe & bag store.
+            content: `You are a viral marketing expert for ${brandName || 'our store'} Pakistan.
 
 Context: ${context}
 Tone: ${tone}

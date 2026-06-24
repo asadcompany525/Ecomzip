@@ -35,7 +35,7 @@ const AdminSettings = () => {
   const faviconInputRef = useRef<HTMLInputElement>(null);
 
   const [receipt, setReceipt] = useState<any>({ 
-    shop_name: '', tagline: "Pakistan's #1 Shoes & Bags Store",
+    shop_name: '', tagline: '',
     contact_line: '',
     footer_line: '',
     website: '',
@@ -271,7 +271,7 @@ const AdminSettings = () => {
                 <Input
                   value={shopTagline}
                   onChange={e => setShopTagline(e.target.value)}
-                  placeholder="e.g. Pakistan's #1 Shoes & Bags Store"
+                  placeholder="e.g. Best Quality at Best Prices"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Shown in footer under the logo and in chat widget greeting. Leave empty to use default.</p>
               </div>

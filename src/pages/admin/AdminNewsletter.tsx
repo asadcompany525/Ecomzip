@@ -168,7 +168,7 @@ Return ONLY a JSON object with no markdown:
             subject,
             html: trackedHtml,
             tracking_id: trackingId,
-            from_name: brandName || 'Stopy Shoes',
+            from_name: brandName || 'Our Store',
           },
         });
         if (fnError) throw new Error(fnError.message);

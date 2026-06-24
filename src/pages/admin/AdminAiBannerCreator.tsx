@@ -52,7 +52,7 @@ const generateBannerCanvas = (
   ctx.font = 'bold 22px Arial, sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.textAlign = 'center';
-  ctx.fillText((brandName || 'STOPY').toUpperCase(), 600, 70);
+  ctx.fillText((brandName || '').toUpperCase(), 600, 70);
 
   // Separator
   ctx.fillStyle = 'rgba(255,255,255,0.4)';

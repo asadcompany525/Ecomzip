@@ -209,7 +209,7 @@ function NotifCard({ item, onMarkNotified, onDelete, isDone }: {
   isDone?: boolean;
 }) {
   const waLink = item.phone
-    ? `https://wa.me/${item.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi${item.customer_name ? ' ' + item.customer_name : ''}! Great news — Size ${item.size} of ${item.product_name} is back in stock at Stopy! 🎉`)}`
+    ? `https://wa.me/${item.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi${item.customer_name ? ' ' + item.customer_name : ''}! Great news — Size ${item.size} of ${item.product_name} is back in stock! 🎉`)}`
     : null;
 
   return (

@@ -20,6 +20,7 @@ import SecretDevDashboard, { MASTER_PW_HASH } from '@/components/SecretDevDashbo
 import { toast } from '@/hooks/use-toast';
 import CurrencySelector from '@/components/ui/CurrencySelector';
 import StoreLogo from '@/components/ui/StoreLogo';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const DEV_PW_STORAGE_KEY = 'stopy_dev_pw_v1';
 const getActiveDevPw = () => localStorage.getItem(DEV_PW_STORAGE_KEY) || MASTER_PW_HASH;
@@ -64,6 +65,7 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const { shopTagline } = useStoreSettings();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -327,7 +329,7 @@ Return JSON in <SEARCH_JSON> tags:
         {isHome && (
           <div className="bg-primary text-primary-foreground portrait:block landscape:hidden">
             <div className="container flex items-center justify-between py-1.5 text-xs md:text-sm">
-              <span>Pakistan's #1 Shoes & Bags Store</span>
+              {shopTagline && <span>{shopTagline}</span>}
               <Link to="/contact" className="hover:opacity-80 transition-opacity">Help & Support</Link>
             </div>
           </div>

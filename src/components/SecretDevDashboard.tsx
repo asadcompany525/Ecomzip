@@ -60,7 +60,7 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   const [uploading, setUploading] = useState(false);
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
-  const [siteTitle, setSiteTitle] = useState('Stopy Shoes | Pakistan\'s Best Store');
+  const [siteTitle, setSiteTitle] = useState('');
   const [faviconUrl, setFaviconUrl] = useState('');
   const [savingBranding, setSavingBranding] = useState(false);
   const [currentPwInput, setCurrentPwInput] = useState('');

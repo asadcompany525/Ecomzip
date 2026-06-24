@@ -12,7 +12,7 @@ const Footer = () => {
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
   const [social, setSocial] = useState({ facebook: '', instagram: '', tiktok: '' });
   const [logo, setLogo] = useState({ url: '/favicon.ico', name: 'Our Store' });
-  const [tagline, setTagline] = useState("Pakistan's #1 Shoes & Bags Store");
+  const [tagline, setTagline] = useState('');
 
   useEffect(() => {
     supabase.from('site_settings').select('key, value').in('key', ['contact', 'social', 'logo', 'shop_tagline']).then(({ data }) => {

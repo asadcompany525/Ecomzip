@@ -27,7 +27,7 @@ const AdminOrders = () => {
   const [showSlip, setShowSlip] = useState(false);
   const [scanMode, setScanMode] = useState(false);
   const [scanInput, setScanInput] = useState('');
-  const [receipt, setReceipt] = useState<any>({ shop_name: 'E COMMERCE', tagline: "Pakistan's #1 Online Store", contact_line: '', footer_line: 'Thank you!', website: '' });
+  const [receipt, setReceipt] = useState<any>({ shop_name: '', tagline: '', contact_line: '', footer_line: 'Thank you!', website: '' });
   const slipRef = useRef<HTMLDivElement>(null);
 
   const fetchOrders = async () => {
