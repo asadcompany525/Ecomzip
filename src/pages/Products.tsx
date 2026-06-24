@@ -263,51 +263,75 @@ const Products = () => {
       <main className="container py-5">
         <PageBreadcrumb items={[{ label: 'All Products' }]} />
 
-        {/* Inline Search Bar */}
+        {/* Unified Search + Filter bar */}
         <form
-          className="flex items-center gap-2 mb-4"
+          className="flex items-center mb-4 rounded-xl border bg-background shadow-sm overflow-hidden"
           onSubmit={e => { e.preventDefault(); if (searchQuery.trim()) setSearchParams(p => { p.set('search', searchQuery); return p; }); }}
         >
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={e => { setSearchQuery(e.target.value); if (!e.target.value.trim()) setSearchParams(p => { p.delete('search'); return p; }); }}
-              placeholder="Search products by name, brand, code..."
-              className="pl-9 h-10"
-            />
-            {searchQuery && (
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => { setSearchQuery(''); setSearchParams(p => { p.delete('search'); return p; }); }}>
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <Button type="submit" size="icon" className="h-10 w-10 shrink-0">
-            <Search className="h-4 w-4" />
-          </Button>
-        </form>
-
-        {/* Filter row */}
-        <div className="flex items-center gap-2 mb-4">
+          {/* Filter trigger embedded left */}
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="shrink-0 relative gap-1.5 h-9">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 px-3 h-11 shrink-0 border-r text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              >
                 <Filter className="h-4 w-4" />
-                Filters
-                {activeFilterCount > 0 && <Badge className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">{activeFilterCount}</Badge>}
-              </Button>
+                <span className="hidden sm:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[10px]">{activeFilterCount}</Badge>
+                )}
+              </button>
             </SheetTrigger>
             <SheetContent side="left" className="overflow-y-auto">
               <SheetHeader><SheetTitle>Filters</SheetTitle></SheetHeader>
+              {activeFilterCount > 0 && (
+                <button onClick={clearFilters} className="mt-2 text-xs text-primary hover:underline">
+                  Clear all filters
+                </button>
+              )}
               <div className="mt-4"><FilterContent /></div>
             </SheetContent>
           </Sheet>
-          {activeFilterCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground gap-1 h-9">
-              <X className="h-3.5 w-3.5" /> Clear filters
-            </Button>
-          )}
-        </div>
+
+          {/* Search input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); if (!e.target.value.trim()) setSearchParams(p => { p.delete('search'); return p; }); }}
+              placeholder="Search by name, brand, code..."
+              className="w-full h-11 pl-9 pr-8 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                onClick={() => { setSearchQuery(''); setSearchParams(p => { p.delete('search'); return p; }); }}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Search submit button embedded right */}
+          <button
+            type="submit"
+            className="flex items-center justify-center h-11 w-11 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+        </form>
+
+        {/* Active filter chips */}
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3 -mt-1">
+            {selectedCategory && <Badge variant="secondary" className="gap-1">{selectedCategory} <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedCategory('')} /></Badge>}
+            {selectedGender && <Badge variant="secondary" className="gap-1 capitalize">{selectedGender} <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedGender('')} /></Badge>}
+            {selectedColors.map(c => <Badge key={c} variant="secondary" className="gap-1">{c} <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedColors(selectedColors.filter(x => x !== c))} /></Badge>)}
+            {selectedSizes.map(s => <Badge key={s} variant="secondary" className="gap-1">Size {s} <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedSizes(selectedSizes.filter(x => x !== s))} /></Badge>)}
+            <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-destructive transition-colors">Clear all</button>
+          </div>
+        )}
 
         <div>
           <div>
@@ -332,15 +356,6 @@ const Products = () => {
                 </div>
               </div>
             </div>
-
-            {activeFilterCount > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {selectedCategory && <Badge variant="secondary" className="gap-1">{selectedCategory} <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedCategory('')} /></Badge>}
-                {selectedGender && <Badge variant="secondary" className="gap-1 capitalize">{selectedGender} <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedGender('')} /></Badge>}
-                {selectedColors.map(c => <Badge key={c} variant="secondary" className="gap-1">{c} <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedColors(selectedColors.filter(x => x !== c))} /></Badge>)}
-                {selectedSizes.map(s => <Badge key={s} variant="secondary" className="gap-1">Size {s} <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedSizes(selectedSizes.filter(x => x !== s))} /></Badge>)}
-              </div>
-            )}
 
             {loading ? (
               <div className="text-center py-20"><p className="text-muted-foreground">Loading products...</p></div>
