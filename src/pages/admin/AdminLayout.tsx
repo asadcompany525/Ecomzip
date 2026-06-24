@@ -302,16 +302,16 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <aside className={`fixed inset-y-0 left-0 z-50 w-56 bg-card border-r transform transition-transform md:relative md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between px-3 py-3 border-b">
+    <div className="h-screen bg-background flex overflow-hidden">
+      <aside className={`fixed inset-y-0 left-0 z-50 w-56 bg-card border-r transform transition-transform flex flex-col md:relative md:translate-x-0 md:h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between px-3 py-3 border-b shrink-0">
           <button onClick={handleLogoClick} className="flex items-center gap-2 select-none focus:outline-none" title="Click 5x for secret access">
             <img src={siteConfig.faviconUrl || '/favicon.ico'} alt={baseBrand} className="h-7 w-7 rounded" onError={e => { (e.target as HTMLImageElement).src = '/favicon.ico'; }} />
             <span className="font-bold text-sm truncate">{brandName}</span>
           </button>
           <button className="md:hidden" onClick={() => setSidebarOpen(false)}><X className="h-4 w-4" /></button>
         </div>
-        <nav className="px-2 py-2 overflow-y-auto h-[calc(100vh-112px)]">
+        <nav className="flex-1 px-2 py-2 overflow-y-auto">
           {sidebarGroups.map(group => (
             <div key={group.label} className="mb-2">
               <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest px-2 py-1">{group.label}</p>
@@ -353,7 +353,7 @@ const AdminLayout = () => {
             </div>
           ))}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 px-2 py-2 border-t bg-card">
+        <div className="shrink-0 px-2 py-2 border-t bg-card">
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground text-xs h-8" onClick={handleLogout}>
             <LogOut className="h-3.5 w-3.5" />Logout
           </Button>
@@ -362,8 +362,8 @@ const AdminLayout = () => {
 
       {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 bg-card border-b px-4 py-2.5 flex items-center gap-3">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="shrink-0 z-30 bg-card border-b px-4 py-2.5 flex items-center gap-3">
           <button className="md:hidden" onClick={() => setSidebarOpen(true)}><Menu className="h-5 w-5" /></button>
           <h2 className="text-sm font-semibold flex-1 truncate">{currentLabel}</h2>
           {identityLabel && (
@@ -373,7 +373,7 @@ const AdminLayout = () => {
           )}
           <Badge variant="outline" className="text-[10px] hidden md:inline-flex max-w-[160px] truncate">{user?.email}</Badge>
         </header>
-        <main className="flex-1 p-3 md:p-5 overflow-auto max-h-[calc(100dvh-49px)]">
+        <main className="flex-1 overflow-y-auto p-3 md:p-5">
           {hasAccess ? (
             <Outlet />
           ) : (
