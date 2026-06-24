@@ -21,8 +21,8 @@ const GUEST_HISTORY_KEY = 'store_guest_chat_history';
 const makeWelcomeMsg = (brandLabel: string, userName?: string): ChatMsg => ({
   role: 'assistant',
   content: userName
-    ? `Assalam-o-Alaikum, ${userName}! 👋 ${brandLabel} میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!`
-    : `Assalam-o-Alaikum! 👋 ${brandLabel} میں خوش آمدید۔\n\nآپ یہاں سے ہم سے بات کر سکتے ہیں۔ ہماری ٹیم جلد جواب دے گی!`,
+    ? `Hi ${userName}! 👋 Welcome to ${brandLabel}.\n\nHow can I help you today? Feel free to ask in any language — I'll reply in the same language!`
+    : `Hi! 👋 Welcome to ${brandLabel}.\n\nHow can I help you today? Feel free to ask in any language — I'll reply in the same language!`,
 });
 
 const AIChatWidget = () => {

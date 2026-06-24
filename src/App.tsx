@@ -98,6 +98,7 @@ const AdminAiSizeAdvisor    = lazy(() => import("./pages/admin/AdminAiSizeAdviso
 const AdminFinanceLedger    = lazy(() => import("./pages/admin/AdminFinanceLedger"));
 const AdminStaffSalary      = lazy(() => import("./pages/admin/AdminStaffSalary"));
 const AdminTechLogs         = lazy(() => import("./pages/admin/AdminTechLogs"));
+const AdminAiSalespersonChat = lazy(() => import("./pages/admin/AdminAiSalespersonChat"));
 
 // ── React Query Config ───────────────────────────────────────
 const queryClient = new QueryClient({
@@ -233,6 +234,7 @@ const AppRoutes = () => {
             <Route path="claims-returns"       element={<AS><AdminClaimsReturns /></AS>} />
             <Route path="contact-messages"     element={<AS><AdminContactMessages /></AS>} />
             <Route path="chat"                 element={<AS><AdminChat /></AS>} />
+            <Route path="ai-salesperson-chat"  element={<AS><AdminAiSalespersonChat /></AS>} />
             <Route path="reports"              element={<AS><AdminReports /></AS>} />
             <Route path="product-analytics"    element={<AS><AdminProductAnalytics /></AS>} />
             <Route path="ai-discounts"         element={<AS><AdminAiDiscounts /></AS>} />

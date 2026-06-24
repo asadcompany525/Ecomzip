@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Filter, Grid3X3, List, X, ArrowLeft, ShoppingCart, Search } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Filter, Grid3X3, List, X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,20 +10,14 @@ import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/home/ProductCard';
 import BottomNav from '@/components/layout/BottomNav';
 import PageBreadcrumb from '@/components/layout/PageBreadcrumb';
-import { useCart } from '@/contexts/CartContext';
 import { Product } from '@/types/product';
 import { mapDbProduct, PRODUCT_SELECT } from '@/lib/mapDbProduct';
 
 const Products = () => {
-  const navigate = useNavigate();
-  const { cartCount } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get('category') || '';
   const initialSearch = searchParams.get('search') || '';
   const initialFilter = searchParams.get('filter') || '';
-  const [showHeaderSearch, setShowHeaderSearch] = useState(false);
-  const [headerSearchQuery, setHeaderSearchQuery] = useState('');
-
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,45 +260,33 @@ const Products = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      {/* Compact Products Header — replaces main header on this page */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
-        <div className="container flex items-center gap-2 h-14">
-          <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-
-          {showHeaderSearch ? (
-            <form className="flex-1 flex items-center gap-2" onSubmit={e => { e.preventDefault(); if (headerSearchQuery.trim()) { setSearchParams(p => { p.set('search', headerSearchQuery); return p; }); setShowHeaderSearch(false); } }}>
-              <Input
-                autoFocus
-                value={headerSearchQuery}
-                onChange={e => setHeaderSearchQuery(e.target.value)}
-                placeholder="Search products..."
-                className="h-8 text-sm flex-1"
-              />
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { setShowHeaderSearch(false); setHeaderSearchQuery(''); }}>
-                <X className="h-4 w-4" />
-              </Button>
-            </form>
-          ) : (
-            <>
-              <span className="flex-1 font-semibold text-sm truncate">
-                {searchParams.get('search') ? `"${searchParams.get('search')}"` : selectedCategory || 'All Products'}
-              </span>
-              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setShowHeaderSearch(true)}>
-                <Search className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="relative h-9 w-9 shrink-0" onClick={() => navigate('/cart')}>
-                <ShoppingCart className="h-5 w-5" />
-                {cartCount > 0 && <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{cartCount}</span>}
-              </Button>
-            </>
-          )}
-        </div>
-      </header>
-
       <main className="container py-5">
         <PageBreadcrumb items={[{ label: 'All Products' }]} />
+
+        {/* Inline Search Bar */}
+        <form
+          className="flex items-center gap-2 mb-4"
+          onSubmit={e => { e.preventDefault(); if (searchQuery.trim()) setSearchParams(p => { p.set('search', searchQuery); return p; }); }}
+        >
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); if (!e.target.value.trim()) setSearchParams(p => { p.delete('search'); return p; }); }}
+              placeholder="Search products by name, brand, code..."
+              className="pl-9 h-10"
+            />
+            {searchQuery && (
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => { setSearchQuery(''); setSearchParams(p => { p.delete('search'); return p; }); }}>
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <Button type="submit" size="icon" className="h-10 w-10 shrink-0">
+            <Search className="h-4 w-4" />
+          </Button>
+        </form>
+
         {/* Filter row */}
         <div className="flex items-center gap-2 mb-4">
           <Sheet open={filterOpen} onOpenChange={setFilterOpen}>

@@ -206,8 +206,8 @@ export default function VirtualTryOn({ productImage, productName, productCategor
   return (
     <>
       <Button variant="outline" size="sm" onClick={handleOpen}
-        className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5 text-xs">
-        <Camera className="h-3.5 w-3.5" /> AI Try-On
+        className="gap-1.5 border-purple-400/50 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-xs">
+        <Sparkles className="h-3.5 w-3.5" /> AI Image Creator
       </Button>
 
       <AnimatePresence>
@@ -224,7 +224,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
               style={{ background: 'rgba(0,0,0,0.7)' }}>
               <div className="min-w-0 flex-1 mr-3">
                 <p className="text-white font-bold flex items-center gap-2 text-sm">
-                  <Wand2 className="h-4 w-4 text-primary shrink-0" /> AI Virtual Try-On
+                  <Sparkles className="h-4 w-4 text-purple-400 shrink-0" /> AI Image Creator
                 </p>
                 <p className="text-white/50 text-xs mt-0.5 truncate">{productName}</p>
               </div>

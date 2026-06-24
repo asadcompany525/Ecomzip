@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle, Sparkles } from 'lucide-react';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import VirtualTryOn from '@/components/VirtualTryOn';
+import AISalesperson from '@/components/product/AISalesperson';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -663,7 +664,7 @@ const ProductDetail = () => {
                         {selectedSize || 'Select'}
                       </span>
                     </h4>
-                    {(catType === 'shoes' || catType === 'clothing') && (
+                    {(catType === 'shoes' || catType === 'bags') && (
                       <button
                         onClick={() => { setSizeAdvisorOpen(true); setAdvisorResult(null); }}
                         className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
@@ -768,7 +769,7 @@ const ProductDetail = () => {
               </Button>
               <Button variant="outline" size="icon" className="h-11 w-11" onClick={handleShare}><Share2 className="h-5 w-5" /></Button>
             </div>
-            {getCategoryType() !== 'generic' && (
+            {['shoes', 'bags'].includes(getCategoryType()) && (
               <div className="mb-4">
                 <VirtualTryOn productImage={product.image} productName={product.name} productCategory={categoryName} />
               </div>
@@ -1105,6 +1106,13 @@ const ProductDetail = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AISalesperson
+        product={{ ...product, description: dbProduct?.description, return_policy: dbProduct?.return_policy, claim_policy: dbProduct?.claim_policy }}
+        categoryName={categoryName}
+        categoryType={getCategoryType()}
+        variants={variants}
+      />
 
       <BottomNav />
     </div>
