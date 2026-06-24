@@ -81,6 +81,13 @@ const ProductDetail = () => {
   const [advisorFootWidth, setAdvisorFootWidth] = useState('');
   const [advisorUsualSize, setAdvisorUsualSize] = useState('');
   const [advisorBrand, setAdvisorBrand] = useState('');
+  // Clothing-specific measurements
+  const [advisorHeight, setAdvisorHeight] = useState('');
+  const [advisorChest, setAdvisorChest] = useState('');
+  const [advisorWaist, setAdvisorWaist] = useState('');
+  const [advisorShoulder, setAdvisorShoulder] = useState('');
+  // Bag-specific
+  const [advisorBagUsage, setAdvisorBagUsage] = useState('');
   const [advisorLoading, setAdvisorLoading] = useState(false);
   const [advisorResult, setAdvisorResult] = useState<any>(null);
   const [advisorFootPhoto, setAdvisorFootPhoto] = useState<string | null>(null);
@@ -376,37 +383,50 @@ const ProductDetail = () => {
   const buildLocalSizeAdvice = (catType: ReturnType<typeof getCategoryType>) => {
     const sizes = (product?.sizes || []).map(String);
     const usual = advisorUsualSize.trim();
-    const firstNumber = numberFromText(advisorFootLength);
-    const secondNumber = numberFromText(advisorFootWidth);
     let recommendedSize = usual || sizes[0] || 'Standard';
     let fitNote = '';
 
     if (catType === 'shoes') {
+      const footLen = numberFromText(advisorFootLength);
+      const footWid = numberFromText(advisorFootWidth);
       if (usual) {
         recommendedSize = String(numberFromText(usual) ?? usual).trim();
         fitNote = `You entered shoe size ${recommendedSize}; checking this exact size in current stock.`;
-      } else if (firstNumber) {
-        recommendedSize = String(Math.round((firstNumber + 1.5) * 1.5));
-        fitNote = `Based on ${firstNumber}cm foot length${secondNumber ? ` and ${secondNumber}cm width` : ''}, this is the nearest EU/Pakistan shoe size.`;
+      } else if (footLen) {
+        // Foot length (cm) → EU size approximation
+        const eu = Math.round(footLen * 1.5 + 1.5);
+        recommendedSize = String(eu);
+        fitNote = `Based on ${footLen}cm foot length${footWid ? ` × ${footWid}cm width` : ''}, nearest EU/Pakistan size is ${eu}.`;
       }
     } else if (catType === 'clothing') {
-      const text = `${usual} ${advisorFootLength} ${advisorFootWidth}`.toUpperCase();
-      const direct = text.match(/\b(XXS|XS|S|M|L|XL|XXL|XXXL)\b/)?.[1];
-      if (direct) recommendedSize = direct;
-      else {
-        const chest = firstNumber || 0;
+      const text = `${usual} ${advisorChest} ${advisorHeight}`.toUpperCase();
+      const direct = text.match(/\b(XXS|XS|S|M|L|XL|XXL|XXXL|3XL|4XL|5XL)\b/)?.[1];
+      if (direct) {
+        recommendedSize = direct;
+        fitNote = `Matched from your input: ${direct}.`;
+      } else {
+        const chest = numberFromText(advisorChest) || 0;
+        const height = numberFromText(advisorHeight) || 0;
+        const waist = numberFromText(advisorWaist) || 0;
         if (chest > 0) {
-          recommendedSize = chest <= 34 ? 'S' : chest <= 38 ? 'M' : chest <= 42 ? 'L' : chest <= 46 ? 'XL' : 'XXL';
+          recommendedSize = chest <= 34 ? 'XS' : chest <= 37 ? 'S' : chest <= 41 ? 'M' : chest <= 45 ? 'L' : chest <= 49 ? 'XL' : chest <= 53 ? 'XXL' : '3XL';
+          fitNote = `Based on ${chest}cm chest${waist ? ` / ${waist}cm waist` : ''}${height ? ` / ${height}cm height` : ''}.`;
+        } else if (height > 0) {
+          recommendedSize = height < 155 ? 'XS' : height < 165 ? 'S' : height < 175 ? 'M' : height < 185 ? 'L' : 'XL';
+          fitNote = `Based on ${height}cm height.`;
         }
       }
-      fitNote = `For clothing, use chest/height and width/waist measurements. The recommendation is matched against this product's sizes.`;
     } else if (catType === 'bags') {
-      const text = `${usual} ${advisorFootLength}`.toLowerCase();
-      recommendedSize = /large|xl|travel|laptop|15|20/.test(text) ? 'Large' : /small|mini|compact/.test(text) ? 'Small' : 'Medium';
-      fitNote = 'Bag size is based on your use case and available product sizes.';
+      const usage = advisorBagUsage.toLowerCase();
+      const pref = advisorFootLength.toLowerCase();
+      const combined = `${usage} ${pref} ${usual}`.toLowerCase();
+      recommendedSize = /large|xl|travel|laptop|15|20|work|office/.test(combined)
+        ? 'Large' : /small|mini|compact|evening|clutch/.test(combined)
+        ? 'Small' : 'Medium';
+      fitNote = `Based on your usage (${advisorBagUsage || 'general'}) preference.`;
     } else {
       recommendedSize = usual || advisorFootLength || sizes[0] || 'Standard';
-      fitNote = 'Recommendation is matched to this product category and available options.';
+      fitNote = 'Recommendation matched to this product and available options.';
     }
 
     const stock = getStockInfo(recommendedSize);
@@ -416,10 +436,10 @@ const ProductDetail = () => {
     return {
       recommendedSize,
       alternateSize,
-      confidence: advisorFootPhoto ? 82 : 76,
+      confidence: advisorFootPhoto ? 85 : 78,
       shortAdvice: stock.inStock
-        ? `Size ${recommendedSize} is suitable and currently available.`
-        : `Size ${recommendedSize} is the right recommendation, but it is not available in this product right now.${alternateSize ? ` Closest available option: ${alternateSize}.` : ''}`,
+        ? `Size ${recommendedSize} is a great fit and currently in stock!`
+        : `Size ${recommendedSize} is your best match, but currently out of stock.${alternateSize ? ` Nearest available: ${alternateSize}.` : ''}`,
       fitNote,
       categoryType: catType,
       inStock: stock.inStock,
@@ -430,8 +450,13 @@ const ProductDetail = () => {
   };
 
   const getSizeAdvice = async () => {
-    if (!advisorFootLength && !advisorUsualSize && !advisorFootPhoto && !advisorFootWidth) {
-      toast({ title: 'Upload a photo or enter measurements to continue', variant: 'destructive' });
+    const catType = getCategoryType();
+    const hasInput = advisorFootPhoto || advisorUsualSize ||
+      advisorFootLength || advisorFootWidth ||
+      advisorHeight || advisorChest || advisorWaist || advisorShoulder ||
+      advisorBagUsage;
+    if (!hasInput) {
+      toast({ title: 'Please upload a photo or enter at least one measurement', variant: 'destructive' });
       return;
     }
     setAdvisorLoading(true);
@@ -961,82 +986,172 @@ const ProductDetail = () => {
           <div className="space-y-4 pb-4">
             {(() => {
               const catType = getCategoryType();
-              const photoLabel = { shoes: 'Upload Foot Photo', bags: 'Upload Reference Photo', clothing: 'Upload Body Photo', electronics: 'Upload Reference', generic: 'Upload Photo' }[catType];
-              const photoHint = { shoes: 'AI analyzes foot shape to find the perfect shoe size', bags: 'AI analyzes the reference image to suggest the right bag size', clothing: 'AI analyzes body proportions from the photo', electronics: 'AI analyzes your reference to suggest the right variant', generic: 'AI analyzes the photo to suggest the right size' }[catType];
-              const measureLabel1 = { shoes: 'Foot Length (cm)', bags: 'Preferred size / capacity', clothing: 'Chest / Height (cm)', electronics: 'Preferred specs', generic: 'Measurement / Reference' }[catType];
-              const measureLabel2 = { shoes: 'Foot Width (cm)', bags: 'Brand preference', clothing: 'Width / Waist (cm)', electronics: 'Budget range', generic: 'Additional info' }[catType];
-              const placeholder1 = { shoes: 'e.g. 25.5', bags: 'e.g. Medium, 15L', clothing: 'e.g. 40, 170', electronics: 'e.g. 256GB', generic: 'e.g. Standard' }[catType];
-              const placeholder2 = { shoes: 'e.g. 9.5 (optional)', bags: 'e.g. Gucci, local', clothing: 'e.g. 32, 70kg', electronics: 'e.g. Rs. 50,000', generic: 'optional' }[catType];
-              return (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    {catType === 'shoes' ? 'Upload a foot photo or enter measurements — adviser will recommend the perfect shoe size.' :
-                     catType === 'bags' ? 'Tell us your preferences — AI will recommend the best bag size.' :
-                     catType === 'clothing' ? 'For shirts/clothing, enter height/chest and width/waist so adviser recommends clothing size.' :
-                     'Describe your needs — adviser will recommend the right option.'}
-                  </p>
 
-                  {/* Photo Upload */}
+              /* ── SHOES ─────────────────────────────── */
+              if (catType === 'shoes') return (
+                <>
+                  <p className="text-sm text-muted-foreground">Upload a foot photo <strong>or</strong> enter your foot measurements — AI will find the perfect shoe size from live stock.</p>
+
+                  {/* Foot photo upload */}
                   <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 text-center bg-primary/5">
                     <input ref={footPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFootPhotoChange} />
                     {advisorFootPhoto ? (
                       <div className="space-y-2">
-                        <img src={advisorFootPhoto} alt="Photo" className="h-32 mx-auto rounded-lg object-contain" />
+                        <img src={advisorFootPhoto} alt="Foot" className="h-32 mx-auto rounded-lg object-contain" />
                         <div className="flex gap-2 justify-center">
-                          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => footPhotoRef.current?.click()}>
-                            <Camera className="h-3.5 w-3.5" /> Retake
-                          </Button>
+                          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => footPhotoRef.current?.click()}><Camera className="h-3.5 w-3.5" /> Retake</Button>
                           <Button size="sm" variant="ghost" className="text-xs text-destructive" onClick={() => setAdvisorFootPhoto(null)}>Remove</Button>
                         </div>
                       </div>
                     ) : (
                       <button onClick={() => footPhotoRef.current?.click()} className="w-full space-y-1.5">
                         <Camera className="h-8 w-8 mx-auto text-primary/50" />
-                        <p className="text-sm font-medium text-primary">{photoLabel}</p>
-                        <p className="text-xs text-muted-foreground">{photoHint}</p>
+                        <p className="text-sm font-medium text-primary">📸 Upload Foot Photo</p>
+                        <p className="text-xs text-muted-foreground">Place foot on paper, take photo from above</p>
                       </button>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 border-t" />
-                    <span className="text-xs text-muted-foreground px-2">OR enter manually</span>
-                    <div className="flex-1 border-t" />
-                  </div>
+                  <div className="flex items-center gap-2"><div className="flex-1 border-t" /><span className="text-xs text-muted-foreground px-2">OR measure manually</span><div className="flex-1 border-t" /></div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-sm">{measureLabel1}</Label>
-                      <Input value={advisorFootLength} onChange={e => setAdvisorFootLength(e.target.value)} placeholder={placeholder1} className="mt-1" />
+                      <Label className="text-sm font-medium">👣 Foot Length (cm)</Label>
+                      <Input value={advisorFootLength} onChange={e => setAdvisorFootLength(e.target.value)} placeholder="e.g. 25.5" className="mt-1" />
                     </div>
                     <div>
-                      <Label className="text-sm">{measureLabel2}</Label>
-                      <Input value={advisorFootWidth} onChange={e => setAdvisorFootWidth(e.target.value)} placeholder={placeholder2} className="mt-1" />
+                      <Label className="text-sm font-medium">↔ Foot Width (cm)</Label>
+                      <Input value={advisorFootWidth} onChange={e => setAdvisorFootWidth(e.target.value)} placeholder="e.g. 9.5 (optional)" className="mt-1" />
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2"><div className="flex-1 border-t" /><span className="text-xs text-muted-foreground px-2">OR I know my size</span><div className="flex-1 border-t" /></div>
+                  <div>
+                    <Label className="text-sm font-medium">My usual shoe size</Label>
+                    <Input value={advisorUsualSize} onChange={e => setAdvisorUsualSize(e.target.value)} placeholder="e.g. 42, UK 8, US 9..." className="mt-1" />
+                  </div>
+
+                  <div className="bg-muted/40 rounded-lg p-3 text-xs text-muted-foreground space-y-0.5">
+                    <p className="font-medium text-foreground">💡 How to measure foot length:</p>
+                    <p>1. Stand on a piece of paper and trace your foot</p>
+                    <p>2. Measure from heel to longest toe</p>
+                    <p>3. Enter that number above in cm</p>
+                  </div>
+                </>
+              );
+
+              /* ── CLOTHING ───────────────────────────── */
+              if (catType === 'clothing') return (
+                <>
+                  <p className="text-sm text-muted-foreground">Enter your body measurements — AI will recommend the right clothing size from this product's available sizes.</p>
+
+                  {/* Body photo */}
+                  <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 text-center bg-primary/5">
+                    <input ref={footPhotoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFootPhotoChange} />
+                    {advisorFootPhoto ? (
+                      <div className="space-y-2">
+                        <img src={advisorFootPhoto} alt="Body" className="h-32 mx-auto rounded-lg object-contain" />
+                        <div className="flex gap-2 justify-center">
+                          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => footPhotoRef.current?.click()}><Camera className="h-3.5 w-3.5" /> Retake</Button>
+                          <Button size="sm" variant="ghost" className="text-xs text-destructive" onClick={() => setAdvisorFootPhoto(null)}>Remove</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => footPhotoRef.current?.click()} className="w-full space-y-1.5">
+                        <Camera className="h-8 w-8 mx-auto text-primary/50" />
+                        <p className="text-sm font-medium text-primary">📸 Upload Full Body Photo (optional)</p>
+                        <p className="text-xs text-muted-foreground">Front-facing, full body for best results</p>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2"><div className="flex-1 border-t" /><span className="text-xs text-muted-foreground px-2">Enter measurements</span><div className="flex-1 border-t" /></div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm font-medium">📏 Height (cm)</Label>
+                      <Input value={advisorHeight} onChange={e => setAdvisorHeight(e.target.value)} placeholder="e.g. 170" className="mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">👕 Chest / Bust (cm)</Label>
+                      <Input value={advisorChest} onChange={e => setAdvisorChest(e.target.value)} placeholder="e.g. 40" className="mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">🔄 Waist (cm)</Label>
+                      <Input value={advisorWaist} onChange={e => setAdvisorWaist(e.target.value)} placeholder="e.g. 32 (optional)" className="mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">↔ Shoulder (cm)</Label>
+                      <Input value={advisorShoulder} onChange={e => setAdvisorShoulder(e.target.value)} placeholder="e.g. 44 (optional)" className="mt-1" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2"><div className="flex-1 border-t" /><span className="text-xs text-muted-foreground px-2">OR I know my size</span><div className="flex-1 border-t" /></div>
+                  <div>
+                    <Label className="text-sm font-medium">My usual clothing size</Label>
+                    <Input value={advisorUsualSize} onChange={e => setAdvisorUsualSize(e.target.value)} placeholder="e.g. M, L, XL, 40..." className="mt-1" />
+                  </div>
+
+                  <div className="bg-muted/40 rounded-lg p-3 text-xs text-muted-foreground space-y-0.5">
+                    <p className="font-medium text-foreground">💡 How to measure chest:</p>
+                    <p>1. Wrap tape around the fullest part of your chest</p>
+                    <p>2. Keep it level and parallel to the floor</p>
+                    <p>3. Note in centimeters</p>
+                  </div>
+                </>
+              );
+
+              /* ── BAGS ───────────────────────────────── */
+              if (catType === 'bags') return (
+                <>
+                  <p className="text-sm text-muted-foreground">Tell us how you plan to use this bag — AI will suggest the best size option.</p>
+
+                  <div>
+                    <Label className="text-sm font-medium">🎒 Main Usage</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {['Daily use', 'Office / Work', 'Travel', 'Shopping', 'Evening / Party', 'Gym / Sports'].map(u => (
+                        <button key={u} type="button"
+                          onClick={() => setAdvisorBagUsage(advisorBagUsage === u ? '' : u)}
+                          className={`px-3 py-1.5 rounded-full text-xs border font-medium transition-all ${advisorBagUsage === u ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:border-primary'}`}>
+                          {u}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium">📦 Preferred Size / Capacity</Label>
+                    <Input value={advisorFootLength} onChange={e => setAdvisorFootLength(e.target.value)} placeholder="e.g. Small, Medium, Large, 15L..." className="mt-1" />
+                  </div>
+
+                  <div className="flex items-center gap-2"><div className="flex-1 border-t" /><span className="text-xs text-muted-foreground px-2">OR I know my size</span><div className="flex-1 border-t" /></div>
+                  <div>
+                    <Label className="text-sm font-medium">My usual bag size</Label>
+                    <Input value={advisorUsualSize} onChange={e => setAdvisorUsualSize(e.target.value)} placeholder="e.g. Medium, Large..." className="mt-1" />
+                  </div>
+                </>
+              );
+
+              /* ── GENERIC / ELECTRONICS ──────────────── */
+              return (
+                <>
+                  <p className="text-sm text-muted-foreground">Describe your preference — AI will suggest the best option from available sizes.</p>
+                  <div>
+                    <Label className="text-sm font-medium">Your preference / specs</Label>
+                    <Input value={advisorFootLength} onChange={e => setAdvisorFootLength(e.target.value)} placeholder="e.g. 256GB, Large, Standard..." className="mt-1" />
+                  </div>
+                  <div className="flex items-center gap-2"><div className="flex-1 border-t" /><span className="text-xs text-muted-foreground px-2">OR</span><div className="flex-1 border-t" /></div>
+                  <div>
+                    <Label className="text-sm font-medium">My usual size / variant</Label>
+                    <Input value={advisorUsualSize} onChange={e => setAdvisorUsualSize(e.target.value)} placeholder="e.g. Standard, M, 42..." className="mt-1" />
                   </div>
                 </>
               );
             })()}
 
-            <div className="flex items-center gap-2">
-              <div className="flex-1 border-t" />
-              <span className="text-xs text-muted-foreground px-2">OR reference size</span>
-              <div className="flex-1 border-t" />
-            </div>
-
-            <div>
-              <Label className="text-sm">My usual size</Label>
-              <Input
-                value={advisorUsualSize}
-                onChange={e => setAdvisorUsualSize(e.target.value)}
-                placeholder="e.g. 42, UK 8, M, L..."
-                className="mt-1"
-              />
-            </div>
-
-            <Button onClick={getSizeAdvice} disabled={advisorLoading || advisorUploadingPhoto} className="w-full gap-2">
-              {(advisorLoading || advisorUploadingPhoto) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ruler className="h-4 w-4" />}
-              {advisorUploadingPhoto ? 'Uploading photo...' : advisorLoading ? 'AI analyzing photo & checking stock...' : 'Get My Size Recommendation'}
+            <Button onClick={getSizeAdvice} disabled={advisorLoading || advisorUploadingPhoto} className="w-full gap-2 h-11">
+              {(advisorLoading || advisorUploadingPhoto) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {advisorUploadingPhoto ? 'Uploading photo...' : advisorLoading ? 'AI is checking stock...' : 'Get My Size Recommendation'}
             </Button>
 
             {advisorResult && (
@@ -1048,7 +1163,6 @@ const ProductDetail = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-base">Recommended Size</p>
                     <p className="text-xs text-muted-foreground">{advisorResult.confidence}% confidence {advisorFootPhoto ? '· Photo analyzed' : ''}</p>
-                    {/* Live stock badge */}
                     <div className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${advisorResult.inStock !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${advisorResult.inStock !== false ? 'bg-green-500' : 'bg-red-500'}`} />
                       {advisorResult.inStock !== false
@@ -1070,37 +1184,12 @@ const ProductDetail = () => {
                   </div>
                 )}
                 {(product?.sizes?.includes(advisorResult.recommendedSize) || advisorResult.inStock !== false) && (
-                  <Button
-                    size="sm"
-                    className="w-full gap-2"
-                    disabled={advisorResult.inStock === false}
-                    onClick={() => {
-                      setSelectedSize(advisorResult.recommendedSize);
-                      setSizeAdvisorOpen(false);
-                      toast({ title: `Size ${advisorResult.recommendedSize} selected!` });
-                    }}
-                  >
+                  <Button size="sm" className="w-full gap-2" disabled={advisorResult.inStock === false}
+                    onClick={() => { setSelectedSize(advisorResult.recommendedSize); setSizeAdvisorOpen(false); toast({ title: `✅ Size ${advisorResult.recommendedSize} selected!` }); }}>
                     <CheckCircle className="h-3.5 w-3.5" />
                     {advisorResult.inStock === false ? 'Out of Stock' : `Select Size ${advisorResult.recommendedSize}`}
                   </Button>
                 )}
-              </div>
-            )}
-
-            {getCategoryType() === 'shoes' && (
-              <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
-                <p className="font-medium">💡 How to measure foot length:</p>
-                <p>1. Place your foot on a piece of paper</p>
-                <p>2. Mark the heel and longest toe</p>
-                <p>3. Measure the distance in cm</p>
-              </div>
-            )}
-            {getCategoryType() === 'clothing' && (
-              <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
-                <p className="font-medium">💡 How to measure chest/bust:</p>
-                <p>1. Wrap a tape measure around the fullest part of your chest</p>
-                <p>2. Keep it parallel to the ground</p>
-                <p>3. Note in centimeters</p>
               </div>
             )}
           </div>
