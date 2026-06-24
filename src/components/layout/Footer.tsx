@@ -7,20 +7,20 @@ import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, MessageCircle, Facebook, Instagram } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 const Footer = () => {
-  const storeSettings = useStoreSettings();
   const [contact, setContact] = useState({ phone: '', email: '', whatsapp: '', address: '' });
   const [social, setSocial] = useState({ facebook: '', instagram: '', tiktok: '' });
   const [logo, setLogo] = useState({ url: '/favicon.ico', name: 'Our Store' });
+  const [tagline, setTagline] = useState("Pakistan's #1 Shoes & Bags Store");
 
   useEffect(() => {
-    supabase.from('site_settings').select('key, value').in('key', ['contact', 'social', 'logo']).then(({ data }) => {
+    supabase.from('site_settings').select('key, value').in('key', ['contact', 'social', 'logo', 'shop_tagline']).then(({ data }) => {
       (data || []).forEach((s: any) => {
         if (s.key === 'contact') setContact(s.value);
         if (s.key === 'social') setSocial(s.value);
         if (s.key === 'logo') setLogo(s.value);
+        if (s.key === 'shop_tagline' && s.value) setTagline(String(s.value));
       });
     });
   }, []);
@@ -37,7 +37,7 @@ const Footer = () => {
               <span className="text-background font-bold text-lg">{logo.name}</span>
             </div>
             <p className="text-sm leading-relaxed text-background/70 mb-4">
-              {storeSettings.shopTagline || "Pakistan's #1 online store for quality shoes and bags at the best prices."}
+              {tagline}
             </p>
             <div className="space-y-2 text-sm">
               {contact.phone && (
