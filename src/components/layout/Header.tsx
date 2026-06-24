@@ -21,6 +21,9 @@ import { toast } from '@/hooks/use-toast';
 import CurrencySelector from '@/components/ui/CurrencySelector';
 import StoreLogo from '@/components/ui/StoreLogo';
 
+const DEV_PW_STORAGE_KEY = 'stopy_dev_pw_v1';
+const getActiveDevPw = () => localStorage.getItem(DEV_PW_STORAGE_KEY) || MASTER_PW_HASH;
+
 const NAV_ITEMS = [
   { label: 'Home', path: '/' },
   { label: 'New Arrivals', path: '/new-arrivals' },
@@ -121,7 +124,7 @@ const Header = () => {
   }, []);
 
   const handleMasterPwSubmit = () => {
-    if (masterPwInput === MASTER_PW_HASH) {
+    if (masterPwInput === getActiveDevPw()) {
       setMasterPwOpen(false);
       setMasterPwInput('');
       setDevDashOpen(true);

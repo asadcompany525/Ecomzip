@@ -7,10 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Trash2, Upload, Save, Settings, RefreshCw, AlertTriangle, User, Plus, X, Link as LinkIcon, ArrowLeft, Globe } from 'lucide-react';
+import { Shield, Trash2, Upload, Save, Settings, RefreshCw, AlertTriangle, User, Plus, X, Link as LinkIcon, ArrowLeft, Globe, Key, Eye, EyeOff } from 'lucide-react';
 import { ensureAdminSession } from '@/lib/adminSession';
 
 const MASTER_PW_HASH = 'Asad_Dev_99';
+const DEV_PW_STORAGE_KEY = 'stopy_dev_pw_v1';
 
 const DEV_INFO_KEY = '__stopy_dev_info__';
 
@@ -62,6 +63,13 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
   const [siteTitle, setSiteTitle] = useState('Stopy Shoes | Pakistan\'s Best Store');
   const [faviconUrl, setFaviconUrl] = useState('');
   const [savingBranding, setSavingBranding] = useState(false);
+  const [currentPwInput, setCurrentPwInput] = useState('');
+  const [newPwInput, setNewPwInput] = useState('');
+  const [confirmPwInput, setConfirmPwInput] = useState('');
+  const [changingPw, setChangingPw] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const asLogoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
@@ -286,6 +294,42 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
     setResetting(false);
   };
 
+  const getCurrentPassword = () => localStorage.getItem(DEV_PW_STORAGE_KEY) || MASTER_PW_HASH;
+
+  const changePassword = async () => {
+    const activePw = getCurrentPassword();
+    if (currentPwInput !== activePw) {
+      toast({ title: 'Current password is wrong', variant: 'destructive' });
+      return;
+    }
+    if (newPwInput.length < 6) {
+      toast({ title: 'New password must be at least 6 characters', variant: 'destructive' });
+      return;
+    }
+    if (newPwInput !== confirmPwInput) {
+      toast({ title: 'Passwords do not match', variant: 'destructive' });
+      return;
+    }
+    setChangingPw(true);
+    try {
+      localStorage.setItem(DEV_PW_STORAGE_KEY, newPwInput);
+      try {
+        await ensureAdminSession();
+        await supabase.from('site_settings').upsert(
+          { key: 'dev_panel_password', value: newPwInput as any },
+          { onConflict: 'key' }
+        ).select('key').single();
+      } catch {}
+      toast({ title: '✅ Password changed!', description: 'New password is active immediately.' });
+      setCurrentPwInput('');
+      setNewPwInput('');
+      setConfirmPwInput('');
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+    setChangingPw(false);
+  };
+
   const field = (label: string, key: keyof typeof DEFAULT_DEV_INFO, multiline = false) => (
     <div key={key}>
       <Label className="text-xs">{label}</Label>
@@ -309,12 +353,13 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-6 w-full">
             <TabsTrigger value="dev-info"><User className="h-3.5 w-3.5 mr-1" />Dev Info</TabsTrigger>
             <TabsTrigger value="logo"><Upload className="h-3.5 w-3.5 mr-1" />Logo</TabsTrigger>
             <TabsTrigger value="branding"><Globe className="h-3.5 w-3.5 mr-1" />Branding</TabsTrigger>
             <TabsTrigger value="settings"><Settings className="h-3.5 w-3.5 mr-1" />Settings</TabsTrigger>
-            <TabsTrigger value="reset"><Trash2 className="h-3.5 w-3.5 mr-1" />Factory Reset</TabsTrigger>
+            <TabsTrigger value="security"><Key className="h-3.5 w-3.5 mr-1" />Security</TabsTrigger>
+            <TabsTrigger value="reset"><Trash2 className="h-3.5 w-3.5 mr-1" />Reset</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dev-info" className="space-y-3 mt-4">
@@ -631,6 +676,105 @@ const SecretDevDashboard = ({ open, onClose }: Props) => {
             </div>
             <div className="flex gap-2">
               <Button onClick={saveSetting} disabled={!settingKey.trim()} className="flex-1 gap-2"><Save className="h-4 w-4" />Override Setting</Button>
+              <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="security" className="space-y-4 mt-4">
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-1">
+              <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+                <Key className="h-4 w-4" />
+                Change Developer Panel Password
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Current default password: <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">Asad_Dev_99</code>
+              </p>
+              <p className="text-xs text-muted-foreground">New password is saved in this browser. Changes sync to Supabase when admin session is active.</p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs">Current Password</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showCurrent ? 'text' : 'password'}
+                    className="pr-10 text-sm"
+                    placeholder="Enter current password"
+                    value={currentPwInput}
+                    onChange={e => setCurrentPwInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowCurrent(v => !v)}
+                  >
+                    {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs">New Password <span className="text-muted-foreground">(min. 6 characters)</span></Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showNew ? 'text' : 'password'}
+                    className="pr-10 text-sm"
+                    placeholder="Enter new password"
+                    value={newPwInput}
+                    onChange={e => setNewPwInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowNew(v => !v)}
+                  >
+                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs">Confirm New Password</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showConfirm ? 'text' : 'password'}
+                    className="pr-10 text-sm"
+                    placeholder="Repeat new password"
+                    value={confirmPwInput}
+                    onChange={e => setConfirmPwInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && changePassword()}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowConfirm(v => !v)}
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {newPwInput && confirmPwInput && newPwInput !== confirmPwInput && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Passwords do not match
+                </p>
+              )}
+              {newPwInput && newPwInput === confirmPwInput && newPwInput.length >= 6 && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  ✅ Passwords match
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 gap-2"
+                onClick={changePassword}
+                disabled={changingPw || !currentPwInput || !newPwInput || !confirmPwInput}
+              >
+                {changingPw ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+                {changingPw ? 'Changing...' : 'Change Password'}
+              </Button>
               <Button variant="outline" onClick={onClose} className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
             </div>
           </TabsContent>
