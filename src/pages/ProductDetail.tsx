@@ -3,6 +3,7 @@ import { setChatProductContext } from '@/lib/chatProductContext';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle, Sparkles } from 'lucide-react';
 import SizeGuide from '@/components/product/SizeGuide';
+import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import VirtualTryOn from '@/components/VirtualTryOn';
 import AISalesperson from '@/components/product/AISalesperson';
@@ -42,6 +43,7 @@ const ProductDetail = () => {
   const { addToCart, toggleWishlist, isInWishlist, cartCount } = useCart();
   const { user } = useAuth();
   const { formatPrice } = useCurrencyConverter();
+  const { items: recentlyViewed, addItem: trackViewed } = useRecentlyViewed(id);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [dbProduct, setDbProduct] = useState<any>(null);
@@ -133,6 +135,19 @@ const ProductDetail = () => {
         setDbProduct(safeProduct);
         const mapped = mapDbProduct(safeProduct);
         setProduct(mapped);
+
+        // Track this product as recently viewed
+        trackViewed({
+          id: safeProduct.id,
+          name: safeProduct.title,
+          price: Number(safeProduct.price) || 0,
+          originalPrice: safeProduct.original_price ? Number(safeProduct.original_price) : undefined,
+          discount: safeProduct.discount_percent ? Number(safeProduct.discount_percent) : undefined,
+          image: Array.isArray(safeProduct.images) && safeProduct.images[0] ? safeProduct.images[0] : '/placeholder.svg',
+          brand: safeProduct.brand || '',
+          rating: Number(safeProduct.rating) || 0,
+        });
+
         setChatProductContext({
           title: safeProduct.title,
           price: safeProduct.price,
@@ -975,6 +990,55 @@ const ProductDetail = () => {
             <h2 className="text-lg md:text-xl font-bold mb-4">🔥 Popular Products</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4">
               {popularProducts.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            </div>
+          </section>
+        )}
+
+        {/* ── Recently Viewed Strip ── */}
+        {recentlyViewed.length > 0 && (
+          <section className="mt-10 mb-2">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">👁️</span>
+              <h2 className="text-base md:text-lg font-bold">Recently Viewed</h2>
+              <span className="ml-auto text-xs text-muted-foreground">{recentlyViewed.length} item{recentlyViewed.length > 1 ? 's' : ''}</span>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory">
+              {recentlyViewed.map(item => (
+                <Link
+                  key={item.id}
+                  to={`/product/${item.id}`}
+                  className="flex-none w-[130px] sm:w-[150px] group snap-start"
+                >
+                  <div className="bg-card border rounded-xl overflow-hidden hover:border-primary/40 hover:shadow-md transition-all">
+                    <div className="aspect-square overflow-hidden bg-muted/30">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                        onError={e => { (e.target as HTMLImageElement).src = '/placeholder.svg'; }}
+                      />
+                    </div>
+                    <div className="p-2 space-y-0.5">
+                      {item.discount && item.discount > 0 && (
+                        <span className="inline-block text-[9px] font-bold bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">
+                          -{item.discount}%
+                        </span>
+                      )}
+                      <p className="text-xs font-medium line-clamp-2 leading-tight">{item.name}</p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs font-bold text-primary">Rs. {item.price.toLocaleString()}</p>
+                      </div>
+                      {item.rating > 0 && (
+                        <div className="flex items-center gap-0.5">
+                          <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                          <span className="text-[10px] text-muted-foreground">{item.rating}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </section>
         )}
