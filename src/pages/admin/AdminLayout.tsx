@@ -142,6 +142,7 @@ const sidebarGroups = [
       { icon: PieChart,        label: 'Product Analytics',  path: '/admin/product-analytics', adminOnly: false },
       { icon: ClipboardList,   label: 'Order Checklist',    path: '/admin/order-checklist',   adminOnly: false },
       { icon: Bell,            label: 'Stock Alerts',       path: '/admin/stock-alerts',      adminOnly: true  },
+      { icon: Bell,            label: 'Notify Me Requests', path: '/admin/stock-notifications', adminOnly: true },
       { icon: MapPin,          label: 'City Manager',       path: '/admin/city-manager',      adminOnly: true  },
       { icon: PackageSearch,   label: 'Inventory Insights', path: '/admin/inventory',         adminOnly: true  },
       { icon: Tag,             label: 'Delivery',           path: '/admin/delivery',          adminOnly: false },

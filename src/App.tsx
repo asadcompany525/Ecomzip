@@ -97,8 +97,9 @@ const AdminAiVoice          = lazy(() => import("./pages/admin/AdminAiVoice"));
 const AdminAiSizeAdvisor    = lazy(() => import("./pages/admin/AdminAiSizeAdvisor"));
 const AdminFinanceLedger    = lazy(() => import("./pages/admin/AdminFinanceLedger"));
 const AdminStaffSalary      = lazy(() => import("./pages/admin/AdminStaffSalary"));
-const AdminTechLogs         = lazy(() => import("./pages/admin/AdminTechLogs"));
-const AdminAiSalespersonChat = lazy(() => import("./pages/admin/AdminAiSalespersonChat"));
+const AdminTechLogs             = lazy(() => import("./pages/admin/AdminTechLogs"));
+const AdminAiSalespersonChat    = lazy(() => import("./pages/admin/AdminAiSalespersonChat"));
+const AdminStockNotifications   = lazy(() => import("./pages/admin/AdminStockNotifications"));
 
 // ── React Query Config ───────────────────────────────────────
 const queryClient = new QueryClient({
@@ -242,6 +243,7 @@ const AppRoutes = () => {
             <Route path="form-generator"       element={<AS><AdminFormGenerator /></AS>} />
             <Route path="delivery"             element={<AS><AdminDelivery /></AS>} />
             <Route path="stock-alerts"         element={<AS><AdminStockAlerts /></AS>} />
+            <Route path="stock-notifications"  element={<AS><AdminStockNotifications /></AS>} />
             <Route path="city-manager"         element={<AS><AdminCityManager /></AS>} />
             <Route path="ai-helper"            element={<AS><AdminAiHelper /></AS>} />
             <Route path="ai-site-manager"      element={<AS><AdminAiSiteManager /></AS>} />

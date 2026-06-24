@@ -3,6 +3,7 @@ import { setChatProductContext } from '@/lib/chatProductContext';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle, Sparkles } from 'lucide-react';
 import SizeGuide from '@/components/product/SizeGuide';
+import NotifyMeButton from '@/components/product/NotifyMeButton';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import VirtualTryOn from '@/components/VirtualTryOn';
@@ -743,31 +744,40 @@ const ProductDetail = () => {
                       }
 
                       return (
-                        <button
-                          key={size}
-                          disabled={!inProduct || !stockInfo.inStock}
-                          onClick={() => inProduct && stockInfo.inStock && setSelectedSize(size)}
-                          title={
-                            !inProduct ? 'Is product mein yeh size nahi hai'
-                            : !stockInfo.inStock ? 'Out of stock'
-                            : `Size ${size}`
-                          }
-                          className={cls}
-                        >
-                          {/* Out-of-stock slash line */}
-                          {inProduct && !stockInfo.inStock && (
-                            <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
-                              <line x1="4" y1="4" x2="40" y2="40" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
-                            </svg>
+                        <div key={size} className="relative">
+                          <button
+                            disabled={!inProduct || !stockInfo.inStock}
+                            onClick={() => inProduct && stockInfo.inStock && setSelectedSize(size)}
+                            title={
+                              !inProduct ? 'Is product mein yeh size nahi hai'
+                              : !stockInfo.inStock ? 'Out of stock — tap 🔔 to get notified'
+                              : `Size ${size}`
+                            }
+                            className={cls}
+                          >
+                            {/* Out-of-stock slash line */}
+                            {inProduct && !stockInfo.inStock && (
+                              <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
+                                <line x1="4" y1="4" x2="40" y2="40" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
+                              </svg>
+                            )}
+                            {/* Not-in-product blocked diagonal */}
+                            {!inProduct && (
+                              <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
+                                <line x1="4" y1="4" x2="40" y2="40" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+                              </svg>
+                            )}
+                            {size}
+                          </button>
+                          {/* Notify Me bell — only on in-product out-of-stock sizes */}
+                          {inProduct && !stockInfo.inStock && product && (
+                            <NotifyMeButton
+                              productId={product.id}
+                              productName={product.name}
+                              size={size}
+                            />
                           )}
-                          {/* Not-in-product blocked diagonal */}
-                          {!inProduct && (
-                            <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
-                              <line x1="4" y1="4" x2="40" y2="40" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-                            </svg>
-                          )}
-                          {size}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
