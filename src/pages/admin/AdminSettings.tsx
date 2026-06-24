@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Trash2, Loader2, Upload, Bot, Eye, EyeOff, CheckCircle, XCircle, Zap, Box } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Upload, Bot, Eye, EyeOff, CheckCircle, XCircle, Zap, Box, Lock, Unlock } from 'lucide-react';
 import { invalidateStoreSettingsCache } from '@/hooks/useStoreSettings';
 import { ensureAdminSession } from '@/lib/adminSession';
 
@@ -27,6 +27,7 @@ const AdminSettings = () => {
   const [keySaved, setKeySaved] = useState(false);
   const [testingKey, setTestingKey] = useState(false);
   const [keyTestResult, setKeyTestResult] = useState<'ok' | 'fail' | null>(null);
+  const [apiKeyLocked, setApiKeyLocked] = useState(() => localStorage.getItem('admin_api_key_locked') === 'true');
   const [threedApi, setThreedApi] = useState({ provider: 'Meshy.ai', api_key: '', endpoint_url: 'https://api.meshy.ai/v1/image-to-3d', show_key: false });
   const [savingThreed, setSavingThreed] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -201,6 +202,13 @@ const AdminSettings = () => {
 
   const [updatingCreds, setUpdatingCreds] = useState(false);
 
+  const toggleApiKeyLock = () => {
+    const next = !apiKeyLocked;
+    setApiKeyLocked(next);
+    localStorage.setItem('admin_api_key_locked', String(next));
+    toast({ title: next ? '🔒 API key locked' : '🔓 API key unlocked', description: next ? 'Key is protected — click 🔓 to edit again' : 'You can now edit or update the key' });
+  };
+
   const updateAdminPassword = async () => {
     if (!adminCreds.email || !adminCreds.password) {
       toast({ title: 'Email and password required', variant: 'destructive' });
@@ -217,13 +225,21 @@ const AdminSettings = () => {
     setUpdatingCreds(true);
     try {
       await ensureAdminSession();
-      // Save new credentials to site_settings so admin-login edge function picks them up
+      // 1. Update Supabase Auth (current logged-in user's email + password)
+      const { error: authError } = await supabase.auth.updateUser({
+        email: adminCreds.email.toLowerCase(),
+        password: adminCreds.password,
+      });
+      if (authError) {
+        console.warn('Supabase Auth update:', authError.message);
+      }
+      // 2. Save to site_settings so admin-login edge function also picks them up
       const { error } = await supabase.from('site_settings').upsert(
         { key: 'admin_credentials', value: { email: adminCreds.email.toLowerCase(), password: adminCreds.password } },
         { onConflict: 'key' }
       );
       if (error) throw error;
-      toast({ title: '✅ Admin credentials updated!', description: `Next login use: ${adminCreds.email}` });
+      toast({ title: '✅ Admin credentials updated!', description: `New login: ${adminCreds.email} / ${adminCreds.password}` });
       setAdminCreds({ email: '', password: '' });
     } catch (e: any) {
       toast({ title: 'Failed to update credentials', description: e.message, variant: 'destructive' });
@@ -468,14 +484,30 @@ const AdminSettings = () => {
               </div>
 
               <div>
-                <Label>Gemini API Key</Label>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Gemini API Key</Label>
+                  <button
+                    type="button"
+                    onClick={toggleApiKeyLock}
+                    title={apiKeyLocked ? 'Click to unlock and edit key' : 'Click to lock and protect key'}
+                    className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                      apiKeyLocked
+                        ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+                        : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                    }`}
+                  >
+                    {apiKeyLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                    {apiKeyLocked ? 'Locked' : 'Unlocked — click to lock'}
+                  </button>
+                </div>
                 <div className="relative mt-1">
                   <Input
                     type={showGeminiKey ? 'text' : 'password'}
                     value={geminiKey}
-                    onChange={e => { setGeminiKey(e.target.value); setKeySaved(false); setKeyTestResult(null); }}
+                    onChange={e => { if (!apiKeyLocked) { setGeminiKey(e.target.value); setKeySaved(false); setKeyTestResult(null); } }}
                     placeholder="AIza..."
-                    className="pr-10 font-mono text-sm"
+                    className={`pr-10 font-mono text-sm ${apiKeyLocked ? 'opacity-70 cursor-not-allowed bg-muted' : ''}`}
+                    readOnly={apiKeyLocked}
                   />
                   <button
                     type="button"
@@ -485,15 +517,17 @@ const AdminSettings = () => {
                     {showGeminiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Stored securely in your database. Never exposed to the public. Change anytime — takes effect immediately.
-                </p>
+                {apiKeyLocked ? (
+                  <p className="text-xs text-green-700 mt-1 flex items-center gap-1"><Lock className="h-3 w-3" /> Key is locked — click <strong>Locked</strong> above to unlock and edit</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">Stored securely in your database. Lock the key after saving to prevent accidental changes.</p>
+                )}
               </div>
 
               <div className="flex gap-2 flex-wrap">
-                <Button onClick={saveAiSettings} disabled={savingAi} className="gap-2">
+                <Button onClick={saveAiSettings} disabled={savingAi || apiKeyLocked} className="gap-2">
                   {savingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-                  {savingAi ? 'Saving...' : keySaved ? 'Update API Key' : 'Save API Key'}
+                  {savingAi ? 'Saving...' : apiKeyLocked ? '🔒 Unlock to Save' : keySaved ? 'Update API Key' : 'Save API Key'}
                 </Button>
                 <Button onClick={testAiKey} disabled={testingKey || !geminiKey} variant="outline" className="gap-2">
                   {testingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
