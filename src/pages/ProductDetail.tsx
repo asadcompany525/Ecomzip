@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { setChatProductContext } from '@/lib/chatProductContext';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Minus, Plus, ChevronRight, Truck, RotateCcw, Shield, Share2, ArrowLeft, Send, Camera, Ruler, Loader2, CheckCircle, Sparkles } from 'lucide-react';
+import SizeGuide from '@/components/product/SizeGuide';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import VirtualTryOn from '@/components/VirtualTryOn';
 import AISalesperson from '@/components/product/AISalesperson';
@@ -689,14 +690,19 @@ const ProductDetail = () => {
                         {selectedSize || 'Select'}
                       </span>
                     </h4>
-                    {(catType === 'shoes' || catType === 'bags') && (
-                      <button
-                        onClick={() => { setSizeAdvisorOpen(true); setAdvisorResult(null); }}
-                        className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
-                      >
-                        <Ruler className="h-3.5 w-3.5" /> Find My Size
-                      </button>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {(catType === 'shoes' || catType === 'clothing' || catType === 'bags') && (
+                        <SizeGuide categoryType={catType} sizeLabel={sizeLabel} />
+                      )}
+                      {(catType === 'shoes' || catType === 'bags') && (
+                        <button
+                          onClick={() => { setSizeAdvisorOpen(true); setAdvisorResult(null); }}
+                          className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                        >
+                          <Ruler className="h-3.5 w-3.5" /> Find My Size
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
