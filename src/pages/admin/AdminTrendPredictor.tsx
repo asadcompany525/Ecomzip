@@ -28,11 +28,20 @@ export default function AdminTrendPredictor() {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { data: orderItems } = await supabase
-        .from('order_items')
-        .select('product_id, size, quantity, orders(created_at, status)')
-        .gte('orders.created_at', thirtyDaysAgo.toISOString())
-        .not('orders', 'is', null);
+      const { data: recentOrders } = await supabase
+        .from('orders')
+        .select('id, status')
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .neq('status', 'cancelled');
+
+      const recentOrderIds = (recentOrders || []).map((o: any) => o.id);
+
+      const { data: orderItems } = recentOrderIds.length > 0
+        ? await supabase
+            .from('order_items')
+            .select('product_id, size, quantity')
+            .in('order_id', recentOrderIds)
+        : { data: [] };
 
       const { data: variants } = await supabase
         .from('product_variants')
@@ -40,7 +49,6 @@ export default function AdminTrendPredictor() {
 
       const salesMap: Record<string, Record<string, number>> = {};
       (orderItems || []).forEach((item: any) => {
-        if (item.orders?.status === 'cancelled') return;
         const key = item.product_id;
         if (!salesMap[key]) salesMap[key] = {};
         const size = item.size || 'N/A';

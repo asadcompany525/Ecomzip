@@ -857,6 +857,13 @@ const AdminProducts = () => {
               </div>
 
               {/* Manual Sizes + Variants */}
+              {form.images.length === 0 ? (
+                <div className="bg-muted/30 rounded-xl p-6 text-center border-2 border-dashed border-muted-foreground/20">
+                  <div className="text-3xl mb-2">📸</div>
+                  <p className="text-sm font-medium text-muted-foreground">Upload a product image first</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Sizes & Colors section will appear after uploading an image</p>
+                </div>
+              ) : (
               <div className="bg-muted/30 rounded-xl p-4 space-y-3 min-w-0 overflow-hidden">
                 <Label className="text-base font-semibold">📐 Sizes & Colors</Label>
 
@@ -976,6 +983,7 @@ const AdminProducts = () => {
                   onRemoveSize={onRemoveSize}
                 />
               </div>
+              )}
 
               {/* Product Code */}
               <div className="bg-muted/30 rounded-xl p-4 space-y-3">

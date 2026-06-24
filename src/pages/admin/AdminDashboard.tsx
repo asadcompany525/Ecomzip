@@ -101,16 +101,16 @@ const AdminDashboard = () => {
   }, [dateFilter, rangeFilter]);
 
   const kpiCards = [
-    { icon: DollarSign, label: 'Revenue', value: `Rs. ${stats.revenue.toLocaleString()}`, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', trend: true },
-    { icon: ShoppingCart, label: 'Total Orders', value: stats.totalOrders, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
-    { icon: Package, label: 'Products', value: stats.totalProducts, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' },
-    { icon: Users, label: 'Customers', value: stats.totalCustomers, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
-    { icon: TrendingUp, label: 'Pending Orders', value: stats.pendingOrders, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', alert: stats.pendingOrders > 5 },
-    { icon: AlertTriangle, label: 'Low Stock', value: stats.lowStock, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', alert: stats.lowStock > 0 },
-    { icon: CreditCard, label: 'Online Payments', value: `${stats.todayOnlinePayments}`, color: 'text-cyan-600', bg: 'bg-cyan-50', border: 'border-cyan-200', sub: `Rs. ${stats.todayOnlineAmount.toLocaleString()}` },
-    { icon: Star, label: 'Pending Reviews', value: stats.pendingReviews, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
-    { icon: RotateCcw, label: 'Returns', value: stats.pendingReturns, color: 'text-pink-600', bg: 'bg-pink-50', border: 'border-pink-200' },
-    { icon: MessageSquare, label: 'Open Chats', value: stats.unreadChats, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-200', alert: stats.unreadChats > 0 },
+    { icon: DollarSign, label: 'Revenue', value: `Rs. ${stats.revenue.toLocaleString()}`, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', trend: true, path: '/admin/reports' },
+    { icon: ShoppingCart, label: 'Total Orders', value: stats.totalOrders, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', path: '/admin/orders' },
+    { icon: Package, label: 'Products', value: stats.totalProducts, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', path: '/admin/products' },
+    { icon: Users, label: 'Customers', value: stats.totalCustomers, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200', path: '/admin/customers' },
+    { icon: TrendingUp, label: 'Pending Orders', value: stats.pendingOrders, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', alert: stats.pendingOrders > 5, path: '/admin/orders' },
+    { icon: AlertTriangle, label: 'Low Stock', value: stats.lowStock, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', alert: stats.lowStock > 0, path: '/admin/stock-alerts' },
+    { icon: CreditCard, label: 'Online Payments', value: `${stats.todayOnlinePayments}`, color: 'text-cyan-600', bg: 'bg-cyan-50', border: 'border-cyan-200', sub: `Rs. ${stats.todayOnlineAmount.toLocaleString()}`, path: '/admin/payments' },
+    { icon: Star, label: 'Pending Reviews', value: stats.pendingReviews, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', path: '/admin/reviews' },
+    { icon: RotateCcw, label: 'Returns', value: stats.pendingReturns, color: 'text-pink-600', bg: 'bg-pink-50', border: 'border-pink-200', path: '/admin/claims-returns' },
+    { icon: MessageSquare, label: 'Open Chats', value: stats.unreadChats, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-200', alert: stats.unreadChats > 0, path: '/admin/chat' },
   ];
 
   const totalChartRevenue = chartData.reduce((s, d) => s + d.revenue, 0);
@@ -157,10 +157,10 @@ const AdminDashboard = () => {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {kpiCards.map(card => (
-          <Card key={card.label} className={`border ${card.border} ${card.alert ? 'ring-2 ring-red-300 ring-offset-1' : ''}`}>
+          <Card key={card.label} onClick={() => navigate(card.path)} className={`border ${card.border} ${card.alert ? 'ring-2 ring-red-300 ring-offset-1' : ''} cursor-pointer hover:shadow-md transition-shadow group`}>
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-2">
-                <div className={`h-9 w-9 rounded-xl ${card.bg} flex items-center justify-center`}>
+                <div className={`h-9 w-9 rounded-xl ${card.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                   <card.icon className={`h-4.5 w-4.5 ${card.color}`} style={{ width: '18px', height: '18px' }} />
                 </div>
                 {card.alert && <Badge variant="destructive" className="text-[9px] px-1.5 py-0">!</Badge>}
