@@ -28,8 +28,9 @@ const HEAVY_TYPES = new Set([
   "size-advisor",
   "virtual-tryon-start",
   "virtual-tryon-poll",
+  "virtual-tryon-gemini",
 ]);
-const MAX_BODY_BYTES = 256 * 1024;
+const MAX_BODY_BYTES = 4 * 1024 * 1024; // 4 MB — needed for base64 image payloads
 const MAX_MESSAGE_CHARS = 8_000;
 const MAX_MESSAGES = 40;
 const MAX_IMAGE_URL_LENGTH = 2_000_000;
@@ -466,6 +467,117 @@ serve(async (req) => {
         return jsonResp({ status: "failed", error: "Generation failed" });
       }
       return jsonResp({ status: pred.status });
+    }
+
+    if (type === "virtual-tryon-gemini") {
+      const rl = checkRateLimit(ip, true);
+      if (!rl.ok) return jsonResp({ error: "Too many requests", retryAfter: rl.retryAfter }, 429);
+
+      const { userImageBase64, productImageUrl, categoryType, productTitle } = body;
+      if (!userImageBase64) return jsonResp({ error: "Missing user photo" }, 400);
+
+      const geminiKeys = await getGeminiKeys();
+      if (geminiKeys.length === 0) return jsonResp({ error: "AI not configured" }, 500);
+
+      // Strip data URL prefix → pure base64
+      const userBase64 = String(userImageBase64).includes(",")
+        ? String(userImageBase64).split(",")[1]
+        : String(userImageBase64);
+
+      // Fetch product image and convert to base64
+      let productBase64 = "";
+      let productMime = "image/jpeg";
+      if (productImageUrl && String(productImageUrl).startsWith("http")) {
+        try {
+          const prodRes = await fetch(String(productImageUrl).slice(0, 2000), { signal: AbortSignal.timeout(8000) });
+          if (prodRes.ok) {
+            const prodBuf = await prodRes.arrayBuffer();
+            const bytes = new Uint8Array(prodBuf);
+            let bin = "";
+            for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+            productBase64 = btoa(bin);
+            const ct = prodRes.headers.get("content-type") || "image/jpeg";
+            if (ct.includes("png")) productMime = "image/png";
+            else if (ct.includes("webp")) productMime = "image/webp";
+          }
+        } catch (e) {
+          console.warn("[tryon-gemini] product fetch failed:", e);
+        }
+      }
+
+      // Category-specific placement instructions
+      const catInstr: Record<string, string> = {
+        shoes: "Place the exact shoes/footwear from Image 2 onto the person's feet in Image 1. Match the angle and lighting of the feet. If feet are not visible, place shoes at the bottom of frame.",
+        clothing: "Dress the person from Image 1 in the exact clothing item from Image 2. Fit it naturally to their body shape, preserving their pose. For half-body: fit on upper body. For full-body: fit entire garment.",
+        bags: "Show the person from Image 1 holding or wearing the bag/accessory from Image 2 on their shoulder, arm, or hand, naturally matching their pose.",
+        generic: "Show the person from Image 1 wearing or using the product from Image 2 in the most natural realistic way.",
+      };
+      const catKey = String(categoryType || "generic");
+      const instruction = catInstr[catKey] || catInstr.generic;
+      const prodName = safeStr(productTitle, 100) || "fashion product";
+
+      const prompt = `You are a professional fashion photographer AI. Your task: create ONE photorealistic try-on image.
+
+Image 1 = Person's photo. Image 2 = Product: "${prodName}".
+
+Task: ${instruction}
+
+Critical rules:
+- Keep the person's face, skin tone, body shape, pose, and background EXACTLY as in Image 1
+- The product from Image 2 must appear physically ON the person — realistic fit, natural draping/shadows
+- Lighting on the product must match the person's photo lighting
+- Final output must look like a genuine photograph — NOT a collage or overlay
+- Do NOT add any text, watermarks, or borders`;
+
+      const parts: Record<string, unknown>[] = [
+        { text: prompt },
+        { inline_data: { mime_type: "image/jpeg", data: userBase64 } },
+      ];
+      if (productBase64) {
+        parts.push({ inline_data: { mime_type: productMime, data: productBase64 } });
+      }
+
+      // Try image generation models in order
+      const imageGenModels = [
+        "gemini-2.0-flash-exp-image-generation",
+        "gemini-2.0-flash-preview-image-generation",
+      ];
+
+      for (const model of imageGenModels) {
+        for (const geminiKey of geminiKeys) {
+          try {
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts }],
+                  generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+                }),
+                signal: AbortSignal.timeout(55000),
+              }
+            );
+            if (!res.ok) {
+              const errText = await res.text();
+              console.warn(`[tryon-gemini] ${model} ${res.status}: ${errText.slice(0, 200)}`);
+              continue;
+            }
+            const data = await res.json();
+            const resParts = data?.candidates?.[0]?.content?.parts || [];
+            for (const part of resParts) {
+              if (part?.inlineData?.data) {
+                const mime = part.inlineData.mimeType || "image/png";
+                return jsonResp({ success: true, imageDataUrl: `data:${mime};base64,${part.inlineData.data}` });
+              }
+            }
+          } catch (e) {
+            console.warn(`[tryon-gemini] ${model} exception:`, e);
+          }
+        }
+      }
+
+      return jsonResp({ error: "AI image generation failed — please try canvas preview" }, 500);
     }
 
     const isHeavy = HEAVY_TYPES.has(type);

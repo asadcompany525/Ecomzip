@@ -49,21 +49,19 @@ async function createFallbackTryOn(userImageUrl: string, productImageUrl: string
   return createCanvasTryOn(userImageUrl, productImageUrl, categoryType);
 }
 
-async function startVTON(userImageUrl: string, productImageUrl: string, categoryType: TryOnCategory, productTitle?: string) {
+async function tryOnWithGemini(
+  userImageBase64: string,
+  productImageUrl: string,
+  categoryType: TryOnCategory,
+  productTitle?: string,
+): Promise<string> {
   const { data, error } = await supabase.functions.invoke('ai-assistant', {
-    body: { type: 'virtual-tryon-start', userImageUrl, productImageUrl, categoryType, productTitle },
+    body: { type: 'virtual-tryon-gemini', userImageBase64, productImageUrl, categoryType, productTitle },
   });
-  if (error) throw new Error(error.message || 'Failed to start AI generation');
+  if (error) throw new Error(error.message || 'AI generation failed');
   if (data?.error) throw new Error(data.error);
-  return data as { predictionId: string; status: string };
-}
-
-async function pollVTON(predictionId: string) {
-  const { data, error } = await supabase.functions.invoke('ai-assistant', {
-    body: { type: 'virtual-tryon-poll', predictionId },
-  });
-  if (error) throw new Error(error.message);
-  return data as { status: string; outputUrl?: string; error?: string };
+  if (!data?.imageDataUrl) throw new Error('No image returned');
+  return data.imageDataUrl as string;
 }
 
 const CATEGORY_HINTS: Record<TryOnCategory, string> = {
@@ -142,43 +140,28 @@ export default function VirtualTryOn({ productImage, productName, productCategor
         if (cancelledRef.current) return;
         setStep('processing');
         startTimer();
-        toast({ title: '🧠 AI Virtual Try-On started', description: 'This takes 30–60 seconds. Please wait…' });
+        toast({ title: '🧠 AI Try-On generating…', description: 'Fitting product on your photo. Takes ~20–45 seconds.' });
 
-        let predictionId: string | null = null;
+        // Try Gemini AI image generation first
         try {
-          const started = await startVTON(userImageUrl, productImage, categoryType, productName);
-          predictionId = started.predictionId;
-        } catch {
-          const fallback = await createFallbackTryOn(userImageUrl, productImage, categoryType);
-          stopTimer();
-          setResultImage(fallback);
-          setStep('result');
-          toast({ title: 'Try-On preview ready', description: 'AI service is unavailable, so a visual preview was generated.' });
-          return;
-        }
-
-        if (cancelledRef.current) return;
-
-        for (let i = 0; i < 30; i++) {
-          await new Promise(r => setTimeout(r, 3000));
+          const aiResult = await tryOnWithGemini(userImageUrl, productImage, categoryType, productName);
           if (cancelledRef.current) return;
-          const poll = await pollVTON(predictionId);
-          if (poll.status === 'succeeded' && poll.outputUrl) {
-            stopTimer(); setResultImage(poll.outputUrl); setStep('result');
-            toast({ title: '✅ Try-On ready!' });
-            return;
-          }
-          if (poll.status === 'failed') {
-            const fallback = await createFallbackTryOn(userImageUrl, productImage, categoryType);
-            stopTimer(); setResultImage(fallback); setStep('result');
-            toast({ title: 'Try-On preview ready', description: 'AI generation failed, so a visual preview was generated.' });
-            return;
-          }
+          stopTimer();
+          setResultImage(aiResult);
+          setStep('result');
+          toast({ title: '✅ AI Try-On ready!', description: 'Your AI-generated look is ready.' });
+          return;
+        } catch (geminiErr: any) {
+          console.warn('[VirtualTryOn] Gemini AI failed, using canvas fallback:', geminiErr?.message);
+          if (cancelledRef.current) return;
         }
 
+        // Canvas fallback
         const fallback = await createFallbackTryOn(userImageUrl, productImage, categoryType);
-        stopTimer(); setResultImage(fallback); setStep('result');
-        toast({ title: 'Try-On preview ready', description: 'AI took too long, so a visual preview was generated.' });
+        stopTimer();
+        setResultImage(fallback);
+        setStep('result');
+        toast({ title: 'Try-On preview ready', description: 'AI service is busy — showing visual preview instead.' });
 
       } catch (err: any) {
         if (cancelledRef.current) return;
@@ -249,7 +232,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
                         AI detects your body, removes any existing item, and realistically fits the product — adjusting for lighting, pose and texture.
                       </p>
                       <div className="flex flex-col gap-1.5 pt-1">
-                        {['Upload your photo', 'AI detects & masks the body area', 'Product is seamlessly fitted on you', 'Download your AI try-on result'].map((s, i) => (
+                        {['Upload your photo', 'Gemini AI analyzes your body pose & region', 'AI realistically fits product on your body', 'Download your photorealistic AI look'].map((s, i) => (
                           <div key={i} className="flex items-center gap-2 text-xs text-white/60">
                             <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">{i + 1}</span>
                             <span>{s}</span>
@@ -308,7 +291,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
                               <Brain className="h-8 w-8 text-primary" />
                               <Loader2 className="h-12 w-12 animate-spin text-primary/30 absolute -inset-2" />
                             </div>
-                            <p className="text-white font-semibold text-sm">AI Generating…</p>
+                            <p className="text-white font-semibold text-sm">Gemini AI fitting product…</p>
                           </div>
                         </div>
                       </div>
@@ -317,7 +300,7 @@ export default function VirtualTryOn({ productImage, productName, productCategor
                     <div className="bg-white/5 rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <p className="text-white/70 text-sm font-medium flex items-center gap-1.5">
-                          <Sparkles className="h-4 w-4 text-primary shrink-0" /> Fitting product…
+                          <Sparkles className="h-4 w-4 text-primary shrink-0" /> AI generating realistic try-on…
                         </p>
                         <span className="text-white/40 text-xs flex items-center gap-1 shrink-0">
                           <Clock className="h-3 w-3" /> {elapsed}s
