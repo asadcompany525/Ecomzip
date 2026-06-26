@@ -822,8 +822,14 @@ const AdminProducts = () => {
                 <Label className="text-base font-semibold">💰 Price & Discount</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div>
-                    <Label className="text-xs font-semibold">Selling Price (Rs.)</Label>
-                    <Input type="number" value={form.price} onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) }))} className="font-bold text-lg" placeholder="0" />
+                    <Label className="text-xs font-semibold">Original Price / MRP (Rs.)</Label>
+                    <Input
+                      type="number"
+                      value={form.price || ''}
+                      onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) }))}
+                      className="font-bold text-lg"
+                      placeholder="e.g. 3000"
+                    />
                   </div>
                   <div>
                     <Label className="text-xs">Discount Type</Label>
@@ -839,10 +845,10 @@ const AdminProducts = () => {
                   {form.discount_type !== 'none' && (
                     <div>
                       <Label className="text-xs">Discount %</Label>
-                      <Input type="number" min={0} max={99} value={form.discount_percent} onChange={e => handleDiscountChange(Number(e.target.value))} placeholder="e.g. 20" />
+                      <Input type="number" min={0} max={99} value={form.discount_percent || ''} onChange={e => handleDiscountChange(Number(e.target.value))} placeholder="e.g. 10" />
                       {form.discount_percent > 0 && form.price > 0 && (
                         <p className="text-[10px] text-green-600 mt-1">
-                          Original was ~Rs. {Math.round(form.price / (1 - form.discount_percent / 100)).toLocaleString()}
+                          Customer pays: Rs. {Math.round(form.price * (1 - form.discount_percent / 100)).toLocaleString()}
                         </p>
                       )}
                     </div>

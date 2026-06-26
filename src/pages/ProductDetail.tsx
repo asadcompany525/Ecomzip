@@ -722,20 +722,13 @@ const ProductDetail = () => {
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
-                    {fullGrid.map(size => {
+                    {fullGrid.filter(size => productSizeSet.has(normalizeSize(size))).map(size => {
                       const normSize = normalizeSize(size);
-                      const inProduct = productSizeSet.has(normSize);
-                      const stockInfo = inProduct ? getStockInfo(size) : { inStock: false, stockCount: 0 };
+                      const stockInfo = getStockInfo(size);
                       const isSelected = normalizeSize(selectedSize) === normSize;
 
-                      // State 1: Available in product + in stock
-                      // State 2: In product but out of stock (strikethrough)
-                      // State 3: Not in this product (heavy gray + diagonal slash)
                       let cls = `relative ${btnW} rounded-lg text-xs font-semibold border transition-all `;
-
-                      if (!inProduct) {
-                        cls += 'opacity-20 cursor-not-allowed bg-muted/40 border-border/20 text-muted-foreground overflow-hidden select-none';
-                      } else if (!stockInfo.inStock) {
+                      if (!stockInfo.inStock) {
                         cls += 'opacity-45 cursor-not-allowed bg-muted border-border text-muted-foreground';
                       } else if (isSelected) {
                         cls += 'border-primary bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30';
@@ -746,31 +739,21 @@ const ProductDetail = () => {
                       return (
                         <div key={size} className="relative">
                           <button
-                            disabled={!inProduct || !stockInfo.inStock}
-                            onClick={() => inProduct && stockInfo.inStock && setSelectedSize(size)}
-                            title={
-                              !inProduct ? 'Is product mein yeh size nahi hai'
-                              : !stockInfo.inStock ? 'Out of stock — tap 🔔 to get notified'
-                              : `Size ${size}`
-                            }
+                            disabled={!stockInfo.inStock}
+                            onClick={() => stockInfo.inStock && setSelectedSize(size)}
+                            title={!stockInfo.inStock ? 'Out of stock — tap 🔔 to get notified' : `Size ${size}`}
                             className={cls}
                           >
                             {/* Out-of-stock slash line */}
-                            {inProduct && !stockInfo.inStock && (
+                            {!stockInfo.inStock && (
                               <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
                                 <line x1="4" y1="4" x2="40" y2="40" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
                               </svg>
                             )}
-                            {/* Not-in-product blocked diagonal */}
-                            {!inProduct && (
-                              <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
-                                <line x1="4" y1="4" x2="40" y2="40" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-                              </svg>
-                            )}
                             {size}
                           </button>
-                          {/* Notify Me bell — only on in-product out-of-stock sizes */}
-                          {inProduct && !stockInfo.inStock && product && (
+                          {/* Notify Me bell — only on out-of-stock sizes */}
+                          {!stockInfo.inStock && product && (
                             <NotifyMeButton
                               productId={product.id}
                               productName={product.name}
@@ -789,9 +772,6 @@ const ProductDetail = () => {
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <span className="w-3 h-3 rounded border border-border bg-muted opacity-50 inline-block" /> Out of Stock
-                    </span>
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="w-3 h-3 rounded border border-border/20 bg-muted/40 opacity-20 inline-block" /> N/A
                     </span>
                   </div>
                 </div>
