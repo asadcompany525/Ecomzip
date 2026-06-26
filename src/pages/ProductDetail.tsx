@@ -250,12 +250,18 @@ const ProductDetail = () => {
   // Detect category type from product name/category for adaptive advisor
   const getCategoryType = (): 'shoes' | 'bags' | 'clothing' | 'electronics' | 'generic' => {
     const nameAndCat = `${product?.name || ''} ${categoryName || ''} ${dbProduct?.description || ''} ${(product?.sizes || []).join(' ')}`.toLowerCase();
+    // Bags first — most specific
     if (/bag|purse|wallet|tote|backpack|handbag|clutch/.test(nameAndCat)) return 'bags';
-    if (/shirt|dress|pant|kurta|coat|jacket|jeans|cloth|wear|top|trouser|shalwar|kameez|hoodie|sweater|suit|xs|xxl/.test(nameAndCat)) return 'clothing';
+    // Electronics
     if (/phone|laptop|tablet|electronic|gadget/.test(nameAndCat)) return 'electronics';
-    if (/shoe|sandal|slipper|boot|loafer|sneaker|chappal|khussa|heel/.test(nameAndCat)) return 'shoes';
-    if (product?.sizes?.some(s => /^\d+$/.test(String(s)))) return 'shoes';
-    return 'generic';
+    // Shoes — check before clothing (shoe keywords should win)
+    if (/shoe|sandal|slipper|boot|loafer|sneaker|chappal|khussa|heel|moccasin|wedge|pump|stiletto|flat|oxford|derby/.test(nameAndCat)) return 'shoes';
+    // Numeric sizes (35–48 range) → almost always shoes
+    if (product?.sizes?.some(s => { const n = Number(s); return Number.isInteger(n) && n >= 34 && n <= 48; })) return 'shoes';
+    // Clothing — only if explicit clothing keywords
+    if (/shirt|dress|pant|kurta|coat|jacket|jeans|cloth|wear|top|trouser|shalwar|kameez|hoodie|sweater|suit/.test(nameAndCat)) return 'clothing';
+    // Default → shoes (this is a shoes & bags store)
+    return 'shoes';
   };
 
   // -------------------------------------------------------
