@@ -1,20 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, ChevronLeft, Sparkles, ShoppingBag, Zap, Bot, Shield } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Sparkles, Zap, Bot, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
+import AILogo from '@/components/ui/AILogo';
 
 const STORAGE_KEY = 'stopy_welcome_seen_v1';
 
-const slides = [
-  {
-    icon: ShoppingBag,
-    color: 'bg-primary/10',
-    iconColor: 'text-primary',
-    title: 'Pakistan\'s #1 Shoes & Bags Store',
-    desc: 'Discover the latest trends in footwear and bags — top quality at unbeatable prices. From casual to formal, we have it all.',
-    emoji: '👟',
-  },
+const FEATURE_SLIDES = [
   {
     icon: Sparkles,
     color: 'bg-emerald-500/10',
@@ -49,10 +42,12 @@ const slides = [
   },
 ];
 
+const TOTAL_SLIDES = 1 + FEATURE_SLIDES.length; // First slide is dynamic (brand)
+
 const WelcomeModal = () => {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const { brandName } = useStoreSettings();
+  const { brandName, shopTagline } = useStoreSettings();
 
   useEffect(() => {
     const seen = localStorage.getItem(STORAGE_KEY);
@@ -68,14 +63,14 @@ const WelcomeModal = () => {
   };
 
   const next = () => {
-    if (step < slides.length - 1) setStep(s => s + 1);
+    if (step < TOTAL_SLIDES - 1) setStep(s => s + 1);
     else close();
   };
 
   const prev = () => { if (step > 0) setStep(s => s - 1); };
 
-  const current = slides[step];
-  const Icon = current.icon;
+  const isFirstSlide = step === 0;
+  const featureSlide = !isFirstSlide ? FEATURE_SLIDES[step - 1] : null;
 
   return (
     <AnimatePresence>
@@ -113,7 +108,7 @@ const WelcomeModal = () => {
 
             {/* Progress dots */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-              {slides.map((_, i) => (
+              {Array.from({ length: TOTAL_SLIDES }).map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setStep(i)}
@@ -132,23 +127,40 @@ const WelcomeModal = () => {
                 transition={{ duration: 0.25 }}
                 className="px-7 pt-14 pb-8 text-center"
               >
-                {/* Icon */}
-                <div className={`h-20 w-20 rounded-3xl ${current.color} flex items-center justify-center mx-auto mb-4 relative`}>
-                  <Icon className={`h-10 w-10 ${current.iconColor}`} />
-                  <span className="absolute -top-2 -right-2 text-2xl">{current.emoji}</span>
-                </div>
-
-                {/* Brand name on first slide */}
-                {step === 0 && (
-                  <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Welcome to {brandName || 'Stopy'}</p>
-                )}
-
-                <h2 className="text-xl font-bold mb-3 leading-snug">{current.title}</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">{current.desc}</p>
+                {isFirstSlide ? (
+                  /* ── First slide: brand logo + dynamic tagline ── */
+                  <>
+                    <div className="flex justify-center mb-4">
+                      <div className="relative">
+                        <AILogo size={80} />
+                        <span className="absolute -top-1 -right-1 text-xl">✨</span>
+                      </div>
+                    </div>
+                    <p className="text-xs font-bold text-primary uppercase tracking-widest mb-2">
+                      Welcome to {brandName || 'AI Ecommerce'}
+                    </p>
+                    <h2 className="text-xl font-bold mb-3 leading-snug">
+                      {shopTagline || brandName || 'Your Smart Shopping Destination'}
+                    </h2>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Experience the future of online shopping — powered by AI, built for you.
+                    </p>
+                  </>
+                ) : featureSlide ? (
+                  /* ── Feature slides ── */
+                  <>
+                    <div className={`h-20 w-20 rounded-3xl ${featureSlide.color} flex items-center justify-center mx-auto mb-4 relative`}>
+                      <featureSlide.icon className={`h-10 w-10 ${featureSlide.iconColor}`} />
+                      <span className="absolute -top-2 -right-2 text-2xl">{featureSlide.emoji}</span>
+                    </div>
+                    <h2 className="text-xl font-bold mb-3 leading-snug">{featureSlide.title}</h2>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{featureSlide.desc}</p>
+                  </>
+                ) : null}
               </motion.div>
             </AnimatePresence>
 
-            {/* Footer */}
+            {/* Footer buttons */}
             <div className="px-7 pb-7 flex items-center gap-3">
               {step > 0 ? (
                 <Button variant="outline" size="sm" onClick={prev} className="gap-1">
@@ -157,9 +169,8 @@ const WelcomeModal = () => {
               ) : (
                 <div className="flex-1" />
               )}
-
               <Button onClick={next} className="flex-1 gap-1" size="sm">
-                {step < slides.length - 1 ? (
+                {step < TOTAL_SLIDES - 1 ? (
                   <>Next <ChevronRight className="h-4 w-4" /></>
                 ) : (
                   <>Start Shopping! 🛍️</>
@@ -167,8 +178,7 @@ const WelcomeModal = () => {
               </Button>
             </div>
 
-            {/* Skip link */}
-            {step < slides.length - 1 && (
+            {step < TOTAL_SLIDES - 1 && (
               <button onClick={close} className="w-full text-center pb-4 text-xs text-muted-foreground hover:text-foreground transition-colors">
                 Skip intro
               </button>
