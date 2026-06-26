@@ -24,8 +24,7 @@ const getSizesForType = (productType: string, gender: string): string[] => {
   if (BAG_TYPES.some(bt => t.includes(bt))) return ['Small', 'Medium', 'Large', 'XL'];
 
   if (CLOTHING_TYPES.some(ct => t.includes(ct))) {
-    if (g === 'kids') return ['2-3Y', '4-5Y', '6-7Y', '8-9Y', '10-11Y', '12-13Y'];
-    return ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+    return [];
   }
 
   if (FOOTWEAR_TYPES.some(ft => t.includes(ft)) || t === 'shoes') {
@@ -188,7 +187,7 @@ export default function AdminAiBulkCreator() {
       const newColor: ColorVariant = {
         id: Math.random().toString(36).slice(2),
         color, hex, discount: item.discount,
-        qtySizes: makeDefaultQty(item.activeSizes),
+        qtySizes: item.activeSizes.length > 0 ? makeDefaultQty(item.activeSizes) : { total: 1 },
       };
       return { ...item, colors: [...item.colors, newColor] };
     }));
@@ -355,7 +354,7 @@ Return ONLY valid JSON, no markdown.`
       const sizesArr = item.activeSizes;
       const totalStock = item.colors.length > 0
         ? item.colors.reduce((sum, c) => sum + Object.values(c.qtySizes).reduce((a, b) => a + b, 0), 0)
-        : sizesArr.length;
+        : Math.max(sizesArr.length, 1);
 
       const { data: prod, error } = await supabase.from('products').insert({
         title: item.title || item.result?.title || 'Untitled',
@@ -389,7 +388,7 @@ Return ONLY valid JSON, no markdown.`
                 product_id: prod.id,
                 color: colorVar.color,
                 color_hex: colorVar.hex,
-                size,
+                size: size === 'total' ? 'One Size' : size,
                 stock,
                 price_override: priceOverride,
               });
@@ -656,40 +655,42 @@ Return ONLY valid JSON, no markdown.`
                     </div>
                   </div>
 
-                  {/* === SECTION 5: Sizes === */}
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sizes</p>
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.activeSizes.map(s => (
-                          <span key={s} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2.5 py-1 rounded-full border border-primary/20 font-semibold">
-                            {s}
-                            <button type="button" onClick={() => removeSize(item.id, s)} className="hover:text-destructive ml-0.5">
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </span>
-                        ))}
-                        {item.activeSizes.length === 0 && (
-                          <span className="text-xs text-muted-foreground italic">No sizes — add below</span>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Input value={item.customSizeInput}
-                          onChange={e => updateItem(item.id, { customSizeInput: e.target.value })}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSize(item.id, item.customSizeInput); } }}
-                          placeholder="Add size (e.g. 46, XL, One Size)..."
-                          className="h-8 text-xs flex-1" />
-                        <Button size="sm" variant="outline" className="h-8 text-xs"
-                          onClick={() => addSize(item.id, item.customSizeInput)}>
-                          <Plus className="h-3 w-3 mr-1" />Add
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 text-xs"
-                          onClick={() => updateItemSizes(item.id, item.productType, item.gender)}>
-                          Reset
-                        </Button>
+                  {/* === SECTION 5: Sizes (hidden for clothing — only color shown) === */}
+                  {!CLOTHING_TYPES.some(ct => item.productType.toLowerCase().includes(ct)) && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sizes</p>
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.activeSizes.map(s => (
+                            <span key={s} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2.5 py-1 rounded-full border border-primary/20 font-semibold">
+                              {s}
+                              <button type="button" onClick={() => removeSize(item.id, s)} className="hover:text-destructive ml-0.5">
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </span>
+                          ))}
+                          {item.activeSizes.length === 0 && (
+                            <span className="text-xs text-muted-foreground italic">No sizes — add below</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Input value={item.customSizeInput}
+                            onChange={e => updateItem(item.id, { customSizeInput: e.target.value })}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSize(item.id, item.customSizeInput); } }}
+                            placeholder="Add size (e.g. 46, XL, One Size)..."
+                            className="h-8 text-xs flex-1" />
+                          <Button size="sm" variant="outline" className="h-8 text-xs"
+                            onClick={() => addSize(item.id, item.customSizeInput)}>
+                            <Plus className="h-3 w-3 mr-1" />Add
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-8 text-xs"
+                            onClick={() => updateItemSizes(item.id, item.productType, item.gender)}>
+                            Reset
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* === SECTION 6: Color Variants === */}
                   <div>
@@ -778,7 +779,20 @@ Return ONLY valid JSON, no markdown.`
                                 })}
                               </div>
                             ) : (
-                              <p className="px-3 py-2 text-xs text-muted-foreground italic">Add sizes above to enter stock</p>
+                              <div className="px-3 py-2 flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">Qty:</span>
+                                <input
+                                  type="text" inputMode="numeric"
+                                  value={(colorVar.qtySizes['total'] ?? 1) === 0 ? '' : (colorVar.qtySizes['total'] ?? 1)}
+                                  placeholder="1"
+                                  onChange={e => {
+                                    const val = e.target.value.replace(/[^0-9]/g, '');
+                                    updateColorQty(item.id, colorVar.id, 'total', parseInt(val) || 0);
+                                  }}
+                                  onFocus={e => e.target.select()}
+                                  className="w-16 h-9 text-sm text-center rounded-lg font-semibold border-2 bg-background focus:outline-none focus:border-primary transition-colors"
+                                />
+                              </div>
                             )}
                           </div>
                         ))}

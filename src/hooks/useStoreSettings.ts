@@ -21,8 +21,8 @@ interface StoreSettings {
 
 // Default values — DB se load hone tak ya agar setting missing ho
 const DEFAULTS: StoreSettings = {
-  brandName: '',
-  shopName: '',
+  brandName: 'AI Ecommerce Ecosystem',
+  shopName: 'AI Ecommerce Ecosystem',
   shopCategory: '',
   shopTagline: '',
   productLabel: 'Products',
