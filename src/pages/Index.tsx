@@ -9,6 +9,7 @@ import TrendingProducts from '@/components/home/TrendingProducts';
 import DiscountedProducts from '@/components/home/DiscountedProducts';
 import NewArrivalsSection from '@/components/home/NewArrivalsSection';
 import AIRecommended from '@/components/home/AIRecommended';
+import RecentlyViewed from '@/components/home/RecentlyViewed';
 import ProductCard from '@/components/home/ProductCard';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/product';
@@ -64,6 +65,9 @@ const Index = () => {
 
         {/* Popular / Trending */}
         <TrendingProducts />
+
+        {/* Recently Viewed */}
+        <RecentlyViewed />
 
         {/* AI Picks */}
         <AIRecommended />
