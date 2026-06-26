@@ -479,17 +479,106 @@ const ProductDetail = () => {
     setAdvisorLoading(true);
     setAdvisorResult(null);
     try {
-      // Upload photo to Supabase Storage to get a real public URL for AI vision
       let uploadedPhotoUrl: string | null = null;
       if (advisorFootPhotoFile) {
         uploadedPhotoUrl = await uploadAdvisorPhoto();
-        toast({ title: '📸 Photo uploaded — analyzing with AI...', description: 'Checking live inventory stock for your size.' });
+        toast({ title: '📸 Photo uploaded', description: 'AI is analyzing your photo...' });
       }
 
-      const catType = getCategoryType();
-      let parsed = buildLocalSizeAdvice(catType);
-      toast({ title: `Size ${parsed.recommendedSize} checked`, description: parsed.inStock ? `Available: ${parsed.stockCount}` : 'Not available in current stock' });
-      setAdvisorResult(parsed);
+      const availableSizes = (product?.sizes || []).map(String);
+
+      // Build measurement details for AI
+      const lines: string[] = [];
+      if (catType === 'shoes') {
+        if (advisorUsualSize) lines.push(`Customer's usual shoe size: ${advisorUsualSize}`);
+        if (advisorFootLength) lines.push(`Foot length: ${advisorFootLength} cm`);
+        if (advisorFootWidth) lines.push(`Foot width: ${advisorFootWidth} cm`);
+      } else if (catType === 'clothing') {
+        if (advisorUsualSize) lines.push(`Customer's usual clothing size: ${advisorUsualSize}`);
+        if (advisorHeight) lines.push(`Height: ${advisorHeight} cm`);
+        if (advisorChest) lines.push(`Chest/Bust: ${advisorChest} cm`);
+        if (advisorWaist) lines.push(`Waist: ${advisorWaist} cm`);
+        if (advisorShoulder) lines.push(`Shoulder width: ${advisorShoulder} cm`);
+      } else if (catType === 'bags') {
+        if (advisorBagUsage) lines.push(`Intended usage: ${advisorBagUsage}`);
+        if (advisorFootLength) lines.push(`Preferred size/capacity: ${advisorFootLength}`);
+        if (advisorUsualSize) lines.push(`Usual bag size: ${advisorUsualSize}`);
+      } else {
+        if (advisorUsualSize) lines.push(`Preference: ${advisorUsualSize}`);
+        if (advisorFootLength) lines.push(`Specs: ${advisorFootLength}`);
+      }
+
+      const aiPrompt = `You are a sizing expert. Recommend the best size for this customer.
+
+Product: "${product?.name || 'Unknown'}"
+Category: ${catType}
+Sizes available in stock: ${availableSizes.join(', ') || 'None listed'}
+
+Customer measurements:
+${lines.join('\n') || 'No measurements provided — use general best-seller size.'}
+${uploadedPhotoUrl ? '(Photo attached for body/foot analysis)' : ''}
+
+You MUST reply in EXACTLY this format (no extra text before):
+RECOMMENDED_SIZE: [one of the available sizes above]
+CONFIDENCE: [number 60-99]
+REASON: [one sentence why]`;
+
+      try {
+        const { data, error } = await supabase.functions.invoke('ai-assistant', {
+          body: {
+            type: 'size-advisor',
+            imageUrl: uploadedPhotoUrl || undefined,
+            messages: [{ role: 'user', content: aiPrompt }],
+          },
+        });
+
+        if (!error && data?.reply) {
+          const reply = String(data.reply);
+          const sizeMatch = reply.match(/RECOMMENDED_SIZE:\s*([^\n\r]+)/i);
+          const confMatch = reply.match(/CONFIDENCE:\s*(\d+)/i);
+          const reasonMatch = reply.match(/REASON:\s*([^\n\r]+)/i);
+
+          const rawSize = sizeMatch?.[1]?.trim().replace(/['"*]/g, '') || '';
+          const confidence = confMatch ? parseInt(confMatch[1]) : 80;
+          const reason = reasonMatch?.[1]?.trim() || 'Based on your measurements.';
+
+          // Match AI size to an actual available size
+          const normRaw = normalizeSize(rawSize);
+          const matchedSize =
+            availableSizes.find(s => normalizeSize(s) === normRaw) ||
+            findNearestAvailableSize(rawSize) ||
+            availableSizes[0] || rawSize;
+
+          const stock = getStockInfo(matchedSize);
+          const alternateSize = stock.inStock ? null : findNearestAvailableSize(matchedSize);
+          const alternateStock = alternateSize ? getStockInfo(alternateSize) : null;
+
+          setAdvisorResult({
+            recommendedSize: matchedSize,
+            alternateSize,
+            confidence,
+            shortAdvice: stock.inStock
+              ? `Size ${matchedSize} is your perfect fit and is in stock!`
+              : `Size ${matchedSize} is recommended, but out of stock.${alternateSize ? ` Nearest available: ${alternateSize}.` : ''}`,
+            fitNote: reason,
+            categoryType: catType,
+            inStock: stock.inStock,
+            stockCount: stock.stockCount,
+            sizeExists: stock.exists,
+            alternateStockCount: alternateStock?.stockCount || 0,
+          });
+          toast({ title: `✅ AI recommends size ${matchedSize}`, description: stock.inStock ? 'In stock!' : 'Currently out of stock' });
+          setAdvisorLoading(false);
+          return;
+        }
+      } catch (aiErr) {
+        console.warn('[SizeAdvisor] AI call failed, using local fallback:', aiErr);
+      }
+
+      // Local fallback if AI unavailable
+      const local = buildLocalSizeAdvice(catType);
+      setAdvisorResult(local);
+      toast({ title: `Size ${local.recommendedSize} recommended`, description: local.inStock ? `In stock: ${local.stockCount}` : 'Out of stock' });
     } catch (e: any) {
       toast({ title: 'Could not get recommendation', description: e.message, variant: 'destructive' });
     }

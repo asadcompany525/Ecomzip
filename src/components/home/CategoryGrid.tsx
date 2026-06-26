@@ -1,27 +1,12 @@
 // ============================================================
 // CategoryGrid — Homepage category buttons (Sneakers, Bags, etc.)
-// Categories Supabase se load hoti hain, emoji icons name se auto-match hote hain
+// Image milne par image show ho, nahi milne par sirf gradient + name
 // ============================================================
 
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
-
-const CATEGORY_ICONS: Record<string, string> = {
-  'Sneakers': '👟', 'Shoes': '👠', 'Sandals': '🩴', 'Boots': '🥾',
-  'Bags': '👜', 'Handbags': '👛', 'Backpacks': '🎒', 'Wallets': '💰',
-  'Heels': '👡', 'Loafers': '🥿', 'Slippers': '🩴', 'Formal': '👞',
-  'Sports': '⚽', 'Running': '🏃', 'Kids': '🧒', 'Men': '👨',
-  'Women': '👩', 'Accessories': '✨', 'Sale': '🏷️', 'New': '🆕',
-};
-
-const getCategoryIcon = (name: string) => {
-  for (const [key, icon] of Object.entries(CATEGORY_ICONS)) {
-    if (name.toLowerCase().includes(key.toLowerCase())) return icon;
-  }
-  return '🛍️';
-};
 
 const GRADIENT_COLORS = [
   'from-orange-50 to-orange-100 border-orange-200/60',
@@ -64,24 +49,36 @@ const CategoryGrid = () => {
         <Link to="/products" className="text-sm text-primary font-medium hover:underline">View All →</Link>
       </div>
       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 md:gap-3">
-        {categories.map((cat, i) => (
-          <motion.div
-            key={cat.id}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: Math.min(i * 0.04, 0.24) }}
-          >
-            <Link
-              to={`/products?category=${cat.name}`}
-              className={`flex flex-col items-center justify-center gap-1.5 p-2.5 md:p-3 rounded-2xl bg-gradient-to-b border ${GRADIENT_COLORS[i % GRADIENT_COLORS.length]} hover:shadow-md hover:scale-105 transition-all duration-200 group min-h-[64px]`}
+        {categories.map((cat, i) => {
+          const imgSrc = cat.image_url || cat.image || null;
+          return (
+            <motion.div
+              key={cat.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: Math.min(i * 0.04, 0.24) }}
             >
-              <span className="text-xl md:text-2xl leading-none group-hover:scale-110 transition-transform duration-200">
-                {getCategoryIcon(cat.name)}
-              </span>
-              <span className="text-[10px] md:text-xs font-semibold text-center leading-tight text-foreground/80">{cat.name}</span>
-            </Link>
-          </motion.div>
-        ))}
+              <Link
+                to={`/products?category=${cat.name}`}
+                className={`flex flex-col items-center justify-center gap-1.5 p-2.5 md:p-3 rounded-2xl bg-gradient-to-b border ${GRADIENT_COLORS[i % GRADIENT_COLORS.length]} hover:shadow-md hover:scale-105 transition-all duration-200 group min-h-[64px] overflow-hidden`}
+              >
+                {imgSrc ? (
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl overflow-hidden flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+                    <img
+                      src={imgSrc}
+                      alt={cat.name}
+                      className="w-full h-full object-cover"
+                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex-shrink-0" />
+                )}
+                <span className="text-[10px] md:text-xs font-semibold text-center leading-tight text-foreground/80">{cat.name}</span>
+              </Link>
+            </motion.div>
+          );
+        })}
       </div>
     </section>
   );
