@@ -489,7 +489,10 @@ const AdminProducts = () => {
     const saveData: any = {
       title: form.title,
       description: form.description || null,
-      price: form.price || 0,
+      price: form.discount_type !== 'none' && form.discount_percent > 0
+        ? Math.round((form.price || 0) * (1 - form.discount_percent / 100))
+        : (form.price || 0),
+      original_price: form.price > 0 ? form.price : null,
       stock: totalStock,
       gender: showGender ? (form.gender || 'unisex') : 'unisex',
       is_active: form.is_active,
@@ -832,6 +835,21 @@ const AdminProducts = () => {
                     />
                   </div>
                   <div>
+                    <Label className="text-xs font-semibold">Selling Price (Rs.) — auto</Label>
+                    <div className={`h-10 rounded-md border px-3 flex items-center text-lg font-bold ${form.discount_type !== 'none' && form.discount_percent > 0 ? 'text-primary bg-primary/5 border-primary/30' : 'text-muted-foreground bg-muted/30'}`}>
+                      {form.price > 0
+                        ? (form.discount_type !== 'none' && form.discount_percent > 0
+                            ? `Rs. ${Math.round(form.price * (1 - form.discount_percent / 100)).toLocaleString()}`
+                            : `Rs. ${form.price.toLocaleString()}`)
+                        : '—'}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {form.discount_type !== 'none' && form.discount_percent > 0 && form.price > 0
+                        ? `Saving: Rs. ${Math.round(form.price * form.discount_percent / 100).toLocaleString()} (${form.discount_percent}% off)`
+                        : 'No discount — same as MRP'}
+                    </p>
+                  </div>
+                  <div>
                     <Label className="text-xs">Discount Type</Label>
                     <Select value={form.discount_type} onValueChange={v => setForm(p => ({ ...p, discount_type: v as any, discount_percent: v === 'none' ? 0 : p.discount_percent }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -846,11 +864,6 @@ const AdminProducts = () => {
                     <div>
                       <Label className="text-xs">Discount %</Label>
                       <Input type="number" min={0} max={99} value={form.discount_percent || ''} onChange={e => handleDiscountChange(Number(e.target.value))} placeholder="e.g. 10" />
-                      {form.discount_percent > 0 && form.price > 0 && (
-                        <p className="text-[10px] text-green-600 mt-1">
-                          Customer pays: Rs. {Math.round(form.price * (1 - form.discount_percent / 100)).toLocaleString()}
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>

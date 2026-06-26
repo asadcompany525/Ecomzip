@@ -71,10 +71,8 @@ const CategoryGrid = () => {
                       onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     />
                   </div>
-                ) : (
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex-shrink-0" />
-                )}
-                <span className="text-[10px] md:text-xs font-semibold text-center leading-tight text-foreground/80">{cat.name}</span>
+                ) : null}
+                <span className={`font-semibold text-center leading-tight text-foreground/80 ${imgSrc ? 'text-[10px] md:text-xs' : 'text-xs md:text-sm px-1'}`}>{cat.name}</span>
               </Link>
             </motion.div>
           );

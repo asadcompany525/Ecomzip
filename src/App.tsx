@@ -84,7 +84,6 @@ const AdminAiFraudDetector  = lazy(() => import("./pages/admin/AdminAiFraudDetec
 const AdminAiSalesPredictor = lazy(() => import("./pages/admin/AdminAiSalesPredictor"));
 const AdminAiMarketingHub   = lazy(() => import("./pages/admin/AdminAiMarketingHub"));
 const AdminAiFeedbackAnalyzer    = lazy(() => import("./pages/admin/AdminAiFeedbackAnalyzer"));
-const AdminAiPriceIntelligence   = lazy(() => import("./pages/admin/AdminAiPriceIntelligence"));
 const AdminTrendPredictor   = lazy(() => import("./pages/admin/AdminTrendPredictor"));
 const AdminPricingEngine    = lazy(() => import("./pages/admin/AdminPricingEngine"));
 const AdminLoyaltyHeatmap   = lazy(() => import("./pages/admin/AdminLoyaltyHeatmap"));
@@ -253,7 +252,6 @@ const AppRoutes = () => {
             <Route path="ai-sales-predictor"   element={<AS><AdminAiSalesPredictor /></AS>} />
             <Route path="ai-marketing-hub"     element={<AS><AdminAiMarketingHub /></AS>} />
             <Route path="ai-feedback-analyzer" element={<AS><AdminAiFeedbackAnalyzer /></AS>} />
-            <Route path="ai-price-intelligence"element={<AS><AdminAiPriceIntelligence /></AS>} />
             <Route path="ai-global-manager"    element={<AS><AdminAiGlobalManager /></AS>} />
             <Route path="ai-voice"             element={<AS><AdminAiVoice /></AS>} />
             <Route path="ai-claim-validator"   element={<AS><AdminClaimsReturns /></AS>} />
