@@ -12,11 +12,12 @@ const NewArrivals = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     supabase
       .from('products')
       .select(PRODUCT_SELECT)
-      .eq('is_new_arrival', true)
       .eq('is_active', true)
+      .gte('created_at', thirtyDaysAgo)
       .order('created_at', { ascending: false })
       .limit(60)
       .then(({ data }) => {
@@ -38,7 +39,7 @@ const NewArrivals = () => {
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold">New Arrivals</h1>
-              <p className="text-muted-foreground text-sm">Freshly added — be the first to grab them</p>
+              <p className="text-muted-foreground text-sm">Products added in the last 30 days</p>
             </div>
           </div>
           {!loading && products.length > 0 && (

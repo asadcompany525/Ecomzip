@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
+import NotifyMeButton from '@/components/product/NotifyMeButton';
 
 interface ProductCardProps {
   product: Product;
@@ -154,8 +155,9 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
           {timerEnd && <CountdownTimer endsAt={timerEnd} productId={product.id} />}
 
           {isOOS && (
-            <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px] flex items-center justify-center">
+            <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2">
               <span className="text-xs font-bold text-destructive bg-background/80 px-3 py-1 rounded-full border border-destructive/30">Out of Stock</span>
+              <NotifyMeButton productId={product.id} productName={product.name} variant="card" />
             </div>
           )}
 
