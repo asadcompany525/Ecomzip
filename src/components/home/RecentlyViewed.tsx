@@ -3,6 +3,7 @@ import { Clock, ArrowRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
+import SwipeCarousel from './SwipeCarousel';
 import { useState } from 'react';
 
 const RecentlyViewed = () => {
@@ -11,6 +12,52 @@ const RecentlyViewed = () => {
   const [dismissed, setDismissed] = useState(false);
 
   if (items.length === 0 || dismissed) return null;
+
+  const cards = items.slice(0, 8).map((item, i) => (
+    <motion.div
+      key={item.id}
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: i * 0.05 }}
+    >
+      <Link
+        to={`/product/${item.id}`}
+        className="group block bg-card rounded-xl border border-border/60 overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200"
+      >
+        <div className="relative aspect-square bg-muted/40 overflow-hidden">
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            onError={e => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+          />
+          {item.discount && item.discount > 0 && (
+            <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+              -{item.discount}%
+            </span>
+          )}
+          <span className="absolute top-1.5 right-1.5 bg-amber-500/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
+            Viewed
+          </span>
+        </div>
+        <div className="p-2">
+          {item.brand && (
+            <p className="text-[9px] text-muted-foreground uppercase tracking-widest truncate">{item.brand}</p>
+          )}
+          <p className="text-xs font-semibold leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+            {item.name}
+          </p>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-sm font-bold text-primary">{formatPrice(item.price)}</span>
+            {item.originalPrice && item.discount && item.discount > 0 && (
+              <span className="text-[9px] text-muted-foreground line-through">{formatPrice(item.originalPrice)}</span>
+            )}
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  ));
 
   return (
     <AnimatePresence>
@@ -44,56 +91,13 @@ const RecentlyViewed = () => {
           </div>
         </div>
 
-        {/* Horizontal scroll on mobile, grid on desktop */}
-        <div className="flex gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-4 lg:grid-cols-5 md:overflow-visible md:pb-0 scrollbar-none">
-          {items.slice(0, 8).map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.05 }}
-              className="shrink-0 w-36 md:w-auto"
-            >
-              <Link
-                to={`/product/${item.id}`}
-                className="group block bg-card rounded-xl border border-border/60 overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200"
-              >
-                <div className="relative aspect-square bg-muted/40 overflow-hidden">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                    onError={e => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
-                  />
-                  {item.discount && item.discount > 0 && (
-                    <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
-                      -{item.discount}%
-                    </span>
-                  )}
-                  {/* Amber "viewed" indicator */}
-                  <span className="absolute top-1.5 right-1.5 bg-amber-500/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
-                    Viewed
-                  </span>
-                </div>
-                <div className="p-2">
-                  {item.brand && (
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest truncate">{item.brand}</p>
-                  )}
-                  <p className="text-xs font-semibold leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                    {item.name}
-                  </p>
-                  <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-sm font-bold text-primary">{formatPrice(item.price)}</span>
-                    {item.originalPrice && item.discount && item.discount > 0 && (
-                      <span className="text-[9px] text-muted-foreground line-through">{formatPrice(item.originalPrice)}</span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+        <SwipeCarousel
+          itemWidth={144}
+          gap={12}
+          desktopGrid="md:grid-cols-4 lg:grid-cols-5"
+        >
+          {cards}
+        </SwipeCarousel>
       </motion.section>
     </AnimatePresence>
   );

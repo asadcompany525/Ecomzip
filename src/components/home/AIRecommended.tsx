@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from './ProductCard';
+import SwipeCarousel from './SwipeCarousel';
 import { Bot, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Product } from '@/types/product';
@@ -51,11 +52,15 @@ const AIRecommended = () => {
           View All <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
         </Link>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3 md:gap-4">
+      <SwipeCarousel
+        itemWidth={158}
+        gap={12}
+        desktopGrid="md:grid-cols-4 lg:grid-cols-4"
+      >
         {products.map((product, i) => (
           <ProductCard key={product.id} product={product} index={i} />
         ))}
-      </div>
+      </SwipeCarousel>
     </section>
   );
 };
