@@ -118,7 +118,7 @@ const makeItem = (file: File): BatchItem => ({
   description: '', returnPolicy: '7 days return policy',
   claimPolicy: 'Manufacturing defects only. Normal wear, misuse, water damage not covered.',
   tags: [], productCode: '', highlights: [],
-  price: 2500, discount: 10,
+  price: 0, discount: 10,
   activeSizes: getSizesForType('shoes', 'men'),
   customSizeInput: '',
   colors: [],
@@ -361,9 +361,10 @@ Return ONLY valid JSON, no markdown.`
         description: item.description,
         brand: item.brand,
         gender: item.gender,
-        price: item.price,
-        original_price: item.price && item.discount
-          ? Math.round(item.price / (1 - item.discount / 100)) : null,
+        price: item.price > 0 && item.discount > 0
+          ? Math.round(item.price * (1 - item.discount / 100))
+          : item.price,
+        original_price: item.price > 0 ? item.price : null,
         discount_percent: item.discount,
         images: item.uploadedUrl ? [item.uploadedUrl] : [],
         tags,
@@ -627,28 +628,30 @@ Return ONLY valid JSON, no markdown.`
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Pricing</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div>
-                        <Label className="text-xs">Selling Price (Rs.)</Label>
-                        <Input type="number" value={item.price}
+                        <Label className="text-xs">Original Price / MRP (Rs.)</Label>
+                        <Input type="number" value={item.price || ''}
                           onChange={e => updateItem(item.id, { price: Number(e.target.value) })}
-                          className="h-8 text-sm mt-0.5" />
+                          className="h-8 text-sm mt-0.5" placeholder="e.g. 3000" />
                       </div>
                       <div>
-                        <Label className="text-xs">Global Discount (%)</Label>
-                        <Input type="number" value={item.discount} min={0} max={90}
+                        <Label className="text-xs">Discount (%)</Label>
+                        <Input type="number" value={item.discount || ''}
                           onChange={e => updateItem(item.id, { discount: Number(e.target.value) })}
-                          className="h-8 text-sm mt-0.5" />
+                          className="h-8 text-sm mt-0.5" placeholder="e.g. 10" min={0} max={90} />
                       </div>
                       <div className="flex flex-col justify-end">
-                        <p className="text-xs text-muted-foreground">Original Price</p>
-                        <p className="text-sm font-semibold text-muted-foreground line-through">
-                          Rs. {item.discount > 0 ? Math.round(item.price / (1 - item.discount / 100)).toLocaleString() : item.price.toLocaleString()}
+                        <p className="text-xs text-muted-foreground">Sale Price (Customer pays)</p>
+                        <p className="text-sm font-bold text-primary">
+                          Rs. {item.price > 0 && item.discount > 0
+                            ? Math.round(item.price * (1 - item.discount / 100)).toLocaleString()
+                            : (item.price || 0).toLocaleString()}
                         </p>
                       </div>
                       <div className="flex flex-col justify-end">
                         <p className="text-xs text-muted-foreground">You Save</p>
                         <p className="text-sm font-bold text-green-600">
-                          Rs. {item.discount > 0
-                            ? (Math.round(item.price / (1 - item.discount / 100)) - item.price).toLocaleString()
+                          Rs. {item.price > 0 && item.discount > 0
+                            ? Math.round(item.price * item.discount / 100).toLocaleString()
                             : '0'}
                         </p>
                       </div>

@@ -119,6 +119,7 @@ const ProductCard = ({ product, index = 0, flashSaleEnds }: ProductCardProps) =>
             loading="lazy"
             whileHover={{ scale: 1.07 }}
             transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+            onError={e => { const t = e.currentTarget; if (!t.dataset.retry) { t.dataset.retry = '1'; t.src = product.image + '?t=' + Date.now(); } else { t.src = '/placeholder.svg'; } }}
           />
 
           {/* Gradient overlay */}

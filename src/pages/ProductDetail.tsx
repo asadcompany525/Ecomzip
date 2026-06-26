@@ -710,7 +710,7 @@ const ProductDetail = () => {
                       {(catType === 'shoes' || catType === 'clothing' || catType === 'bags') && (
                         <SizeGuide categoryType={catType} sizeLabel={sizeLabel} />
                       )}
-                      {(catType === 'shoes' || catType === 'bags') && (
+                      {(catType === 'shoes' || catType === 'bags' || catType === 'clothing') && (
                         <button
                           onClick={() => { setSizeAdvisorOpen(true); setAdvisorResult(null); }}
                           className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
@@ -825,7 +825,7 @@ const ProductDetail = () => {
               </Button>
               <Button variant="outline" size="icon" className="h-11 w-11" onClick={handleShare}><Share2 className="h-5 w-5" /></Button>
             </div>
-            {['shoes', 'bags'].includes(getCategoryType()) && (
+            {(['shoes', 'bags', 'clothing'] as string[]).includes(getCategoryType()) && (
               <div className="mb-4">
                 <VirtualTryOn productImage={product.image} productName={product.name} productCategory={categoryName} />
               </div>
