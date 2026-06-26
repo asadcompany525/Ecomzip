@@ -7,6 +7,8 @@ import CategoryGrid from '@/components/home/CategoryGrid';
 import FlashSale from '@/components/home/FlashSale';
 import TrendingProducts from '@/components/home/TrendingProducts';
 import DiscountedProducts from '@/components/home/DiscountedProducts';
+import NewArrivalsSection from '@/components/home/NewArrivalsSection';
+import AIRecommended from '@/components/home/AIRecommended';
 import ProductCard from '@/components/home/ProductCard';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/product';
@@ -15,10 +17,9 @@ import { Button } from '@/components/ui/button';
 import { mapDbProduct, PRODUCT_SELECT } from '@/lib/mapDbProduct';
 import { ShoppingBag, ArrowRight } from 'lucide-react';
 
-// Simple module-level cache to avoid re-fetching on navigation
 let _cachedProducts: Product[] | null = null;
 let _cacheTime = 0;
-const CACHE_TTL = 60_000; // 1 minute
+const CACHE_TTL = 60_000;
 
 const Index = () => {
   const [allProducts, setAllProducts] = useState<Product[]>(_cachedProducts || []);
@@ -44,11 +45,27 @@ const Index = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main className="container space-y-10 md:space-y-14 py-5 md:py-8">
+
+        {/* Hero Banner */}
         <HeroBanner />
+
+        {/* Category Grid */}
         <CategoryGrid />
+
+        {/* Flash Sale */}
         <FlashSale />
-        <TrendingProducts />
+
+        {/* New Arrivals — auto 30-day window */}
+        <NewArrivalsSection />
+
+        {/* Best Deals / Discounts */}
         <DiscountedProducts />
+
+        {/* Popular / Trending */}
+        <TrendingProducts />
+
+        {/* AI Picks */}
+        <AIRecommended />
 
         {/* All Products */}
         {allProducts.length > 0 && (
