@@ -126,7 +126,19 @@ const MySettings = () => {
     });
   }, [user]);
 
-  const set = (key: keyof Settings, val: any) => setSettings(prev => ({ ...prev, [key]: val }));
+  const set = (key: keyof Settings, val: any) => {
+    setSettings(prev => {
+      const next = { ...prev, [key]: val };
+      // Auto-save notification + preference toggles instantly to localStorage
+      if (user && (key.startsWith('notif_') || key.startsWith('pref_') || key.startsWith('privacy_') || key === 'display_theme')) {
+        try {
+          const { full_name, username, phone, whatsapp, bio, gender, dob, city, avatar_url, ...prefs } = next;
+          localStorage.setItem(`stopy_prefs_${user.id}`, JSON.stringify(prefs));
+        } catch {}
+      }
+      return next;
+    });
+  };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

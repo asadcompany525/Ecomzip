@@ -36,10 +36,10 @@ const RecentlyViewed = () => {
             </Link>
             <button
               onClick={() => setDismissed(true)}
-              className="h-7 w-7 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center transition-colors"
-              title="Dismiss"
+              className="flex items-center gap-1 text-xs font-medium text-muted-foreground border border-border rounded-full px-2.5 py-1 hover:bg-muted hover:text-foreground transition-colors"
+              title="Dismiss section"
             >
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
+              <X className="h-3 w-3" /> Hide
             </button>
           </div>
         </div>

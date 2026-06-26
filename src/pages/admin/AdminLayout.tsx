@@ -136,8 +136,8 @@ const sidebarGroups = [
       { icon: Mail,            label: 'Contact Messages',   path: '/admin/contact-messages',  adminOnly: false },
       { icon: MessageSquare,   label: 'Chat Support',       path: '/admin/chat',              adminOnly: false },
       { icon: Bot,             label: 'AI Salesperson Chats', path: '/admin/ai-salesperson-chat', adminOnly: false },
-      { icon: BarChart3,       label: 'Reports',            path: '/admin/reports',           adminOnly: true  },
-      { icon: PieChart,        label: 'Product Analytics',  path: '/admin/product-analytics', adminOnly: true  },
+      { icon: BarChart3,       label: 'Reports',            path: '/admin/reports',           adminOnly: false },
+      { icon: PieChart,        label: 'Product Analytics',  path: '/admin/product-analytics', adminOnly: false },
       { icon: ClipboardList,   label: 'Order Checklist',    path: '/admin/order-checklist',   adminOnly: false },
       { icon: Bell,            label: 'Stock Alerts',       path: '/admin/stock-alerts',      adminOnly: true  },
       { icon: Bell,            label: 'Notify Me Requests', path: '/admin/stock-notifications', adminOnly: true },
@@ -305,7 +305,15 @@ const AdminLayout = () => {
         <div className="flex items-center justify-between px-3 py-3 border-b shrink-0">
           <button onClick={handleLogoClick} className="flex items-center gap-2 select-none focus:outline-none" title="Click 5x for secret access">
             <img src={siteConfig.faviconUrl || '/favicon.ico'} alt={baseBrand} className="h-7 w-7 rounded" onError={e => { (e.target as HTMLImageElement).src = '/favicon.ico'; }} />
-            <span className="font-bold text-sm truncate">{brandName}</span>
+            <div className="min-w-0">
+              <span className="font-bold text-sm truncate block">{brandName}</span>
+              {!isMainAdmin && isStaff && (
+                <span className="text-[10px] text-primary font-semibold">{staffRoleLabel} Panel</span>
+              )}
+              {isMainAdmin && (
+                <span className="text-[10px] text-primary font-semibold">Admin Panel</span>
+              )}
+            </div>
           </button>
           <button className="md:hidden" onClick={() => setSidebarOpen(false)}><X className="h-4 w-4" /></button>
         </div>
