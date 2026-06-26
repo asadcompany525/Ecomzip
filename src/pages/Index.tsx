@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { mapDbProduct, PRODUCT_SELECT } from '@/lib/mapDbProduct';
 import { ShoppingBag, ArrowRight } from 'lucide-react';
+import WelcomeModal from '@/components/home/WelcomeModal';
 
 let _cachedProducts: Product[] | null = null;
 let _cacheTime = 0;
@@ -102,6 +103,7 @@ const Index = () => {
       </main>
       <Footer />
       <BottomNav />
+      <WelcomeModal />
     </div>
   );
 };

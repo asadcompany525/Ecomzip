@@ -162,7 +162,14 @@ const MyPage = () => {
                 {canAccessPanel && (
                   <Link to="/admin" className="block mt-4">
                     <Button size="sm" variant="outline" className="w-full gap-1.5">
-                      <Shield className="h-3.5 w-3.5" /> Admin Panel
+                      <Shield className="h-3.5 w-3.5" />
+                      {isAdmin ? 'Admin Panel' : (() => {
+                        try {
+                          const roles = JSON.parse(localStorage.getItem('staff_roles_v3') || '{}');
+                          const label = user?.id ? roles[user.id] : null;
+                          return label ? `${label} Panel` : 'Staff Panel';
+                        } catch { return 'Staff Panel'; }
+                      })()}
                     </Button>
                   </Link>
                 )}

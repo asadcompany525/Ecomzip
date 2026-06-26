@@ -94,8 +94,10 @@ const SwitchRow = ({ label, desc, checked, onChange }: { label: string; desc?: s
   </div>
 );
 
+const ROLES_KEY = 'staff_roles_v3';
+
 const MySettings = () => {
-  const { user } = useAuth();
+  const { user, isAdmin, isStaff } = useAuth();
   const [settings, setSettings] = useState<Settings>(DEFAULT);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -223,6 +225,27 @@ const MySettings = () => {
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                 </div>
                 <p className="text-sm font-medium mt-2 truncate">{settings.full_name || user.email}</p>
+
+                {/* Role badge */}
+                {(isAdmin || isStaff) && (
+                  <div className="mt-2">
+                    {isAdmin ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                        <Shield className="h-2.5 w-2.5" /> Admin
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded-full border border-blue-500/20">
+                        <Shield className="h-2.5 w-2.5" />
+                        {(() => {
+                          try {
+                            const roles = JSON.parse(localStorage.getItem(ROLES_KEY) || '{}');
+                            return roles[user.id] || 'Staff';
+                          } catch { return 'Staff'; }
+                        })()}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Nav */}
