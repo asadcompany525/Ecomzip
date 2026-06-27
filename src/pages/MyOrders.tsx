@@ -162,8 +162,22 @@ const MyOrders = () => {
   };
 
   if (!user) return (
-    <div className="min-h-screen bg-background">
-      <div className="container py-20 text-center"><p>Please <Link to="/login" className="text-primary underline">login</Link> to view orders.</p></div>
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <main className="container py-10 max-w-md mx-auto">
+        <div className="flex flex-col items-center gap-5 py-16 text-center">
+          <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <Package className="h-10 w-10 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-2">My Orders</h2>
+            <p className="text-muted-foreground">Please log in to view your order history</p>
+          </div>
+          <div className="flex gap-3">
+            <Link to="/login"><button className="bg-primary text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-primary/90 transition-colors">Login</button></Link>
+            <Link to="/signup"><button className="border border-border px-6 py-2.5 rounded-xl font-semibold hover:bg-muted transition-colors">Sign Up</button></Link>
+          </div>
+        </div>
+      </main>
       <BottomNav />
     </div>
   );
