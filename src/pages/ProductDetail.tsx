@@ -689,7 +689,15 @@ REASON: [one sentence why]`;
     dbProduct?.video_url,
   ].filter(Boolean);
 
-  const uniqueColors = [...new Set(variants.map(v => v.color).filter(Boolean))];
+  // Colors: product.colors (can be string or {hex,name} object) + variant colors merge karo
+  const productColorNames = (product.colors || [])
+    .filter(Boolean)
+    .map((c: any) => (typeof c === 'string' ? c : c?.name || ''))
+    .filter(Boolean);
+  const uniqueColors = [...new Set([
+    ...productColorNames,
+    ...variants.map(v => v.color).filter(Boolean),
+  ])];
   const uniqueSizes = product.sizes?.length ? product.sizes : [...new Set(variants.map(v => v.size).filter(Boolean))];
 
   const isVideo = (url: string) => /\.(mp4|mov|webm)(\?|$)/i.test(url);
@@ -764,7 +772,12 @@ REASON: [one sentence why]`;
                 <h4 className="text-sm font-semibold mb-2">Color: <span className="font-normal text-muted-foreground">{selectedColor || 'Select'}</span></h4>
                 <div className="flex gap-2 flex-wrap">
                   {uniqueColors.map(color => {
-                    const hex = variants.find(v => v.color === color)?.color_hex || '#888';
+                    // Hex: variant se lo, ya product.colors objects se, ya default grey
+                    const variantHex = variants.find(v => v.color === color)?.color_hex;
+                    const productColorObj = (product.colors || []).find((c: any) =>
+                      typeof c === 'object' && c?.name === color
+                    ) as any;
+                    const hex = variantHex || productColorObj?.hex || '#888';
                     return (
                       <button key={color} onClick={() => { setSelectedColor(color); setSelectedSize(''); setSelectedImage(0); }}
                         className={`relative w-9 h-9 rounded-full border-2 transition-all ${selectedColor === color ? 'border-primary ring-2 ring-primary ring-offset-2' : 'border-border hover:border-primary/50'}`}
@@ -781,15 +794,30 @@ REASON: [one sentence why]`;
             {(() => {
               const catType = getCategoryType();
               const { sizes: fullGrid, label: sizeLabel } = getFullSizeGrid();
-              if (fullGrid.length === 0) return null;
 
-              // Product ki actual sizes normalize karke set mein rakho
-              const productSizeSet = new Set(
-                (product.sizes || []).map(s => normalizeSize(String(s)))
-              );
+              // Product ki actual sizes — variants se bhi merge karo
+              const rawProductSizes: string[] = [
+                ...(product.sizes || []).map(s => String(s).trim()),
+                ...variants.map(v => v.size).filter(Boolean),
+              ];
+              const productSizeSet = new Set(rawProductSizes.map(s => normalizeSize(s)));
+
+              // fullGrid se matching sizes filter karo
+              let displaySizes = fullGrid.filter(size => productSizeSet.has(normalizeSize(size)));
+
+              // Agar grid se koi match nahi mila — product ki apni sizes directly dikhao
+              if (displaySizes.length === 0 && productSizeSet.size > 0) {
+                const allRaw = [...productSizeSet];
+                const allNumeric = allRaw.every(s => !isNaN(Number(s)) && s !== '');
+                displaySizes = allNumeric
+                  ? allRaw.sort((a, b) => Number(a) - Number(b))
+                  : allRaw.sort();
+              }
+
+              if (displaySizes.length === 0) return null;
 
               // Clothing buttons slightly wider (S, M, L text is short, XS XL etc need space)
-              const isLetterSize = fullGrid.some(s => /^(XS|S|M|L|XL|XXL|XXXL|4XL|5XL|Small|Medium|Large)$/i.test(s));
+              const isLetterSize = displaySizes.some(s => /^(XS|S|M|L|XL|XXL|XXXL|4XL|5XL|Small|Medium|Large|Free Size|One Size)$/i.test(s));
               const btnW = isLetterSize ? 'min-w-[44px] px-2 h-10' : 'w-11 h-11';
 
               return (
@@ -817,7 +845,7 @@ REASON: [one sentence why]`;
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
-                    {fullGrid.filter(size => productSizeSet.has(normalizeSize(size))).map(size => {
+                    {displaySizes.map(size => {
                       const normSize = normalizeSize(size);
                       const stockInfo = getStockInfo(size);
                       const isSelected = normalizeSize(selectedSize) === normSize;
