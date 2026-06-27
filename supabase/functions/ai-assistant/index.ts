@@ -537,10 +537,13 @@ Critical rules:
         parts.push({ inline_data: { mime_type: productMime, data: productBase64 } });
       }
 
-      // Try image generation models in order
+      // Try image generation models in order (latest first)
       const imageGenModels = [
         "gemini-2.0-flash-exp-image-generation",
         "gemini-2.0-flash-preview-image-generation",
+        "gemini-2.0-flash-exp",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash-latest",
       ];
 
       for (const model of imageGenModels) {

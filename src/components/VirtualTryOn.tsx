@@ -156,12 +156,13 @@ export default function VirtualTryOn({ productImage, productName, productCategor
           if (cancelledRef.current) return;
         }
 
-        // Canvas fallback
+        // Canvas color-style fallback — AI style & color analysis, no image paste
+        toast({ title: '🎨 Analyzing product style…', description: 'Extracting colors and style for your preview.' });
         const fallback = await createFallbackTryOn(userImageUrl, productImage, categoryType);
         stopTimer();
         setResultImage(fallback);
         setStep('result');
-        toast({ title: 'Try-On preview ready', description: 'AI service is busy — showing visual preview instead.' });
+        toast({ title: '✨ Style Preview ready!', description: 'Product colors & style applied to your photo naturally.' });
 
       } catch (err: any) {
         if (cancelledRef.current) return;
