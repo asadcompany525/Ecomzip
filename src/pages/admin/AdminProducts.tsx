@@ -886,59 +886,8 @@ const AdminProducts = () => {
               <div className="bg-muted/30 rounded-xl p-4 space-y-3 min-w-0 overflow-hidden">
                 <Label className="text-base font-semibold">📐 Sizes & Colors</Label>
 
-                {/* Quick Size Presets based on product type + gender */}
                 <div>
-                  <Label className="text-xs font-semibold mb-2 block">⚡ Quick Presets — click to apply</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {(() => {
-                      const type = (form.product_type || '').toLowerCase();
-                      const g = (form.gender || '').toLowerCase();
-                      const presets: { label: string; sizes: string }[] = [];
-                      if (isFootwearType(type)) {
-                        if (type.includes('heel')) {
-                          presets.push({ label: '👠 Ladies Heels (35–41)', sizes: '35-41' });
-                          presets.push({ label: '👠 Ladies Heels (35–40)', sizes: '35-40' });
-                        } else if (type.includes('chappal') || type.includes('khussa') || type.includes('moccasin')) {
-                          if (g === 'men' || g === 'unisex') presets.push({ label: '👞 Men (40–45)', sizes: '40-45' });
-                          if (g === 'women') presets.push({ label: '👞 Women (36–41)', sizes: '36-41' });
-                          if (g === 'kids') presets.push({ label: '🧒 Kids (20–35)', sizes: '20-35' });
-                        } else {
-                          if (g === 'men' || g === 'unisex') presets.push({ label: '👟 Men (39–45)', sizes: '39-45' });
-                          if (g === 'women') presets.push({ label: '👠 Women (35–41)', sizes: '35-41' });
-                          if (g === 'kids') presets.push({ label: '🧒 Kids (20–35)', sizes: '20-35' });
-                          if (g === 'unisex') presets.push({ label: '👟 Unisex (36–44)', sizes: '36-44' });
-                        }
-                      } else if (['bags','handbags','purses','clutch','tote'].some(t => type.includes(t))) {
-                        presets.push({ label: '👜 S, M, L', sizes: 'S,M,L' });
-                        presets.push({ label: '💼 S, M, L, XL', sizes: 'S,M,L,XL' });
-                        presets.push({ label: '🏷️ One Size', sizes: 'One Size' });
-                      } else if (type.includes('wallet') || type.includes('accessories')) {
-                        presets.push({ label: '🏷️ One Size', sizes: 'One Size' });
-                        presets.push({ label: '📏 S, M, L', sizes: 'S,M,L' });
-                      } else if (type.includes('backpack')) {
-                        presets.push({ label: '🎒 S, M, L', sizes: 'S,M,L' });
-                        presets.push({ label: '🏷️ One Size', sizes: 'One Size' });
-                      } else if (type.includes('cloth')) {
-                        presets.push({ label: '👕 XS–XXL', sizes: 'XS,S,M,L,XL,XXL' });
-                        presets.push({ label: '👔 S, M, L, XL', sizes: 'S,M,L,XL' });
-                        presets.push({ label: '📏 Free Size', sizes: 'Free Size' });
-                      } else {
-                        presets.push({ label: '📏 Standard (39–45)', sizes: '39-45' });
-                        presets.push({ label: '🏷️ One Size', sizes: 'One Size' });
-                        presets.push({ label: '📐 S, M, L', sizes: 'S,M,L' });
-                      }
-                      return presets.map(preset => (
-                        <button key={preset.label} type="button" onClick={() => setSizeInput(preset.sizes)}
-                          className="px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-full hover:bg-primary/20 transition-colors">
-                          {preset.label}
-                        </button>
-                      ));
-                    })()}
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-xs">Manual Size Range (or use presets above)</Label>
+                  <Label className="text-xs">Size Range</Label>
                   <Input
                     value={sizeInput}
                     onChange={e => setSizeInput(e.target.value)}
