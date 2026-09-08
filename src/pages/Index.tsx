@@ -5,6 +5,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import HeroBanner from '@/components/home/HeroBanner';
 import CategoryGrid from '@/components/home/CategoryGrid';
 import FlashSale from '@/components/home/FlashSale';
+import BestSellers from '@/components/home/BestSellers';
 import TrendingProducts from '@/components/home/TrendingProducts';
 import DiscountedProducts from '@/components/home/DiscountedProducts';
 import NewArrivalsSection from '@/components/home/NewArrivalsSection';
@@ -65,6 +66,9 @@ const Index = () => {
 
         {/* Popular / Trending */}
         <TrendingProducts />
+
+        {/* Best Sellers — ranked by real order quantities */}
+        <BestSellers />
 
         {/* Recently Viewed */}
         <RecentlyViewed />

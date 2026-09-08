@@ -18,6 +18,7 @@ const Products = () => {
   const initialCategory = searchParams.get('category') || '';
   const initialSearch = searchParams.get('search') || '';
   const initialFilter = searchParams.get('filter') || '';
+  const initialSort = searchParams.get('sort') === 'best-sellers' ? 'popular' : searchParams.get('sort') || 'popular';
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ const Products = () => {
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState([0, 50000]);
-  const [sortBy, setSortBy] = useState('popular');
+  const [sortBy, setSortBy] = useState(initialSort);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
 
   // Keep searchQuery in sync when URL params change (e.g. user searches from header)
