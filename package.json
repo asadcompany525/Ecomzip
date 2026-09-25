@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:netlify": "node scripts/validate-netlify-env.mjs && vite build",
+    "package:netlify": "node scripts/package-netlify.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",

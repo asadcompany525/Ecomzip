@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+.env*
+!.env.example
+.netlify
+netlify-upload.zip
 
 # Editor directories and files
 .vscode/*
