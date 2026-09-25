@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,11 +12,22 @@ import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { supabase } from '@/integrations/supabase/client';
 
 type ForgotStep = 'email' | 'otp' | 'reset';
-const ADMIN_EMAIL = 'sscck@gmail.com';
+
+const getLoginDestination = (role: string | null, requestedNext: string | null) => {
+  const safeNext = requestedNext?.startsWith('/') && !requestedNext.startsWith('//')
+    ? requestedNext
+    : '';
+  const adminNext = safeNext === '/admin' || safeNext.startsWith('/admin/');
+  const isAdminOrStaff = role === 'admin' || role === 'moderator';
+
+  if (isAdminOrStaff) return adminNext ? safeNext : '/admin';
+  return safeNext && !adminNext ? safeNext : '/';
+};
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { signIn, user, isAdmin, isStaff, loading: authLoading } = useAuth();
   const { brandName, faviconUrl } = useStoreSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,16 +43,23 @@ const Login = () => {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
 
+  // OAuth returns to this shared page; wait for Supabase and role checks before routing.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    const role = isAdmin ? 'admin' : isStaff ? 'moderator' : null;
+    navigate(getLoginDestination(role, searchParams.get('next')), { replace: true });
+  }, [authLoading, user, isAdmin, isStaff, navigate, searchParams]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signIn(email, password);
+    const { error, role } = await signIn(email, password);
     setLoading(false);
     if (error) {
       toast({ title: 'Login Failed', description: error, variant: 'destructive' });
     } else {
       toast({ title: 'Welcome back!' });
-      navigate(email.trim().toLowerCase() === ADMIN_EMAIL ? '/admin' : '/');
+      navigate(getLoginDestination(role, searchParams.get('next')), { replace: true });
     }
   };
 
@@ -314,7 +332,7 @@ const Login = () => {
             <Button variant="outline" className="w-full h-11" onClick={async () => {
               const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
-                options: { redirectTo: window.location.origin + '/' },
+                options: { redirectTo: `${window.location.origin}/login?next=%2Fadmin` },
               });
               if (error) toast({ title: 'Google login failed', description: error.message, variant: 'destructive' });
             }}>

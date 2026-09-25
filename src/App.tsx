@@ -48,7 +48,6 @@ const DeveloperPage = lazy(() => import("./pages/DeveloperPage"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 
 // ── Admin Panel Pages (lazy loaded) ─────────────────────────
-const AdminLogin            = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminLayout           = lazy(() => import("./pages/admin/AdminLayout"));
 const AdminDashboard        = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminProducts         = lazy(() => import("./pages/admin/AdminProducts"));
@@ -151,7 +150,7 @@ const SiteBrandingLoader = () => {
 const AdminGuard = ({ children }: { children: React.ReactNode }) => {
   const { isAdmin, isStaff, loading } = useAuth();
   if (loading) return <StopyLoader fullScreen />;
-  if (!isAdmin && !isStaff) return <Navigate to="/admin/login" replace />;
+  if (!isAdmin && !isStaff) return <Navigate to="/login?next=%2Fadmin" replace />;
   return <>{children}</>;
 };
 
@@ -209,7 +208,7 @@ const AppRoutes = () => {
           <Route path="/notifications"  element={<PT><Notifications /></PT>} />
 
           {/* ── Admin Panel Routes ── */}
-          <Route path="/admin/login" element={<S><AdminLogin /></S>} />
+          <Route path="/admin/login" element={<Navigate to="/login?next=%2Fadmin" replace />} />
           <Route path="/admin" element={
             <AdminGuard>
               <Suspense fallback={<StopyLoader fullScreen />}>

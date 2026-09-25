@@ -227,7 +227,7 @@ const AdminLayout = () => {
       await supabase.from('staff_attendance').update({ logout_at: new Date().toISOString() }).eq('id', attendanceId.current);
     }
     await signOut();
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   const handleLogoClick = () => {
